@@ -1,6 +1,6 @@
 # Build context is the repository root: docker compose builds it with `context: .`.
 FROM node:24-bookworm-slim AS build
-ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH pnpm_config_update_notifier=false
 RUN corepack enable && corepack prepare pnpm@12.15.0 --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./

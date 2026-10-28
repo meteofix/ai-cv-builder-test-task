@@ -1,7 +1,9 @@
 # Build context is the repository root: docker compose builds it with `context: .`.
 FROM node:24-bookworm-slim AS base
-ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
-RUN corepack enable && corepack prepare pnpm@12.15.0 --activate
+ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH pnpm_config_update_notifier=false
+# pnpm fetches its native binary on the first run; running it here puts the binary in the shared layer,
+# so the build and runtime stages do not download it again.
+RUN corepack enable && corepack prepare pnpm@12.15.0 --activate && pnpm --version
 WORKDIR /app
 
 # Manifests only, so the install layer is cached until a dependency changes.
@@ -23,8 +25,9 @@ RUN pnpm --filter "@cv/api..." build
 FROM manifests AS runtime
 ENV NODE_ENV=production PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN pnpm install --frozen-lockfile --prod --filter "@cv/api..."
-# Chromium and its system libraries; the browser stays readable for the unprivileged user.
-RUN pnpm --filter @cv/api exec playwright install --with-deps chromium \
+# Only Chrome Headless Shell and its system libraries: the PDF renderer always runs headless, so the full
+# Chrome for Testing would only add weight. The browser stays readable for the unprivileged user.
+RUN pnpm --filter @cv/api exec playwright install --with-deps --only-shell chromium \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/cv-template/dist packages/cv-template/dist

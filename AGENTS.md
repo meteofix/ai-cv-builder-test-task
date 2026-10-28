@@ -26,7 +26,7 @@ scripts/              worktree:init, zone:check and the logic behind the hooks
 
 ```
 pnpm install --frozen-lockfile     first step in a fresh clone
-pnpm playwright:install            Chromium for the PDF and the template tests (once)
+pnpm playwright:install            Chromium headless shell for the PDF and template tests (once)
 docker compose up -d postgres      the one Postgres: dev data and tests (port 5432, localhost only)
 pnpm check                         build packages + lint + typecheck + all tests; must be green
 pnpm lint | typecheck | test       the parts of check (typecheck builds the packages first)

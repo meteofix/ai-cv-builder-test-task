@@ -15,7 +15,7 @@
     "typecheck": "pnpm build:packages && tsc -p tsconfig.json && pnpm -r typecheck",
     "test": "pnpm test:tooling && pnpm -r --workspace-concurrency=1 test",
     "check": "pnpm build:packages && pnpm lint && tsc -p tsconfig.json && pnpm -r typecheck && pnpm test",
-    "playwright:install": "playwright install --with-deps chromium",
+    "playwright:install": "playwright install --with-deps --only-shell chromium",
     "worktree:init": "node scripts/worktree-init.ts",
     "zone:check": "node scripts/zone-check.ts",
     "test:tooling": "vitest run scripts/"

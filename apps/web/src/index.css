@@ -1,1 +1,97 @@
 @import 'tailwindcss';
+@import './styles/base.css' layer(base);
+@import './styles/controls.css' layer(components);
+@import './styles/layout.css' layer(components);
+@import './styles/forms.css' layer(components);
+@import './styles/questions.css' layer(components);
+@import './styles/entries.css' layer(components);
+@import './styles/panels.css' layer(components);
+@import './styles/bars.css' layer(components);
+@import './styles/progress.css' layer(components);
+@import './styles/screens.css' layer(components);
+
+/* Design tokens of docs/design/app/cv-builder.css (section 1). `static` emits every variable, because the
+   component styles read them with var() instead of Tailwind utilities. */
+@theme static {
+  /* Colour · neutrals (shared with the CV template) */
+  --color-ink: #1c1e22;
+  --color-muted: #5a5e66; /* secondary text, 6.4:1 on white */
+  --color-faint: #9ba0a8; /* decorative only — never text */
+  --color-line: #d6d8dc;
+  --color-line-strong: #8a8f97; /* form-control borders, ≥ 3:1 on white */
+  --color-bg: #f3f3f1;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f7f7f5;
+  --color-canvas: #e5e5e3; /* behind the A4 sheet */
+
+  /* Colour · accent */
+  --color-accent: #1f4f7b;
+  --color-accent-hover: #173c5e;
+  --color-accent-soft: #e8eef5;
+  --color-accent-line: #b9cadb;
+  --color-on-accent: #ffffff;
+
+  /* Colour · states */
+  --color-success: #1d6b3a;
+  --color-success-soft: #e6f2ea;
+  --color-success-line: #b5d6c0;
+  --color-warning: #7a5000;
+  --color-warning-soft: #fbf1dc;
+  --color-warning-line: #e8cf9c;
+  --color-danger: #b0261c;
+  --color-danger-soft: #fbeae8;
+  --color-danger-line: #ecc2bd;
+  --color-focus: #2a6db5;
+  --color-highlight: #fff2bf; /* "Show in CV" target flash */
+  --color-disabled-bg: #efefed;
+  --color-disabled-ink: #6b6f76;
+
+  /* Type */
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --text-xs: 12px;
+  --leading-xs: 16px;
+  --text-sm: 14px;
+  --leading-sm: 20px;
+  --text-base: 15px;
+  --leading-base: 22px;
+  --text-md: 17px;
+  --leading-md: 24px;
+  --text-lg: 22px;
+  --leading-lg: 28px;
+
+  /* Space · 4 px scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Size */
+  --control-h: 44px; /* minimum touch target */
+  --icon: 20px;
+  --icon-sm: 16px;
+  --header-h: 64px;
+  --sheet-w: 794px; /* A4 at 96 dpi */
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgb(28 30 34 / 0.06);
+  --shadow-sheet: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 28px rgb(0 0 0 / 0.08);
+  --shadow-dialog: 0 16px 48px rgb(0 0 0 / 0.22);
+
+  /* Focus */
+  --focus-outline: 2px solid var(--color-focus);
+  --focus-offset: 2px;
+}

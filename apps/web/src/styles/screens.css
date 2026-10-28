@@ -1,0 +1,43 @@
+/* Screens the reference does not draw (auth, list, new CV): built only from its tokens and components. */
+
+/* Auth screens: not in the reference, built only from its tokens and components. */
+.auth {
+  display: grid;
+  place-items: start center;
+  min-height: 100vh;
+  padding: var(--space-10) var(--space-4);
+}
+.auth__card {
+  display: grid;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+.auth__title {
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-semibold);
+}
+.auth__error {
+  color: var(--color-danger);
+  font-weight: var(--weight-medium);
+}
+.auth__switch {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--color-muted);
+}
+.field__error {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--color-danger);
+}
+.input[aria-invalid='true'],
+.select[aria-invalid='true'],
+.textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}

@@ -1,0 +1,156 @@
+/* Ported from docs/design/app/cv-builder.css (sections 3-4), as they are; `@container app` became viewport media queries (lg = 1024 px). */
+
+/* Needs clarification */
+.clarify {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-warning-line);
+  border-radius: var(--radius-lg);
+}
+.clarify__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  font-weight: var(--weight-semibold);
+}
+.clarify__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  flex: none;
+}
+.clarify__list {
+  display: grid;
+  gap: var(--space-3);
+}
+.clarify--compact {
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+.clarify--compact .question-card__actions {
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+}
+.clarify--compact .question-card__actions .btn--ghost,
+.clarify--compact .question-card__actions .btn--link {
+  padding: 0 var(--space-3);
+}
+.clarify--compact .clarify__list {
+  gap: var(--space-2);
+}
+
+/* Question card */
+.question-card {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+.question-card__prompt {
+  font-weight: var(--weight-semibold);
+}
+.question-card__context {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--color-muted);
+}
+.question-card__context::before {
+  content: '“';
+}
+.question-card__context::after {
+  content: '”';
+}
+.question-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.question-card__show {
+  margin-left: auto;
+}
+.question-card__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.question-card__answer {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.question-card__answer-label {
+  color: var(--color-muted);
+}
+.question-card__note {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--color-muted);
+}
+.question-card--answered {
+  background: var(--color-surface-muted);
+  gap: var(--space-2);
+}
+.question-card--updating {
+  border-color: var(--color-accent-line);
+  background: var(--color-accent-soft);
+  gap: var(--space-2);
+}
+.question-card--computed {
+  padding: 0;
+}
+.question-card__jump {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: pointer;
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent);
+  text-align: left;
+}
+.question-card__jump:hover {
+  background: var(--color-accent-soft);
+}
+.question-card__jump:disabled {
+  color: var(--color-disabled-ink);
+  background: none;
+  cursor: not-allowed;
+}
+.clarify--compact .question-card {
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+.clarify--compact .question-card--computed {
+  padding: 0;
+}
+.clarify--compact .question-card__jump {
+  padding: var(--space-2) var(--space-3);
+}
+.clarify--compact .question-card__context {
+  /* vertical inset as border, so the clamp doesn't leak a 3rd line into padding */
+  padding-block: 0;
+  border-block: var(--space-2) solid var(--color-surface-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

@@ -1,0 +1,109 @@
+/* Ported from docs/design/app/cv-builder.css (sections 3-4), as they are; `@container app` became viewport media queries (lg = 1024 px). */
+
+/* Not in your CV — collapsed <details> */
+.not-in-cv {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  scroll-margin-top: calc(var(--control-h) + var(--space-4));
+}
+.not-in-cv__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-5);
+  list-style: none;
+  cursor: pointer;
+  border-radius: inherit;
+}
+.not-in-cv__summary::-webkit-details-marker {
+  display: none;
+}
+.not-in-cv__title {
+  flex: 1;
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  font-weight: var(--weight-semibold);
+}
+.not-in-cv[open] > .not-in-cv__summary .entry-card__chevron {
+  transform: rotate(180deg);
+}
+.not-in-cv__body {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  border-top: 1px solid var(--color-line);
+}
+.not-in-cv__group {
+  display: grid;
+  gap: var(--space-1);
+}
+.not-in-cv__group-title {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.not-in-cv__item {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-line);
+}
+.not-in-cv__item:last-child {
+  border-bottom: 0;
+}
+.not-in-cv__text {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.not-in-cv__context {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--color-muted);
+}
+
+/* Preview (desktop column) */
+.preview {
+  position: sticky;
+  top: calc(var(--header-h) + var(--space-6));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+.preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 24px;
+}
+.preview__title {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-muted);
+}
+.preview__frame {
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--color-canvas);
+  border-radius: var(--radius-lg);
+}
+/* .sheet wraps the <iframe sandbox="allow-same-origin">; page is scaled from 794 px to the available width */
+.sheet {
+  width: 100%;
+  min-width: 0;
+  max-width: var(--sheet-w);
+  margin: 0 auto;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--shadow-sheet);
+}
+.sheet > .cv {
+  transform-origin: 0 0;
+}

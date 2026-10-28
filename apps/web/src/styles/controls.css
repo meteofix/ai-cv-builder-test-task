@@ -1,0 +1,147 @@
+/* Ported from docs/design/app/cv-builder.css (sections 3-4), as they are; `@container app` became viewport media queries (lg = 1024 px). */
+
+/* Button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  min-width: var(--control-h);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn--primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.btn--primary:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-on-accent);
+}
+.btn--secondary {
+  background: var(--color-surface);
+  border-color: var(--color-line-strong);
+  color: var(--color-ink);
+}
+.btn--secondary:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+}
+.btn--ghost {
+  color: var(--color-ink);
+}
+.btn--ghost:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+}
+.btn--danger {
+  color: var(--color-danger);
+}
+.btn--danger:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.btn--link {
+  padding: 0 var(--space-2);
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+.btn--link:hover {
+  color: var(--color-accent-hover);
+}
+.btn--icon {
+  width: var(--control-h);
+  padding: 0;
+}
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  background: var(--color-disabled-bg);
+  border-color: var(--color-line);
+  color: var(--color-disabled-ink);
+  cursor: not-allowed;
+}
+.btn--ghost:disabled,
+.btn--link:disabled,
+.btn--danger:disabled {
+  background: none;
+  border-color: transparent;
+}
+
+/* Badge (status chips) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 24px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.badge--info {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-line);
+  color: var(--color-accent);
+}
+.badge--success {
+  background: var(--color-success-soft);
+  border-color: var(--color-success-line);
+  color: var(--color-success);
+}
+.badge--warning {
+  background: var(--color-warning-soft);
+  border-color: var(--color-warning-line);
+  color: var(--color-warning);
+}
+.badge--danger {
+  background: var(--color-danger-soft);
+  border-color: var(--color-danger-line);
+  color: var(--color-danger);
+}
+
+/* Spinner */
+.spinner {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Save status — role="status", aria-live="polite" */
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.save-status--saving {
+  color: var(--color-muted);
+}
+.save-status--saved .icon {
+  color: var(--color-success);
+}
+.save-status--failed {
+  color: var(--color-danger);
+  font-weight: var(--weight-medium);
+}

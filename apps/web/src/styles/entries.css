@@ -1,0 +1,178 @@
+/* Ported from docs/design/app/cv-builder.css (sections 3-4), as they are; `@container app` became viewport media queries (lg = 1024 px). */
+
+/* Entry card — <details>; open on desktop, collapsed on phone */
+.entry-card {
+  min-width: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  scroll-margin-top: calc(var(--control-h) + var(--space-4));
+}
+.entry-card__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  list-style: none;
+  cursor: pointer;
+  border-radius: inherit;
+}
+.entry-card__summary::-webkit-details-marker {
+  display: none;
+}
+.entry-card__heading {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.entry-card__title {
+  font-weight: var(--weight-semibold);
+}
+.entry-card__org {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+.entry-card__dates {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+.entry-card__chevron {
+  color: var(--color-muted);
+  transition: transform 0.15s;
+}
+.entry-card[open] > .entry-card__summary .entry-card__chevron {
+  transform: rotate(180deg);
+}
+.entry-card__body {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-top: 1px solid var(--color-line);
+}
+.entry-card__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.entry-card__remove {
+  margin-left: auto;
+}
+.entry-card--updating {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+.entry-card--updating > .entry-card__summary {
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.entry-card--updating > .entry-card__body {
+  opacity: 0.6;
+}
+.entry-card__busy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+/* Bullets — one textarea per bullet */
+.bullet-list {
+  display: grid;
+  gap: var(--space-2);
+}
+.bullet-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--control-h);
+  gap: var(--space-2);
+  align-items: start;
+}
+
+/* Tag input (skills) */
+.tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: var(--space-1);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.tag-input:focus-within {
+  outline: var(--focus-outline);
+  outline-offset: 0;
+  border-color: var(--color-focus);
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding-left: var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+}
+.tag__remove {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.tag__remove::after {
+  content: '';
+  position: absolute;
+  inset: -4px -6px;
+} /* 44 px hit area */
+.tag__remove:hover {
+  background: var(--color-accent-line);
+}
+.tag__remove:disabled {
+  color: var(--color-disabled-ink);
+  cursor: not-allowed;
+}
+.tag-input__field {
+  flex: 1 1 120px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  outline: none;
+}
+
+/* Additional section (title + list of lines) */
+.extra-section {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+.line-list {
+  display: grid;
+  gap: var(--space-2);
+}
+.line-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--control-h);
+  gap: var(--space-2);
+}

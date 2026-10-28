@@ -28,6 +28,10 @@ export function checkReferences(
 const NUMBER_TOKEN =
   /(?<![\p{L}\p{N}]|[\p{L}\p{N}][.,])(?:(?<currencyBefore>[$€£₴])\s?)?(?<plus>\+)?(?<digits>\d+(?:[.,]\d+)*)(?<unit>\s?%|[kKMB]\+?|[x×]|\+|\s?[$€£₴])?(?![\p{L}\p{N}])/gu;
 
+// `03.2019` and `01.03.2019` are one token; their year also stands alone, so "since 2019" is checkable.
+// Slash dates (`03/2019`) already split into separate numbers. No other part of a dotted number counts.
+const DOTTED_DATE = /^(?:\d{1,2}\.){1,2}(\d{4})$/;
+
 interface NumberTokens {
   metrics: string[];
   standalone: string[];
@@ -41,7 +45,11 @@ export function numberTokens(text: string): NumberTokens {
     if (digits === undefined) continue;
     if (currencyBefore || plus || unit)
       tokens.metrics.push(match[0].replace(/\s/g, '').toLowerCase());
-    else tokens.standalone.push(digits);
+    else {
+      tokens.standalone.push(digits);
+      const year = DOTTED_DATE.exec(digits)?.[1];
+      if (year) tokens.standalone.push(year);
+    }
   }
   return tokens;
 }

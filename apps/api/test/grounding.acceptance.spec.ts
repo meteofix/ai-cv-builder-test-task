@@ -145,6 +145,7 @@ describe('grounding acceptance (docs/specs/grounding.md)', () => {
       ['Built services in Python 3.', 'Python 3, Go', '', true],
       ['Moved assets to S3 and cut p95 latency.', 'Moved assets to S3', '', true],
       ['Mentored 3 engineers.', 'Mentored junior engineers.', 'Team of 3 engineers', true],
+      ['Since 2019 led the team.', 'Frontend Developer, 03.2019 – 05.2021', '', true],
     ])('GRD-4 — %j referencing %j (source also %j) passes: %s', (text, quote, extra, passes) => {
       const source = extra ? `${quote}\n${extra}` : quote;
       expect(checkNumbers(text, [quote], source).ok).toBe(passes);

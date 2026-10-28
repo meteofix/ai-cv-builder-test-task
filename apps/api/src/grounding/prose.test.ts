@@ -14,6 +14,11 @@ describe('numberTokens', () => {
     ['in 2021, 14 people, 1,000 rows', [], ['2021', '14', '1,000']],
     ['S3, ES6, p95, B2B, IPv6, 2FA, 4Kbps', [], []],
     ['version v1.2.3', [], []],
+    ['03.2019 – 05.2021', [], ['03.2019', '2019', '05.2021', '2021']],
+    ['01.03.2019, 3.2019', [], ['01.03.2019', '2019', '3.2019', '2019']],
+    ['03/2019', [], ['03', '2019']],
+    ['01/03/2019', [], ['01', '03', '2019']],
+    ['1,140 users, 1.14 s, 123.2019', [], ['1,140', '1.14', '123.2019']],
   ])('%j → metrics %j, standalone %j', (text, metrics, standalone) => {
     expect(numberTokens(text)).toEqual({ metrics, standalone });
   });
@@ -49,6 +54,13 @@ describe('checkNumbers', () => {
     expect(checkNumbers('Upgraded to v1.2.3.', ['Upgraded the SDK.'], 'Upgraded the SDK.').ok).toBe(
       true,
     );
+  });
+
+  it.each([
+    ['Grew to 140 users.', 'Grew to 1,140 users.'],
+    ['Cut it to 14 s.', 'Cut the build to 1.14 s.'],
+  ])('does not accept a part of a comma or dotted number: %j', (text, source) => {
+    expect(checkNumbers(text, [], source).ok).toBe(false);
   });
 
   it('does not accept a standalone number that is only part of a longer number', () => {

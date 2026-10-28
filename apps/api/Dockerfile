@@ -31,7 +31,8 @@ COPY --from=build /app/packages/cv-template/dist packages/cv-template/dist
 COPY packages/cv-template/fonts packages/cv-template/fonts
 COPY --from=build /app/apps/api/dist apps/api/dist
 WORKDIR /app/apps/api
-# Compose runs the API as an unprivileged user; Chromium's own sandbox is disabled in code (see README).
+# The API runs as an unprivileged user. Chromium's own sandbox needs privileges the container does not
+# grant, so the PDF module launches it with the sandbox off; the page it renders has no scripts or network.
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main.js"]

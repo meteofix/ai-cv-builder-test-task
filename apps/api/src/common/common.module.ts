@@ -1,6 +1,12 @@
 import { Global, Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { OwnedCvs } from './owned-cvs.js';
+import { SessionGuard } from './session.guard.js';
 
-/** Shared building blocks of the API streams (session guard, owner-scoped access, generation queue); filled in W0.4 and W0.5. */
+/** Shared building blocks of the API modules: the global session guard and owner-scoped access to CVs. */
 @Global()
-@Module({})
+@Module({
+  providers: [OwnedCvs, { provide: APP_GUARD, useClass: SessionGuard }],
+  exports: [OwnedCvs],
+})
 export class CommonModule {}

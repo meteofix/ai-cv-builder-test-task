@@ -1,4 +1,4 @@
-import { Module, type DynamicModule } from '@nestjs/common';
+import { Module, type DynamicModule, type Type } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
 import type { Logger } from 'pino';
 import { AuthModule } from './auth/auth.module.js';
@@ -17,7 +17,11 @@ import { SourcesModule } from './sources/sources.module.js';
 
 @Module({})
 export class AppModule {
-  static forRoot(config: AppConfig, logger: Logger): DynamicModule {
+  static forRoot(
+    config: AppConfig,
+    logger: Logger,
+    extraImports: (Type | DynamicModule)[] = [],
+  ): DynamicModule {
     return {
       module: AppModule,
       imports: [
@@ -37,6 +41,7 @@ export class AppModule {
         LlmModule,
         PdfModule,
         HealthModule,
+        ...extraImports,
       ],
     };
   }

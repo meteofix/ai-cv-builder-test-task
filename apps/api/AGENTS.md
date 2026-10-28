@@ -8,7 +8,7 @@ NestJS 12 on Fastify 5, MikroORM 7 on PostgreSQL 17. Read the root `AGENTS.md` f
 
 - `config/` — env schema (`env.ts`, fails fast with the missing key), logger, worktree detection. `AppConfig` and the root pino logger are injected with `APP_CONFIG` and `ROOT_LOGGER`.
 - `bootstrap.ts` — every global mechanism: `trustProxy`, request ids, CSRF (`enableCsrfProtection`), security headers, `StandardSchemaValidationPipe`, Swagger at `/api/docs`. `main.ts` adds `enableShutdownHooks()`. Tests build the app with the same `createApp`.
-- `db/` — entities, the migration, `ensureDatabase()`, which creates a missing database for both startup and the test setup.
+- `db/` — entities (`defineEntity`), the migrations (listed in `migrations/index.ts`) and `ensureDatabase()`, which creates a missing database and applies pending migrations for both startup and the test setup. Foreign keys to `cvs` cascade on delete. Schema changes are main-only: a new migration is generated against a migrated database and added to the list.
 - `common/` — shared building blocks (session guard, `@Public()`, `@CurrentUser()`, `findOwned`, `GenerationQueue`).
 - `grounding` and `@cv/shared` are pure TypeScript; the Anthropic SDK is imported only in `llm/`, behind the `LlmClient` port.
 
@@ -23,5 +23,5 @@ NestJS 12 on Fastify 5, MikroORM 7 on PostgreSQL 17. Read the root `AGENTS.md` f
 ## Tests
 
 - `src/**/*.test.ts` — unit tests, no database. `test/*.e2e-spec.ts` and `test/*.acceptance.spec.ts` — integration tests on the stream's test database (`cv_test`, or `cv_test_<stream>` in a worktree). The file name starts with the module name.
-- `test/support/` — setup, `createTestApp()`, session helper and data factories. Log in and create data through them, not through another module's endpoints.
+- `test/support/` — setup, `createTestApp()` and `inject()`, `signIn()` (a session row plus the cookie and same-origin headers CSRF needs), data factories (`createUser`, `createCv` with its source, `createJob`, `createQuestion`, `sampleDocument`) and `resetDatabase()` for `beforeEach`. Log in and create data through them, not through another module's endpoints.
 - Requests go through Fastify `inject()`; the background worker is off in tests (`WORKER_ENABLED=false`) and driven with `processNext()`.

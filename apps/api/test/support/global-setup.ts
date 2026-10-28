@@ -19,7 +19,7 @@ function describe(error: unknown): string {
   return (error as { code?: string }).code ?? error.name;
 }
 
-/** Runs once before the e2e files: checks the worktree and Postgres, creates the test database if needed. */
+/** Runs once before the e2e files: checks the worktree and Postgres, creates and migrates the test database. */
 export default async function setup(): Promise<void> {
   let config: AppConfig;
   try {
@@ -30,10 +30,25 @@ export default async function setup(): Promise<void> {
   try {
     await ensureDatabase(config);
   } catch (error) {
+    if (!isConnectionError(error)) {
+      return stop(
+        `Preparing the test database "${config.DB_NAME}" failed: ${describe(error)}`,
+        error,
+      );
+    }
     return stop(
       `Postgres is not reachable at ${config.DB_HOST}:${config.DB_PORT} (${describe(error)}).\n` +
         'Start it with `docker compose up -d postgres` and run the tests again.',
       error,
     );
   }
+}
+
+/** Connection failures, as opposed to a failing migration, which must not be reported as "start Postgres". */
+function isConnectionError(error: unknown): boolean {
+  if (error instanceof AggregateError) return true;
+  const code = (error as { code?: string } | undefined)?.code;
+  return ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EHOSTUNREACH', '28P01', '57P03'].includes(
+    code ?? '',
+  );
 }

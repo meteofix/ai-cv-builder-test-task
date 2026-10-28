@@ -1,6 +1,8 @@
 import { MikroORM } from '@mikro-orm/postgresql';
 import { Controller, Get, Inject, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { Public } from '../common/current-user.js';
 
+@Public()
 @Controller('health')
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);

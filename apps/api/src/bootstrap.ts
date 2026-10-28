@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
-import { StandardSchemaValidationPipe } from '@nestjs/common';
+import { StandardSchemaValidationPipe, type DynamicModule, type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -10,6 +10,11 @@ import type { AppConfig } from './config/env.js';
 import { NestPinoLogger } from './config/logger.js';
 import { trustProxyAddresses } from './config/trust-proxy.js';
 
+export interface CreateAppOptions {
+  /** Extra modules mounted next to the app's own; tests use it for probe controllers. */
+  imports?: (Type | DynamicModule)[];
+}
+
 /**
  * Builds the application with every global mechanism. `main.ts` and the e2e tests both call it,
  * so tests exercise the same wiring as production. The caller listens or injects requests.
@@ -17,6 +22,7 @@ import { trustProxyAddresses } from './config/trust-proxy.js';
 export async function createApp(
   config: AppConfig,
   logger: Logger,
+  options: CreateAppOptions = {},
 ): Promise<NestFastifyApplication> {
   const adapter = new FastifyAdapter({
     loggerInstance: logger,
@@ -32,7 +38,7 @@ export async function createApp(
   });
 
   const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule.forRoot(config, logger),
+    AppModule.forRoot(config, logger, options.imports),
     adapter,
     // Without abortOnError Nest calls process.abort() on a startup failure and hides the reason.
     { logger: new NestPinoLogger(logger), abortOnError: false },

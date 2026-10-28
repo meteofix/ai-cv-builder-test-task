@@ -29,17 +29,22 @@ const bulletSchema = z.object({
   factIds,
 });
 
-const positionSchema = z.object({
-  id,
-  factId: id.optional(),
-  company: field,
-  title: field,
-  location: field.optional(),
-  start: dateSchema,
-  end: dateSchema,
-  current: z.boolean(),
-  bullets: z.array(bulletSchema).max(LIMITS.maxBulletsPerPosition),
-});
+const positionSchema = z
+  .object({
+    id,
+    factId: id.optional(),
+    company: field,
+    title: field,
+    location: field.optional(),
+    start: dateSchema,
+    end: dateSchema,
+    current: z.boolean(),
+    bullets: z.array(bulletSchema).max(LIMITS.maxBulletsPerPosition),
+  })
+  .refine((position) => !(position.current && position.end !== null), {
+    message: 'A current position has no end date',
+    path: ['end'],
+  });
 
 const educationSchema = z.object({
   id,
@@ -60,22 +65,54 @@ const additionalSectionSchema = z.object({
     .max(LIMITS.maxAdditionalItems),
 });
 
-export const cvDocumentSchema = z.object({
-  locale: localeSchema,
-  contacts: z.object({
-    fullName: field,
-    email: field,
-    phone: field,
-    location: field,
-    links: z.array(linkSchema).max(LIMITS.maxLinks),
-  }),
-  headline: field,
-  summary: z.object({ text: z.string().max(LIMITS.maxSummaryChars), factIds }),
-  experience: z.array(positionSchema).max(LIMITS.maxExperience),
-  education: z.array(educationSchema).max(LIMITS.maxEducation),
-  skills: z.array(skillSchema).max(LIMITS.maxSkills),
-  additional: z.array(additionalSectionSchema).max(LIMITS.maxAdditionalSections),
-});
+export const cvDocumentSchema = z
+  .object({
+    locale: localeSchema,
+    contacts: z.object({
+      fullName: field,
+      email: field,
+      phone: field,
+      location: field,
+      links: z.array(linkSchema).max(LIMITS.maxLinks),
+    }),
+    headline: field,
+    summary: z.object({ text: z.string().max(LIMITS.maxSummaryChars), factIds }),
+    experience: z.array(positionSchema).max(LIMITS.maxExperience),
+    education: z.array(educationSchema).max(LIMITS.maxEducation),
+    skills: z.array(skillSchema).max(LIMITS.maxSkills),
+    additional: z.array(additionalSectionSchema).max(LIMITS.maxAdditionalSections),
+  })
+  .superRefine((document, context) => {
+    // Provenance carry-over, question targets, reordering and React keys all address items by id.
+    type IdList = [path: (string | number)[], items: { id: string }[]];
+    const lists: IdList[] = [
+      [['experience'], document.experience],
+      [['education'], document.education],
+      [['skills'], document.skills],
+      [['additional'], document.additional],
+      ...document.experience.map((position, i): IdList => [
+        ['experience', i, 'bullets'],
+        position.bullets,
+      ]),
+      ...document.additional.map((section, i): IdList => [
+        ['additional', i, 'items'],
+        section.items,
+      ]),
+    ];
+    for (const [path, items] of lists) {
+      const seen = new Set<string>();
+      items.forEach((item, index) => {
+        if (seen.has(item.id)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'Duplicate id',
+            path: [...path, index, 'id'],
+          });
+        }
+        seen.add(item.id);
+      });
+    }
+  });
 
 export type CvDocument = z.infer<typeof cvDocumentSchema>;
 export type CvPosition = z.infer<typeof positionSchema>;

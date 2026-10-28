@@ -31,3 +31,37 @@ describe('cvDocumentSchema', () => {
     expect(linkSchema.safeParse(value).success).toBe(valid);
   });
 });
+
+describe('ids and dates inside the document', () => {
+  const position = (id: string, bulletIds: string[]) => ({
+    id,
+    company: 'Acme Corp',
+    title: 'Engineer',
+    start: '2021',
+    end: null,
+    current: true,
+    bullets: bulletIds.map((bulletId) => ({ id: bulletId, text: 'Did things.', factIds: [] })),
+  });
+
+  it.each([
+    ['unique ids', [position('p1', ['b1', 'b2']), position('p2', ['b1'])], true],
+    ['two positions with one id', [position('p1', []), position('p1', [])], false],
+    ['two bullets with one id in a position', [position('p1', ['b1', 'b1'])], false],
+  ])('%s → valid: %s', (_case, experience, valid) => {
+    const result = cvDocumentSchema.safeParse({ ...emptyDocument, experience });
+    expect(result.success).toBe(valid);
+  });
+
+  it('reports where the duplicate is', () => {
+    const result = cvDocumentSchema.safeParse({
+      ...emptyDocument,
+      experience: [position('p1', ['b1', 'b1'])],
+    });
+    expect(result.error?.issues[0]?.path).toEqual(['experience', 0, 'bullets', 1, 'id']);
+  });
+
+  it('rejects a current position with an end date', () => {
+    const experience = [{ ...position('p1', []), end: '2023' }];
+    expect(cvDocumentSchema.safeParse({ ...emptyDocument, experience }).success).toBe(false);
+  });
+});

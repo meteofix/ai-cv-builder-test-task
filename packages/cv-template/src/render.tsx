@@ -1,108 +1,208 @@
-import type { CvDocument, Locale } from '@cv/shared';
+import { linkSchema, type CvDocument, type Locale } from '@cv/shared';
+import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fontFaceCss, type FontSource } from './fonts.js';
-import { LABELS } from './labels.js';
+import { LABELS, type Labels } from './labels.js';
 import { CV_CSS } from './styles.js';
 
 export interface RenderCvHtmlOptions {
   fonts: FontSource;
 }
 
+/** Text counts as present only when it has something other than spaces (the editor can leave " " behind). */
+const filled = (value: string | null | undefined): value is string => !!value?.trim();
+
+/** `2021-03` → `Mar 2021`, `2021` → `2021`; anything else prints nothing. */
+function formatDate(value: string | null | undefined, labels: Labels): string {
+  if (!value) return '';
+  const [year = '', month] = value.split('-');
+  const name = month ? labels.months[Number(month) - 1] : undefined;
+  return [name, year].filter(Boolean).join(' ');
+}
+
+/** `Mar 2023 – Present`; one known side prints alone, nothing known prints nothing. */
 function dateRange(
   start: string | null | undefined,
   end: string | null | undefined,
   current: boolean,
-  present: string,
-) {
-  const to = current ? present : end;
-  if (!start && !to) return '';
-  return [start, to].filter(Boolean).join(' – ');
+  labels: Labels,
+): string {
+  return [formatDate(start, labels), current ? labels.present : formatDate(end, labels)]
+    .filter(Boolean)
+    .join(' – ');
+}
+
+/** The address of a link without its scheme and trailing slash: `https://github.com/x/` → `github.com/x`. */
+function linkText(link: string): string {
+  return link.replace(/^[a-z][a-z0-9+.-]*:(\/\/)?/i, '').replace(/\/+$/, '');
+}
+
+function ContactLink({ href, children }: { href: string; children: string }) {
+  // The schemes the document schema allows: anything else is shown as text and never becomes a `href`.
+  return linkSchema.safeParse(href).success ? <a href={href}>{children}</a> : <>{href}</>;
+}
+
+function contactItems({ email, phone, location, links }: CvDocument['contacts']) {
+  const items: { key: string; node: ReactNode }[] = [];
+  if (filled(email)) {
+    items.push({
+      key: 'email',
+      node: <ContactLink href={`mailto:${email}`}>{email}</ContactLink>,
+    });
+  }
+  if (filled(phone)) {
+    const digits = phone.replace(/[^+\d]/g, '');
+    items.push({
+      key: 'phone',
+      node: digits ? <ContactLink href={`tel:${digits}`}>{phone}</ContactLink> : phone,
+    });
+  }
+  if (filled(location)) items.push({ key: 'location', node: location });
+  links.forEach((link, index) => {
+    if (filled(link)) {
+      items.push({
+        key: `link-${index}`,
+        node: <ContactLink href={link}>{linkText(link)}</ContactLink>,
+      });
+    }
+  });
+  return items;
+}
+
+function Section({ kind, title, children }: { kind: string; title: string; children: ReactNode }) {
+  return (
+    <section className={`cv-section cv-section--${kind}`}>
+      {filled(title) ? <h2 className="cv-section__title">{title}</h2> : null}
+      {children}
+    </section>
+  );
+}
+
+interface EntryProps {
+  id: string;
+  title: string;
+  dates: string;
+  org?: string;
+  location?: string | undefined;
+  compact?: boolean;
+  bullets?: readonly { id: string; text: string }[];
+}
+
+/** The lines of an entry that have text; an entry with none of them is not rendered at all. */
+const bulletLines = (entry: EntryProps) =>
+  (entry.bullets ?? []).filter((bullet) => filled(bullet.text));
+const hasContent = (entry: EntryProps): boolean =>
+  [entry.title, entry.dates, entry.org, entry.location].some(filled) ||
+  bulletLines(entry).length > 0;
+
+function Entry({ title, dates, org, location, compact = false, ...rest }: EntryProps) {
+  const lines = bulletLines({ title, dates, ...rest });
+  return (
+    <article className={compact ? 'cv-entry cv-entry--compact' : 'cv-entry'}>
+      {filled(title) || filled(dates) ? (
+        <div className="cv-entry__head">
+          {filled(title) ? <h3 className="cv-entry__title">{title}</h3> : null}
+          {filled(dates) ? <span className="cv-entry__dates">{dates}</span> : null}
+        </div>
+      ) : null}
+      {filled(org) || filled(location) ? (
+        <p className="cv-entry__meta">
+          {filled(org) ? <span className="cv-entry__org">{org}</span> : null}
+          {filled(location) ? <span className="cv-entry__location">{location}</span> : null}
+        </p>
+      ) : null}
+      {lines.length > 0 ? (
+        <ul className="cv-entry__bullets">
+          {lines.map((bullet) => (
+            <li key={bullet.id}>{bullet.text}</li>
+          ))}
+        </ul>
+      ) : null}
+    </article>
+  );
 }
 
 function CvBody({ document }: { document: CvDocument }) {
   const labels = LABELS[document.locale];
-  const { contacts } = document;
-  const contactItems = [contacts.email, contacts.phone, contacts.location, ...contacts.links];
+  const { contacts, headline, summary } = document;
+  const contactList = contactItems(contacts);
+  const positions = document.experience
+    .map((position) => ({
+      id: position.id,
+      title: position.title,
+      dates: dateRange(position.start, position.end, position.current, labels),
+      org: position.company,
+      location: position.location,
+      bullets: position.bullets,
+    }))
+    .filter(hasContent);
+  const schools = document.education
+    .map((entry) => ({
+      id: entry.id,
+      compact: true,
+      // Without a degree the institution is the title and there is no meta line.
+      title: filled(entry.degree) ? entry.degree : entry.institution,
+      dates: dateRange(entry.start, entry.end, false, labels),
+      org: filled(entry.degree) ? entry.institution : '',
+    }))
+    .filter(hasContent);
+  const skills = document.skills.filter((skill) => filled(skill.name));
 
   return (
     <main className="cv">
-      <header className="cv-header">
-        <h1 className="cv-name">{contacts.fullName}</h1>
-        <p className="cv-headline">{document.headline}</p>
-        <ul className="cv-contacts">
-          {contactItems.filter(Boolean).map((item) => (
-            <li key={item}>{item}</li>
+      {filled(contacts.fullName) || filled(headline) || contactList.length > 0 ? (
+        <header className="cv-header">
+          {filled(contacts.fullName) ? <h1 className="cv-name">{contacts.fullName}</h1> : null}
+          {filled(headline) ? <p className="cv-headline">{headline}</p> : null}
+          {contactList.length > 0 ? (
+            <ul className="cv-contacts">
+              {contactList.map((item) => (
+                <li key={item.key}>{item.node}</li>
+              ))}
+            </ul>
+          ) : null}
+        </header>
+      ) : null}
+      {filled(summary.text) ? (
+        <Section kind="summary" title={labels.summary}>
+          <p className="cv-summary">{summary.text}</p>
+        </Section>
+      ) : null}
+      {positions.length > 0 ? (
+        <Section kind="experience" title={labels.experience}>
+          {positions.map((position) => (
+            <Entry key={position.id} {...position} />
           ))}
-        </ul>
-      </header>
-      {document.summary.text && (
-        <section className="cv-section cv-section--summary">
-          <h2 className="cv-section__title">{labels.summary}</h2>
-          <p className="cv-summary">{document.summary.text}</p>
-        </section>
-      )}
-      {document.experience.length > 0 && (
-        <section className="cv-section cv-section--experience">
-          <h2 className="cv-section__title">{labels.experience}</h2>
-          {document.experience.map((position) => (
-            <article className="cv-entry" key={position.id}>
-              <div className="cv-entry__head">
-                <h3 className="cv-entry__title">{position.title}</h3>
-                <span className="cv-entry__dates">
-                  {dateRange(position.start, position.end, position.current, labels.present)}
-                </span>
-              </div>
-              <p className="cv-entry__meta">
-                <span className="cv-entry__org">{position.company}</span>
-                <span className="cv-entry__location">{position.location}</span>
-              </p>
-              <ul className="cv-entry__bullets">
-                {position.bullets.map((bullet) => (
-                  <li key={bullet.id}>{bullet.text}</li>
-                ))}
-              </ul>
-            </article>
+        </Section>
+      ) : null}
+      {schools.length > 0 ? (
+        <Section kind="education" title={labels.education}>
+          {schools.map((entry) => (
+            <Entry key={entry.id} {...entry} />
           ))}
-        </section>
-      )}
-      {document.education.length > 0 && (
-        <section className="cv-section cv-section--education">
-          <h2 className="cv-section__title">{labels.education}</h2>
-          {document.education.map((entry) => (
-            <article className="cv-entry cv-entry--compact" key={entry.id}>
-              <div className="cv-entry__head">
-                <h3 className="cv-entry__title">{entry.degree}</h3>
-                <span className="cv-entry__dates">
-                  {dateRange(entry.start, entry.end, false, labels.present)}
-                </span>
-              </div>
-              <p className="cv-entry__meta">
-                <span className="cv-entry__org">{entry.institution}</span>
-              </p>
-            </article>
-          ))}
-        </section>
-      )}
-      {document.skills.length > 0 && (
-        <section className="cv-section cv-section--skills">
-          <h2 className="cv-section__title">{labels.skills}</h2>
+        </Section>
+      ) : null}
+      {skills.length > 0 ? (
+        <Section kind="skills" title={labels.skills}>
           <ul className="cv-skills">
-            {document.skills.map((skill) => (
+            {skills.map((skill) => (
               <li key={skill.id}>{skill.name}</li>
             ))}
           </ul>
-        </section>
-      )}
-      {document.additional.map((section) => (
-        <section className="cv-section cv-section--extra" key={section.id}>
-          <h2 className="cv-section__title">{section.title}</h2>
-          <ul className="cv-list">
-            {section.items.map((item) => (
-              <li key={item.id}>{item.text}</li>
-            ))}
-          </ul>
-        </section>
-      ))}
+        </Section>
+      ) : null}
+      {document.additional.map((section) => {
+        const items = section.items.filter((item) => filled(item.text));
+        return items.length > 0 ? (
+          <Section kind="extra" title={section.title} key={section.id}>
+            <ul className="cv-list">
+              {items.map((item) => (
+                <li key={item.id}>{item.text}</li>
+              ))}
+            </ul>
+          </Section>
+        ) : null;
+      })}
     </main>
   );
 }
@@ -112,23 +212,24 @@ export function renderCvBody(document: CvDocument): string {
   return renderToStaticMarkup(<CvBody document={document} />);
 }
 
+/** The page around a body; the body is concatenated, never passed to `replace`, which would expand `$&` and `$'` in the CV text. */
+function page({ fonts }: RenderCvHtmlOptions, lang: Locale, title: string, body: string): string {
+  return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><style>${fontFaceCss(fonts)}${CV_CSS}</style></head><body>${body}</body></html>`;
+}
+
 /** A complete HTML page without content: the preview sets it once and then only swaps the body. */
 export function renderCvShell(
-  { fonts }: RenderCvHtmlOptions,
+  options: RenderCvHtmlOptions,
   lang: Locale = 'en',
   title = '',
 ): string {
-  return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${fontFaceCss(fonts)}${CV_CSS}</style></head><body></body></html>`;
+  return page(options, lang, title, '');
 }
 
 /** The complete page the PDF endpoint prints: shell plus body, `<title>` and `<html lang>` from the document. */
 export function renderCvHtml(document: CvDocument, options: RenderCvHtmlOptions): string {
   const title = [document.contacts.fullName, document.headline].filter(Boolean).join(' — ');
-  // A replacer function: a string replacement would expand `$&`, `$'` and `$$` found in the CV text.
-  return renderCvShell(options, document.locale, title).replace(
-    '<body></body>',
-    () => `<body>${renderCvBody(document)}</body>`,
-  );
+  return page(options, document.locale, title, renderCvBody(document));
 }
 
 function escapeHtml(value: string): string {

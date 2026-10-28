@@ -1,13 +1,8 @@
 import { EntityManager } from '@mikro-orm/postgresql';
-import {
-  Inject,
-  Injectable,
-  UnauthorizedException,
-  type CanActivate,
-  type ExecutionContext,
-} from '@nestjs/common';
+import { Inject, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Session } from '../db/entities.js';
+import { ApiError } from './api-error.js';
 import { IS_PUBLIC, type RequestWithUser } from './current-user.js';
 import { hashSessionToken, readCookie, SESSION_COOKIE } from './session-token.js';
 
@@ -35,7 +30,7 @@ export class SessionGuard implements CanActivate {
       typeof cookieHeader === 'string' ? cookieHeader : undefined,
       SESSION_COOKIE,
     );
-    if (!token) throw new UnauthorizedException();
+    if (!token) throw new ApiError('UNAUTHENTICATED');
 
     const session = await this.em
       .fork()
@@ -44,7 +39,7 @@ export class SessionGuard implements CanActivate {
         { tokenHash: hashSessionToken(token), expiresAt: { $gt: new Date() } },
         { populate: ['user'] },
       );
-    if (!session) throw new UnauthorizedException();
+    if (!session) throw new ApiError('UNAUTHENTICATED');
 
     request.user = {
       id: session.user.id,

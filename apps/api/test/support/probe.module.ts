@@ -1,4 +1,6 @@
-import { Controller, Get, Inject, Ip, Module, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Ip, Module, Param, Post } from '@nestjs/common';
+import { credentialsSchema, type Credentials } from '@cv/shared';
+import { ApiError } from '../../src/common/api-error.js';
 import { CurrentUser, Public, type SessionUser } from '../../src/common/current-user.js';
 import { OwnedCvs } from '../../src/common/owned-cvs.js';
 
@@ -27,6 +29,24 @@ class ProbeController {
   async cv(@Param('id') id: string, @CurrentUser() user: SessionUser) {
     const cv = await this.cvs.findOwned(id, user.id);
     return { id: cv.id };
+  }
+
+  @Public()
+  @Post('validate')
+  validate(@Body({ schema: credentialsSchema }) body: Credentials) {
+    return { email: body.email };
+  }
+
+  @Public()
+  @Get('conflict')
+  conflict() {
+    throw new ApiError('VERSION_CONFLICT', 'The CV was changed elsewhere.');
+  }
+
+  @Public()
+  @Get('crash')
+  crash() {
+    throw new Error('connection to 10.0.0.7 lost while saving iryna@example.com');
   }
 }
 

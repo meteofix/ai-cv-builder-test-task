@@ -1,7 +1,7 @@
 import { Migration } from '@mikro-orm/migrations';
 
-export class Migration20261028210959_schema extends Migration {
-  override name = 'Migration20261028210959_schema';
+export class Migration20261028211913_schema extends Migration {
+  override name = 'Migration20261028211913_schema';
 
   override up(): void | Promise<void> {
     this.addSql(
@@ -33,7 +33,7 @@ export class Migration20261028210959_schema extends Migration {
     this.addSql(`create index "cvs_user_id_updated_at_index" on "cvs" ("user_id", "updated_at");`);
 
     this.addSql(
-      `create table "generation_jobs" ("id" uuid not null, "cv_id" uuid not null, "user_id" uuid not null, "kind" text not null, "status" text not null default 'queued', "step" varchar(32) null, "attempts" int not null default 0, "max_attempts" int not null default 3, "run_after" timestamptz not null, "locked_by" varchar(64) null, "locked_until" timestamptz null, "llm_calls" int not null default 0, "state" jsonb not null default '{}', "payload" jsonb not null default '{}', "target" jsonb null, "error_code" varchar(64) null, "error_message" text null, "created_at" timestamptz not null, "updated_at" timestamptz not null, primary key ("id"));`,
+      `create table "generation_jobs" ("id" uuid not null, "cv_id" uuid not null, "user_id" uuid not null, "kind" text not null, "status" text not null default 'queued', "step" text null, "attempts" int not null default 0, "max_attempts" int not null default 3, "run_after" timestamptz not null, "locked_by" varchar(64) null, "locked_until" timestamptz null, "llm_calls" int not null default 0, "state" jsonb not null default '{}', "payload" jsonb not null default '{}', "target" jsonb null, "error_code" text null, "error_message" text null, "created_at" timestamptz not null, "updated_at" timestamptz not null, primary key ("id"));`,
     );
     this.addSql(
       `create index "generation_jobs_status_run_after_index" on "generation_jobs" ("status", "run_after");`,
@@ -49,6 +49,12 @@ export class Migration20261028210959_schema extends Migration {
     );
     this.addSql(
       `alter table "generation_jobs" add constraint "generation_jobs_status_check" check ("status" in ('queued', 'running', 'succeeded', 'failed'));`,
+    );
+    this.addSql(
+      `alter table "generation_jobs" add constraint "generation_jobs_step_check" check ("step" in ('extract', 'write', 'judge', 'finalize'));`,
+    );
+    this.addSql(
+      `alter table "generation_jobs" add constraint "generation_jobs_error_code_check" check ("error_code" in ('AI_UNAVAILABLE', 'AI_LIMIT_REACHED', 'AI_REFUSED', 'AI_KEY_REJECTED', 'INTERNAL'));`,
     );
 
     this.addSql(

@@ -9,6 +9,8 @@ import { testConfig } from './test-config.js';
 export interface TestAppOptions {
   /** Extra modules, for example a probe controller that exposes what a route sees. */
   imports?: (Type | DynamicModule)[];
+  /** Runs after the app is built and before routes are registered, for example to add an `onRoute` hook. */
+  beforeInit?: (app: NestFastifyApplication) => void;
 }
 
 /** The production wiring on the test database; send requests with `inject(app, ...)`. */
@@ -18,6 +20,7 @@ export async function createTestApp(
 ): Promise<NestFastifyApplication> {
   const config = testConfig(overrides);
   const app = await createApp(config, pino({ level: 'silent' }), { imports: options.imports });
+  options.beforeInit?.(app);
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
   return app;

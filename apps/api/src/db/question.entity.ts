@@ -1,5 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { defineEntity, p, type InferEntity } from '@mikro-orm/core';
+import {
+  ANSWER_TYPES,
+  APPLY_STATUSES,
+  QUESTION_KINDS,
+  QUESTION_STATUSES,
+  type Answer,
+  type QuestionTarget,
+} from '@cv/shared';
 import { Cv } from './cv.entity.js';
 
 export const CvQuestion = defineEntity({
@@ -11,15 +19,15 @@ export const CvQuestion = defineEntity({
       .primary()
       .onCreate(() => randomUUID()),
     cv: () => p.manyToOne(Cv).ref().deleteRule('cascade').index(),
-    kind: p.enum(['missing', 'vague', 'unverified']),
-    target: p.json<Record<string, unknown>>(),
+    kind: p.enum(QUESTION_KINDS),
+    target: p.json<QuestionTarget>(),
     prompt: p.text(),
     context: p.text().nullable(),
-    answerType: p.enum(['dates', 'text']),
-    status: p.enum(['open', 'answered', 'dismissed']).default('open'),
-    answer: p.json<Record<string, unknown>>().nullable(),
+    answerType: p.enum(ANSWER_TYPES),
+    status: p.enum(QUESTION_STATUSES).default('open'),
+    answer: p.json<Answer>().nullable(),
     // Set once an answer is submitted: `applying` while its job runs, then the outcome.
-    applyStatus: p.enum(['applying', 'applied', 'partial', 'failed']).nullable(),
+    applyStatus: p.enum(APPLY_STATUSES).nullable(),
     applyNote: p.text().nullable(),
     createdAt: p.datetime().onCreate(() => new Date()),
     updatedAt: p

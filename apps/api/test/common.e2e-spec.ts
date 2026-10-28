@@ -28,6 +28,7 @@ describe('session guard, @CurrentUser() and findOwned', () => {
     ])('answers 401 to %s', async (_case, headers) => {
       const res = await inject(app, { method: 'GET', url: '/api/probe/me', headers });
       expect(res.statusCode).toBe(401);
+      expect(res.json()).toMatchObject({ code: 'UNAUTHENTICATED' });
     });
 
     it('answers 401 to an expired session', async () => {
@@ -96,6 +97,7 @@ describe('session guard, @CurrentUser() and findOwned', () => {
       const id = { foreign: foreign.id, missing: randomUUID(), malformed: 'not-a-uuid' }[kind];
       const res = await inject(app, { method: 'GET', url: `/api/probe/cvs/${id}`, headers });
       expect(res.statusCode).toBe(404);
+      expect(res.json()).toMatchObject({ code: 'CV_NOT_FOUND' });
     });
   });
 });

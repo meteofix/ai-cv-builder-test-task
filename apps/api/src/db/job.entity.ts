@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { defineEntity, p, type InferEntity } from '@mikro-orm/core';
+import { JOB_ERROR_CODES, JOB_KINDS, JOB_STATUSES, JOB_STEPS, type JobTarget } from '@cv/shared';
 import { Cv } from './cv.entity.js';
 import { User } from './user.entity.js';
 
@@ -14,9 +15,9 @@ export const GenerationJob = defineEntity({
     // Deleting a CV deletes its jobs; a worker holding a deleted job loses its fenced update and stops.
     cv: () => p.manyToOne(Cv).ref().deleteRule('cascade'),
     user: () => p.manyToOne(User).ref().deleteRule('cascade'),
-    kind: p.enum(['generate', 'apply_answer']),
-    status: p.enum(['queued', 'running', 'succeeded', 'failed']).default('queued'),
-    step: p.string().length(32).nullable(),
+    kind: p.enum(JOB_KINDS),
+    status: p.enum(JOB_STATUSES).default('queued'),
+    step: p.enum(JOB_STEPS).nullable(),
     attempts: p.integer().default(0),
     maxAttempts: p.integer().default(3),
     runAfter: p.datetime().onCreate(() => new Date()),
@@ -26,9 +27,10 @@ export const GenerationJob = defineEntity({
     llmCalls: p.integer().default(0),
     // Results of finished steps, so a restarted job continues without repeating LLM calls.
     state: p.json<Record<string, unknown>>().default('{}'),
+    // Input of the job by kind; GenerationQueue writes it through a zod schema.
     payload: p.json<Record<string, unknown>>().default('{}'),
-    target: p.json<Record<string, unknown>>().nullable(),
-    errorCode: p.string().length(64).nullable(),
+    target: p.json<JobTarget>().nullable(),
+    errorCode: p.enum(JOB_ERROR_CODES).nullable(),
     errorMessage: p.text().nullable(),
     createdAt: p.datetime().onCreate(() => new Date()),
     updatedAt: p

@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { LIMITS } from '@cv/shared';
 import { z } from 'zod';
 import { detectWorktree, resolveStream, STREAMS } from './worktree.js';
 
@@ -30,7 +31,7 @@ export const envSchema = z.object({
   COOKIE_SECURE: flag.default(false),
   SESSION_TTL_DAYS: positiveInt.default(30),
   AUTH_RATE_LIMIT_PER_MINUTE: positiveInt.default(10),
-  MAX_UPLOAD_BYTES: positiveInt.default(10 * 1024 * 1024),
+  MAX_UPLOAD_BYTES: positiveInt.default(LIMITS.maxPdfBytes),
 
   DB_HOST: z.string().default('localhost'),
   DB_PORT: port.default(5432),

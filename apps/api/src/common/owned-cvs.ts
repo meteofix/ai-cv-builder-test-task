@@ -1,6 +1,7 @@
 import { EntityManager } from '@mikro-orm/postgresql';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Cv, type ICv } from '../db/entities.js';
+import { ApiError } from './api-error.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -15,9 +16,9 @@ export class OwnedCvs {
    */
   async findOwned(id: string, userId: string, em: EntityManager = this.em): Promise<ICv> {
     // A malformed id would reach Postgres as an invalid uuid and become a 500.
-    if (!UUID.test(id)) throw new NotFoundException();
+    if (!UUID.test(id)) throw new ApiError('CV_NOT_FOUND');
     const cv = await em.findOne(Cv, { id, user: userId });
-    if (!cv) throw new NotFoundException();
+    if (!cv) throw new ApiError('CV_NOT_FOUND');
     return cv;
   }
 }

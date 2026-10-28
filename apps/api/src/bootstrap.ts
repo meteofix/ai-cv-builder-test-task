@@ -6,6 +6,7 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { Logger } from 'pino';
 import { AppModule } from './app.module.js';
+import { ProblemFilter, validationError } from './common/problem.filter.js';
 import type { AppConfig } from './config/env.js';
 import { NestPinoLogger } from './config/logger.js';
 import { trustProxyAddresses } from './config/trust-proxy.js';
@@ -52,7 +53,8 @@ export async function createApp(
       : { contentSecurityPolicy: { directives: { upgradeInsecureRequests: null } } },
   );
   app.enableCsrfProtection();
-  app.useGlobalPipes(new StandardSchemaValidationPipe());
+  app.useGlobalPipes(new StandardSchemaValidationPipe({ exceptionFactory: validationError }));
+  app.useGlobalFilters(new ProblemFilter());
 
   adapter.getInstance().addHook('onSend', (request, reply, _payload, done) => {
     void reply.header('x-request-id', request.id);

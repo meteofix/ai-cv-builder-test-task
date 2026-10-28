@@ -23,9 +23,14 @@ NestJS 12 on Fastify 5, MikroORM 7 on PostgreSQL 17. Read the root `AGENTS.md` f
 - JSON is camelCase, ids are UUIDs, times ISO 8601. A job is queued with 202; logout and delete answer 204.
 - Controllers stay thin; logic lives in services. No generation work inside an HTTP request: it runs as a job.
 - Code that edits a CV document goes through the document's zod schema and the `version` check.
+- Save, answer and dismiss lock the CV row before they check its jobs or questions (`lockCv` in `cvs/lock-cv.ts`: `FOR UPDATE` for a save, `FOR SHARE` for answer and dismiss), in the same order as the delete cascade: CV row, then its questions and jobs. `GenerationQueue.retry` and `enqueue` take no CV-row lock, so a retry can still race a save; finalization's version check keeps that harmless.
+- Postgres rejects U+0000 in `text` and `jsonb`, and the shared schemas let it through: CV text, the target role, the saved document and answers are checked with `assertNoNul` (`cvs/no-nul.ts`) and refused with 400 instead of a 500; text extracted from a PDF is stripped instead.
+- Third-party code that prints to stdout or stderr bypasses the logger and can leak file content, because the API forwards a worker's stderr to its log: `sources/pdf-text.worker.ts` runs PDF.js with `verbosity: 0`. Check this for every new parser or library.
 
 ## Tests
 
 - `src/**/*.test.ts` — unit tests, no database. `test/*.e2e-spec.ts` and `test/*.acceptance.spec.ts` — integration tests on the stream's test database (`cv_test`, or `cv_test_<stream>` in a worktree). The file name starts with the module name.
 - `test/support/` — setup, `createTestApp()` and `inject()`, `signIn()` (a session row plus the cookie and same-origin headers CSRF needs), data factories (`createUser`, `createCv` with its source, `createJob`, `createQuestion`, `sampleDocument`) and `resetDatabase()` for `beforeEach`. Log in and create data through them, not through another module's endpoints.
+- Helpers used only by one module's tests live in `test/<module>/` (for example `test/auth/cookies.ts`), because `test/support/` is main-only.
+- A provider a test must replace gets an injection token (`EMBEDDED_FONTS` in `pdf/embedded-fonts.ts`), so a `createTestApp` override can name it.
 - Requests go through Fastify `inject()`; the background worker is off in tests (`WORKER_ENABLED=false`) and driven with `processNext()`.

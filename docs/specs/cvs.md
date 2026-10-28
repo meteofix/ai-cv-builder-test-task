@@ -33,7 +33,7 @@ A signed-in user creates a CV from pasted text or a PDF plus a target role and g
    - extraction runs in a `worker_threads` worker with a 10 s timeout and `resourceLimits` (`maxOldGenerationSizeMb: 256`). The worker is one self-contained file next to the service (no relative imports, only `unpdf` and `node:` modules), loaded with `new URL('./pdf-text.worker.<ext>', import.meta.url)` where `<ext>` is `ts` when the service itself runs from `.ts` (Vitest; Node 24 strips the types) and `js` in `dist`; a timeout, a crash or a parse error → 422 `PDF_INVALID`; a password-protected file → 422 `PDF_ENCRYPTED`; more than `LIMITS.maxPdfPages` (10) pages → 422 `PDF_TOO_MANY_PAGES` (checked before reading the text);
    - the extracted text (pages joined with `\n`, trimmed) contains no letter (`\p{L}`) → 422 `PDF_NO_TEXT` with a detail that says the file looks scanned and suggests pasting the text;
    - the text is longer than `LIMITS.maxSourceChars` → 400 `VALIDATION_FAILED` with a detail that says so.
-     Then the same transaction as for text, with `kind = 'pdf'`. The PDF bytes are never written to disk or to the database; only the text is kept. Text extraction uses `unpdf`.
+     Then the same transaction as for text, with `kind = 'pdf'`. The PDF bytes are never written to disk or to the database; only the text is kept. Text extraction uses `unpdf`. At most three extractions run at once, the others wait; a worker that times out or dies is logged (cause, error name and code only) and answers 422 `PDF_INVALID` like a broken file. NUL characters are removed from the extracted text; in the pasted text, the role and the document, which Postgres cannot store, they are 400 `VALIDATION_FAILED`.
 
 ### Reading
 
@@ -47,12 +47,12 @@ A signed-in user creates a CV from pasted text or a PDF plus a target role and g
 
 ### Editing
 
-5. **PUT document.** The body is validated by `updateDocumentRequestSchema` (the full document schema with its limits). Then, in this order: `findOwned` → an active job → 409 `JOB_ACTIVE` → no document yet → 409 `DOCUMENT_NOT_READY` → store with a compare-and-set on `version` (`UPDATE cvs SET document = …, version = version + 1, updated_at = now() WHERE id = :id AND version = :version`; a native update skips MikroORM's `onUpdate`, so `updated_at` is set explicitly); no row updated → 409 `VERSION_CONFLICT`. On success `version` grows by one and the answer is `{document, version}` as stored.
+5. **PUT document.** The body is validated by `updateDocumentRequestSchema` (the full document schema with its limits). Then, in this order: `findOwned` → an active job → 409 `JOB_ACTIVE` → no document yet → 409 `DOCUMENT_NOT_READY` → a `version` other than the stored one → 409 `VERSION_CONFLICT` at once (the provenance in step 6 is computed against the document the client edited) → store with a compare-and-set on `version` (`UPDATE cvs SET document = …, version = version + 1, updated_at = now() WHERE id = :id AND version = :version`; a native update skips MikroORM's `onUpdate`, so `updated_at` is set explicitly); no row updated (a parallel save won) → 409 `VERSION_CONFLICT`. On success `version` grows by one and the answer is `{document, version}` as stored.
 6. **Provenance on manual edits.** `factIds` and `factId` are server-owned; what the client sends for them is ignored. For every item the server compares with the stored document, by `id`:
    - a bullet or an `additional` item whose `text` is unchanged keeps its stored `factIds`; a changed or new one gets `[]`;
    - `summary` keeps its stored `factIds` only when `summary.text` is unchanged;
    - a position keeps its `factId` only when `company`, `title`, `location`, `start`, `end` and `current` are unchanged; an education entry when `institution`, `degree`, `start` and `end` are unchanged; a skill when `name` is unchanged; otherwise the field is removed.
-     This is how the generation module tells user-written bullets (`factIds: []`) from AI-written ones.
+     A bullet or `additional` item is looked up inside its own position or section only: moved elsewhere it loses its `factIds`, because a fact of another job must not follow it. An absent optional field and an empty one count as equal. This is how the generation module tells user-written bullets (`factIds: []`) from AI-written ones.
 7. **Delete.** `findOwned`, then delete the row; the source, questions and jobs go with it (`ON DELETE CASCADE`). Allowed while a job runs: the worker's fenced writes then match no row and it stops (see generation.md). 204.
 
 ### Questions

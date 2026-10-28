@@ -26,9 +26,17 @@ export const GenerationJob = defineEntity({
     lockedUntil: p.datetime().nullable(),
     llmCalls: p.integer().default(0),
     // Results of finished steps, so a restarted job continues without repeating LLM calls.
-    state: p.json<Record<string, unknown>>().default('{}'),
+    // `default` is only the column default; MikroORM would persist the string '{}' as a JSON string scalar,
+    // so onCreate supplies an object.
+    state: p
+      .json<Record<string, unknown>>()
+      .default('{}')
+      .onCreate(() => ({})),
     // Input of the job by kind; GenerationQueue writes it through a zod schema.
-    payload: p.json<Record<string, unknown>>().default('{}'),
+    payload: p
+      .json<Record<string, unknown>>()
+      .default('{}')
+      .onCreate(() => ({})),
     target: p.json<JobTarget>().nullable(),
     errorCode: p.enum(JOB_ERROR_CODES).nullable(),
     errorMessage: p.text().nullable(),

@@ -44,6 +44,20 @@ describe('database schema', () => {
     },
   );
 
+  // The worker merges step results into `state`; a JSON string scalar there would lose them.
+  it('stores the state and payload of a job created without them as JSON objects', async () => {
+    const em = entityManager(app);
+    const job = await createJob(em, { cv: await createCv(em, { user: await createUser(em) }) });
+
+    const [row] = await entityManager(app)
+      .getConnection()
+      .execute<{ state: string; payload: string }[]>(
+        'select jsonb_typeof(state) as state, jsonb_typeof(payload) as payload from generation_jobs where id = ?',
+        [job.id],
+      );
+    expect(row).toEqual({ state: 'object', payload: 'object' });
+  });
+
   it('allows a new job once the previous one has finished', async () => {
     const em = entityManager(app);
     const cv = await createCv(em, { user: await createUser(em) });

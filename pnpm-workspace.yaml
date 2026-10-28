@@ -1,0 +1,70 @@
+packages:
+  - apps/*
+  - packages/*
+
+# One place to pin every third-party version (checked with `npm view` and context7 on 2026-10-28).
+catalog:
+  # language and tooling
+  typescript: 6.0.3 # Nest CLI 12 and typescript-eslint 8 need TypeScript 6.x; 7.x is not supported yet
+  '@types/node': 24.19.2
+  vitest: 5.0.5
+  eslint: 10.13.0
+  '@eslint/js': 10.0.1
+  typescript-eslint: 8.72.1
+  globals: 17.13.0
+  eslint-config-prettier: 10.1.8
+  eslint-plugin-react-hooks: 7.1.1
+  prettier: 3.9.10
+  # shared
+  zod: 4.6.7
+  react: 19.3.1
+  react-dom: 19.3.1
+  '@types/react': 19.3.0
+  '@types/react-dom': 19.3.0
+  playwright: 1.64.1
+  unpdf: 1.9.1
+  # api
+  '@nestjs/core': 12.3.2
+  '@nestjs/common': 12.3.2
+  '@nestjs/platform-fastify': 12.3.2
+  '@nestjs/testing': 12.3.2
+  '@nestjs/cli': 12.0.11
+  '@nestjs/swagger': 12.0.5
+  '@nestjs/throttler': 6.7.1
+  fastify: 5.12.7
+  '@fastify/multipart': 10.1.6
+  '@fastify/static': 10.1.8
+  '@mikro-orm/core': 7.2.5
+  '@mikro-orm/postgresql': 7.2.5
+  '@mikro-orm/migrations': 7.2.5
+  '@mikro-orm/cli': 7.2.5
+  '@mikro-orm/nestjs': 7.1.0
+  '@anthropic-ai/sdk': 1.3.0
+  argon2: 0.45.1
+  pino: 10.4.0
+  reflect-metadata: 0.2.2
+  rxjs: 7.8.2
+  unplugin-swc: 2.0.0
+  '@swc/core': 1.16.20
+  # web
+  vite: 8.3.5
+  '@vitejs/plugin-react': 6.1.2
+  react-router: 8.5.0 # 8.5.1 is under a day old: kept out by pnpm's minimumReleaseAge
+  '@tanstack/react-query': 5.105.0
+  react-hook-form: 7.91.0
+  '@hookform/resolvers': 5.9.2 # 6.0.x is under a day old: kept out by pnpm's minimumReleaseAge
+  tailwindcss: 4.3.3
+  '@tailwindcss/vite': 4.3.3
+  msw: 3.0.3
+  jsdom: 30.1.3
+  '@testing-library/dom': 10.4.2
+  '@testing-library/react': 16.3.3
+  '@testing-library/user-event': 14.6.8
+  '@testing-library/jest-dom': 7.0.1
+
+# Build scripts of dependencies run only when listed here.
+allowBuilds:
+  argon2: true
+  esbuild: true
+  '@swc/core': true
+  '@scarf/scarf': false # telemetry of swagger-ui-dist

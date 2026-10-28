@@ -1,0 +1,36 @@
+{
+  "name": "ai-cv-builder",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build:packages": "pnpm --filter \"./packages/*\" build",
+    "build": "pnpm build:packages && pnpm --filter @cv/api build && pnpm --filter @cv/web build",
+    "lint": "eslint . && pnpm format:check",
+    "format": "prettier --write --no-error-on-unmatched-pattern apps packages scripts docs .github .claude AGENTS.md README.md \"*.{json,yaml,js}\"",
+    "format:check": "prettier --check --no-error-on-unmatched-pattern apps packages scripts docs .github .claude AGENTS.md README.md \"*.{json,yaml,js}\"",
+    "typecheck": "pnpm build:packages && tsc -p tsconfig.json && pnpm -r typecheck",
+    "test": "pnpm test:tooling && pnpm -r --workspace-concurrency=1 test",
+    "check": "pnpm build:packages && pnpm lint && tsc -p tsconfig.json && pnpm -r typecheck && pnpm test",
+    "playwright:install": "playwright install --with-deps chromium",
+    "worktree:init": "node scripts/worktree-init.ts",
+    "zone:check": "node scripts/zone-check.ts",
+    "test:tooling": "vitest run scripts/"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "globals": "catalog:",
+    "playwright": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}

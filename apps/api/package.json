@@ -1,0 +1,47 @@
+{
+  "name": "@cv/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "catalog:",
+    "@cv/cv-template": "workspace:*",
+    "@cv/shared": "workspace:*",
+    "@fastify/multipart": "catalog:",
+    "@fastify/static": "catalog:",
+    "@mikro-orm/core": "catalog:",
+    "@mikro-orm/migrations": "catalog:",
+    "@mikro-orm/nestjs": "catalog:",
+    "@mikro-orm/postgresql": "catalog:",
+    "@nestjs/common": "catalog:",
+    "@nestjs/core": "catalog:",
+    "@nestjs/platform-fastify": "catalog:",
+    "@nestjs/swagger": "catalog:",
+    "@nestjs/throttler": "catalog:",
+    "argon2": "catalog:",
+    "fastify": "catalog:",
+    "pino": "catalog:",
+    "playwright": "catalog:",
+    "reflect-metadata": "catalog:",
+    "rxjs": "catalog:",
+    "unpdf": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@mikro-orm/cli": "catalog:",
+    "@nestjs/cli": "catalog:",
+    "@nestjs/testing": "catalog:",
+    "@swc/core": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "unplugin-swc": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iryna Kovalenko — Senior Full-Stack Engineer</title>
+<style>
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:400;font-display:block;src:url("./fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:400;font-display:block;src:url("./fonts/ibm-plex-sans-cyrillic-400-normal.woff2") format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:500;font-display:block;src:url("./fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:500;font-display:block;src:url("./fonts/ibm-plex-sans-cyrillic-500-normal.woff2") format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:600;font-display:block;src:url("./fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:600;font-display:block;src:url("./fonts/ibm-plex-sans-cyrillic-600-normal.woff2") format("woff2");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+
+:root{--ink:#1c1e22;--muted:#5a5e66;--faint:#9ba0a8;--rule:#d6d8dc;--accent:#1f4f7b}
+@page{size:A4;margin:17mm}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font:400 10pt/1.45 "IBM Plex Sans",Arial,sans-serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact;-webkit-text-size-adjust:100%}
+body{overflow-wrap:anywhere;text-wrap:pretty}
+a{color:inherit;text-decoration:none}
+ul{list-style:none}
+
+.cv-header{padding-bottom:4.5mm;border-bottom:1pt solid var(--ink)}
+.cv-name{font-size:24pt;font-weight:600;line-height:1.1;letter-spacing:-.015em}
+.cv-headline{margin-top:1.2mm;font-size:12pt;font-weight:500;color:var(--accent)}
+.cv-contacts{margin-top:3mm;font-size:9.25pt;color:var(--muted)}
+.cv-contacts,.cv-skills{display:flex;flex-wrap:wrap;row-gap:.6mm}
+.cv-contacts li,.cv-skills li{min-width:0}
+.cv-contacts li:not(:empty):has(~li:not(:empty))::after,
+.cv-skills li:not(:empty):has(~li:not(:empty))::after{content:"·";margin:0 .55em;color:var(--faint)}
+.cv-entry__meta>:not(:empty)~:not(:empty)::before{content:"·";margin:0 .5em;color:var(--faint)}
+
+.cv-section{margin-top:6mm}
+.cv-section__title{margin-bottom:3mm;padding-bottom:1.2mm;border-bottom:.5pt solid var(--rule);font-size:8.5pt;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);break-after:avoid;page-break-after:avoid}
+
+.cv-entry{break-inside:avoid;page-break-inside:avoid}
+.cv-entry+.cv-entry{margin-top:3.6mm}
+.cv-entry--compact+.cv-entry--compact{margin-top:2.4mm}
+.cv-entry__head{display:flex;justify-content:space-between;align-items:baseline;gap:4mm;break-after:avoid}
+.cv-entry__title{font-size:10.5pt;font-weight:600;line-height:1.35}
+.cv-entry__dates{flex:none;font-size:9.25pt;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cv-entry__meta{color:var(--muted);break-after:avoid}
+.cv-entry__org{font-weight:500;color:var(--ink)}
+.cv-entry__bullets{margin-top:1.4mm}
+.cv-entry__bullets li{position:relative;padding-left:4.2mm;break-inside:avoid}
+.cv-entry__bullets li+li{margin-top:.9mm}
+.cv-entry__bullets li::before{content:"";position:absolute;left:.4mm;top:.62em;width:1.2mm;height:1.2mm;border-radius:50%;background:var(--accent)}
+
+.cv-list li{break-inside:avoid}
+.cv-list li+li{margin-top:.9mm}
+
+@media screen{
+  html{background:#e5e5e3}
+  body{padding:10mm 0}
+  .cv{width:210mm;min-height:297mm;margin:0 auto;padding:17mm;background:#fff;box-shadow:0 1px 2px rgb(0 0 0/.06),0 8px 28px rgb(0 0 0/.08)}
+}
+@media print{.cv{width:auto}}
+</style>
+</head>
+<body>
+  <main class="cv">
+    <header class="cv-header">
+      <h1 class="cv-name">Iryna Kovalenko</h1>
+      <p class="cv-headline">Senior Full-Stack Engineer</p>
+      <ul class="cv-contacts"><li><a href="mailto:iryna.kovalenko@example.com">iryna.kovalenko@example.com</a></li><li><a href="tel:+15550100142">+1 (555) 010-0142</a></li><li>Kyiv, Ukraine</li><li><a href="https://linkedin.com/in/iryna-kovalenko-example">linkedin.com/in/iryna-kovalenko-example</a></li><li><a href="https://github.com/ikovalenko-example">github.com/ikovalenko-example</a></li></ul>
+    </header>
+    <section class="cv-section cv-section--summary">
+      <h2 class="cv-section__title">Summary</h2>
+      <p class="cv-summary">Full-stack engineer with 7 years of experience building B2C and B2B web products in TypeScript, React and Node.js. Led the migration of a subscription checkout to Next.js 14 and built internal tooling for experiment analysis. Comfortable owning features end to end, from database schema to UI.</p>
+    </section>
+    <section class="cv-section cv-section--experience">
+      <h2 class="cv-section__title">Experience</h2>
+      <article class="cv-entry">
+        <div class="cv-entry__head">
+          <h3 class="cv-entry__title">Senior Full-Stack Engineer</h3>
+          <span class="cv-entry__dates">Mar 2023 – Present</span>
+        </div>
+        <p class="cv-entry__meta"><span class="cv-entry__org">Northwind Learning</span><span class="cv-entry__location">Kyiv, Ukraine</span></p>
+        <ul class="cv-entry__bullets">
+          <li>Led the migration of the web checkout from Next.js 12 to Next.js 14, reducing the JavaScript bundle size by 38%.</li>
+          <li>Designed a PostgreSQL-backed job queue for report generation, replacing a cron script that silently dropped jobs under load and required manual restarts several times a week, which had been a recurring source of support tickets from enterprise customers.</li>
+          <li>Built an internal A/B test dashboard used by 4 product teams to review experiment results without analyst support.</li>
+          <li>Mentored 3 engineers through code reviews and pairing sessions.</li>
+        </ul>
+      </article>
+      <article class="cv-entry">
+        <div class="cv-entry__head">
+          <h3 class="cv-entry__title">Full-Stack Engineer</h3>
+          <span class="cv-entry__dates">Jan 2021 – Feb 2023</span>
+        </div>
+        <p class="cv-entry__meta"><span class="cv-entry__org">Brightpath Studio</span><span class="cv-entry__location">Remote</span></p>
+        <ul class="cv-entry__bullets">
+          <li>Developed REST APIs in NestJS for a B2B scheduling product with 120 enterprise customers.</li>
+          <li>Introduced end-to-end tests with Playwright, halving the number of regressions found in production over two quarters.</li>
+          <li>Implemented CSV import with row-level validation errors shown in the UI.</li>
+        </ul>
+      </article>
+      <article class="cv-entry">
+        <div class="cv-entry__head">
+          <h3 class="cv-entry__title">Frontend Developer</h3>
+          <span class="cv-entry__dates">Jun 2019 – Dec 2020</span>
+        </div>
+        <p class="cv-entry__meta"><span class="cv-entry__org">Lumen Media</span><span class="cv-entry__location">Kyiv, Ukraine</span></p>
+        <ul class="cv-entry__bullets">
+          <li>Built responsive landing pages and quiz funnels in React for marketing campaigns in 6 markets.</li>
+          <li>Integrated product analytics events and maintained the tracking plan.</li>
+        </ul>
+      </article>
+      <article class="cv-entry">
+        <div class="cv-entry__head">
+          <h3 class="cv-entry__title">Web Developer</h3>
+        </div>
+        <p class="cv-entry__meta"><span class="cv-entry__org">Freelance</span></p>
+        <ul class="cv-entry__bullets">
+          <li>Delivered small business websites for local clients using WordPress and custom JavaScript.</li>
+        </ul>
+      </article>
+      <article class="cv-entry">
+        <div class="cv-entry__head">
+          <h3 class="cv-entry__title">QA Intern</h3>
+          <span class="cv-entry__dates">Jul 2018 – Sep 2018</span>
+        </div>
+        <p class="cv-entry__meta"><span class="cv-entry__org">Example Labs</span></p>
+        <ul class="cv-entry__bullets">
+          <li>Wrote and maintained manual test cases for a mobile banking app.</li>
+        </ul>
+      </article>
+    </section>
+    <section class="cv-section cv-section--education">
+      <h2 class="cv-section__title">Education</h2>
+      <article class="cv-entry cv-entry--compact">
+        <div class="cv-entry__head">
+          <h3 class="cv-entry__title">MSc in Computer Science</h3>
+          <span class="cv-entry__dates">2017 – 2019</span>
+        </div>
+        <p class="cv-entry__meta"><span class="cv-entry__org">State University of Technology</span></p>
+      </article>
+      <article class="cv-entry cv-entry--compact">
+        <div class="cv-entry__head">
+          <h3 class="cv-entry__title">BSc in Applied Mathematics</h3>
+          <span class="cv-entry__dates">2013 – 2017</span>
+        </div>
+        <p class="cv-entry__meta"><span class="cv-entry__org">State University of Technology</span></p>
+      </article>
+    </section>
+    <section class="cv-section cv-section--skills">
+      <h2 class="cv-section__title">Skills</h2>
+      <ul class="cv-skills"><li>TypeScript</li><li>JavaScript</li><li>React</li><li>Next.js</li><li>Node.js</li><li>NestJS</li><li>PostgreSQL</li><li>Redis</li><li>Docker</li><li>Playwright</li><li>Vitest</li><li>AWS</li><li>GitHub Actions</li><li>Figma</li></ul>
+    </section>
+    <section class="cv-section cv-section--extra">
+      <h2 class="cv-section__title">Certifications</h2>
+      <ul class="cv-list">
+        <li>AWS Certified Developer – Associate, 2022</li>
+        <li>Professional Scrum Master I, 2021</li>
+      </ul>
+    </section>
+    <section class="cv-section cv-section--extra">
+      <h2 class="cv-section__title">Languages</h2>
+      <ul class="cv-list">
+        <li>Ukrainian — native</li>
+        <li>English — C1</li>
+        <li>Polish — B1</li>
+      </ul>
+    </section>
+    <section class="cv-section cv-section--extra">
+      <h2 class="cv-section__title">Volunteering</h2>
+      <ul class="cv-list">
+        <li>Mentor at a free community bootcamp for career switchers, 2020–2022</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

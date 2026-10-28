@@ -17,11 +17,11 @@ Turn the source text into a CV without inventing facts, in the background, survi
 
 Every handler calls `findOwned` first. `getJob` and `retryJob` use `GenerationQueue.getLatestJob` and `GenerationQueue.retry`; the `Job` shape comes only from `toJobDto`.
 
-**`LlmClient`** (port in `llm/`, the only place that imports `@anthropic-ai/sdk`):
+**`LlmClient`** (`llm/llm-client.ts`) owns every retry, the call budget and the re-asks; one HTTP attempt goes through the port **`LlmTransport`** (`llm/llm-transport.ts`), whose only implementation is `AnthropicTransport`, the only file that imports `@anthropic-ai/sdk`:
 
 ```ts
-abstract class LlmClient {
-  abstract parse<T>(request: {
+class LlmClient {
+  parse<T>(request: {
     role: 'extractor' | 'writer' | 'judge';
     system: string;
     input: string; // the user turn; source text only inside <cv_source>…</cv_source>
@@ -30,9 +30,15 @@ abstract class LlmClient {
     signal: AbortSignal; // lost lease or shutdown
   }): Promise<T>;
 }
+
+abstract class LlmTransport {
+  abstract send<T>(request: TransportRequest<T>, signal: AbortSignal): Promise<TransportResult<T>>;
+  // TransportResult: { kind: 'output', output } | { kind: 'invalid', error } | { kind: 'refusal' };
+  // a failed request throws TransportError('transient' | 'auth' | 'rejected', status, retryAfterMs)
+}
 ```
 
-Errors it throws carry a job error code: `AI_UNAVAILABLE` (transient, the job may retry), `AI_LIMIT_REACHED`, `AI_REFUSED`, `AI_KEY_REJECTED`, `INTERNAL` (invalid output after re-asks, or a 400). Tests replace it with a scripted `FakeLlmClient` through `createTestApp(..., { overrides: [{ provide: LlmClient, useValue: fake }] })`; the real client is never called in tests except under `RUN_LIVE=1`.
+Errors `parse` throws carry a job error code (`JobError`): `AI_UNAVAILABLE` (transient, the job may retry), `AI_LIMIT_REACHED`, `AI_REFUSED`, `AI_KEY_REJECTED`, `INTERNAL` (invalid output after re-asks, or any other rejected request); a charge that finds the job no longer held by this worker throws `LeaseLostError`. Tests replace the transport, not the client, with a scripted `FakeLlmClient` through `createTestApp(..., { overrides: [{ provide: LlmTransport, useValue: fake }] })`, so retries, the call budget and re-asks always run the real code; `llm.acceptance.spec.ts` runs the production SDK client (`createAnthropicSdk`: `maxRetries: 0`, the configured timeout) against a local HTTP server it reaches through `ANTHROPIC_BASE_URL`. Waits between attempts go through `LLM_SLEEP`, which tests replace. The real API is never called in tests except under `RUN_LIVE=1`.
 
 ## Behaviour
 
@@ -49,12 +55,12 @@ Errors it throws carry a job error code: `AI_UNAVAILABLE` (transient, the job ma
 
 ### 2. LLM client
 
-1. Models and effort by role: extractor `EXTRACTOR_MODEL` (default `claude-haiku-5-5`, effort `low`), writer `WRITER_MODEL` (`claude-sonnet-5-5`, `medium`), judge `JUDGE_MODEL` (`claude-opus-5-5`, `high`). `client.messages.parse({ model, max_tokens, system, messages, output_config: { effort, format: zodOutputFormat(schema) } })`; no `temperature`; SDK `maxRetries: 0`, `timeout: LLM_TIMEOUT_MS` (180 s); the job's `AbortSignal` is passed through.
-2. **Call budget.** Before every HTTP attempt the client increments `llm_calls` with a fenced `UPDATE … SET llm_calls = llm_calls + 1 WHERE … AND llm_calls < LLM_CALL_BUDGET` (12); no row → `AI_LIMIT_REACHED`, no request is sent.
-3. **Transient errors** (429, 500, 502, 503, 504, 529, connection errors, timeouts): up to 3 attempts per call, waiting `retry-after` (seconds or HTTP date, at most 30 s) or 1 s, then 2 s; then `AI_UNAVAILABLE`.
-4. **No retry:** 401/403 → `AI_KEY_REJECTED`; other 4xx → `INTERNAL`; `stop_reason: 'refusal'` → `AI_REFUSED`.
-5. **Invalid output** (no parsed output, a schema error, `stop_reason: 'max_tokens'`): the request is sent again with the validation error appended, at most twice; then `INTERNAL` ("The AI returned an answer we could not use"). The output is never `JSON.parse`d by hand.
-6. **Logging**, one line per HTTP attempt: job id, role, model, input/output tokens, `latencyMs`, `stop_reason`, outcome. Never the prompt, the source, facts or the answer.
+1. Models and effort by role: extractor `EXTRACTOR_MODEL` (default `claude-haiku-5-5`, effort `low`), writer `WRITER_MODEL` (`claude-sonnet-5-5`, `medium`), judge `JUDGE_MODEL` (`claude-opus-5-5`, `high`). `client.messages.parse({ model, max_tokens: 16000, system, messages, output_config: { effort, format: zodOutputFormat(schema) } })`; no `temperature`; SDK `maxRetries: 0`, `timeout: LLM_TIMEOUT_MS` (180 s); the job's `AbortSignal` is passed through.
+2. **Call budget.** Before every HTTP attempt the client increments `llm_calls` with a fenced `UPDATE … SET llm_calls = llm_calls + 1 WHERE … AND llm_calls < LLM_CALL_BUDGET` (12); no row → `AI_LIMIT_REACHED` (or `LeaseLostError` when the job is no longer held by this worker), no request is sent. A charge happens also for every transport retry and every re-ask.
+3. **Transient errors** (429, 500, 502, 503, 504, 529, connection errors, timeouts): up to 3 attempts per call, waiting `retry-after` (seconds or HTTP date, at most 30 s; zero or a past date counts as absent) or 1 s, then 2 s; then `AI_UNAVAILABLE`.
+4. **No retry:** 401/403 → `AI_KEY_REJECTED`; any other status → `INTERNAL`; `stop_reason: 'refusal'` → `AI_REFUSED`, also when the refusal carries text (the stop reason is checked before the schema error, which the transport keeps instead of throwing).
+5. **Invalid output** (no parsed output, a schema error, `stop_reason: 'max_tokens'`): the request is sent again with the original input and the validation error appended inside `<previous_answer_error>`, at most twice; then `INTERNAL` ("The AI returned an answer we could not use"). The output is never `JSON.parse`d by hand.
+6. **Logging**, one line per HTTP attempt (`llm call`): job id, role, model, input/output tokens, `latencyMs`, `stopReason`, outcome (`output`, `invalid`, `refusal`, `transient`, `auth`, `rejected`) and the HTTP status of a failed request. Never the prompt, the source, facts or the answer.
 
 ### 3. `generate`
 
@@ -114,3 +120,7 @@ The acceptance examples pass with the fake client; `pnpm check` is green; the ow
 ## Required tests
 
 The acceptance examples, plus: the claim query never hands one job to two workers (two `processNext()` calls in parallel on one queued job → one runs it); `retry-after` as seconds and as an HTTP date; the client stops sending once the budget is used up even inside its own transport retries.
+
+```
+
+```

@@ -140,8 +140,8 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 - One row per section with its own version.
 - Normalized tables for entries and bullets.
 
-**Decision.** One JSONB document validated by zod, MikroORM optimistic locking on `version`, and `PUT` of the whole document. While an AI job runs, the editor is read-only and the server rejects `PUT` with 409 `JOB_ACTIVE`; the card being updated shows "Updating…". A stale `PUT` from another tab gets 409 `VERSION_CONFLICT`, and the client reloads the latest version with a message instead of overwriting it.
-**Revisions.** Was: read-only editor → lock only the card being updated, with compare-and-set per section or card → now: read-only again, because per-unit compare-and-set (dirty-unit tracking, server comparison, extra error codes and tests) cost more than the short window of editing it would allow, while the user is answering a question anyway. Editing other sections during an AI job is a next step.
+**Decision.** One JSONB document validated by zod, a compare-and-set update on `version` (`WHERE id = … AND version = …`), and `PUT` of the whole document. While an AI job runs, the editor is read-only and the server rejects `PUT` with 409 `JOB_ACTIVE`; the card being updated shows "Updating…". A stale `PUT` from another tab gets 409 `VERSION_CONFLICT`, and the client reloads the latest version with a message instead of overwriting it.
+**Revisions.** Was: MikroORM optimistic locking on `version` → now: an explicit compare-and-set statement, because the API and the worker both replace the document in one native update, which also has to set `updated_at` itself. Was: read-only editor → lock only the card being updated, with compare-and-set per section or card → now: read-only again, because per-unit compare-and-set (dirty-unit tracking, server comparison, extra error codes and tests) cost more than the short window of editing it would allow, while the user is answering a question anyway. Editing other sections during an AI job is a next step.
 
 ## 012. Single-flight autosave
 

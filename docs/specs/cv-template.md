@@ -44,7 +44,7 @@ Test files in `packages/cv-template/test/` (`template.acceptance.test.ts` and `a
 - **TPL-5 — contacts and links.** Email `iryna@example.com`, phone `+1 (555) 010-0142`, location `Kyiv, Ukraine`, links `https://github.com/ikovalenko/` and `https://www.linkedin.com/in/iryna` → `<a href="mailto:iryna@example.com">iryna@example.com</a>`, `<a href="tel:+15550100142">+1 (555) 010-0142</a>`, `Kyiv, Ukraine`, `<a href="https://github.com/ikovalenko/">github.com/ikovalenko</a>`, `<a href="https://www.linkedin.com/in/iryna">www.linkedin.com/in/iryna</a>`, in this order.
 - **TPL-6 — ATS readability, en and uk.** Each sample → `renderCvHtml` with embedded fonts → Chromium `page.pdf(PDF_OPTIONS)` → text with `unpdf`: every section title appears as a whole word (`Experience`, not `E x p e r i e n c e`; `Досвід роботи` as written); the titles appear in document order; for every position, its printed dates appear after its title and before the next position's title.
 - **TPL-7 — text is text.** A bullet `<script>alert(1)</script>` renders escaped; the HTML contains no `<script`.
-- **TPL-8 — one page for both.** `renderCvHtml(doc, opts)` equals `renderCvShell(opts, doc.locale, title)` with `<body></body>` replaced by `<body>` + `renderCvBody(doc)` + `</body>`.
+- **TPL-8 — one page for both.** `renderCvHtml(doc, opts)` contains `<body>` + `renderCvBody(doc)` + `</body>` and exactly one `<head>`, also when a bullet reads ``Saved $$ on hosting: a $& b $` c $' d`` (a string replacement would expand those sequences; build the expected value by concatenation, not with a replace call).
 
 The existing `test/pdf-options.test.ts` (A4 size, 17 mm margin, the frozen `PDF_OPTIONS`) stays as it is.
 

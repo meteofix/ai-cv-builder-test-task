@@ -30,7 +30,7 @@ A signed-in user creates a CV from pasted text or a PDF plus a target role and g
    - the file is larger than `MAX_UPLOAD_BYTES` (10 MiB) → 413 `PDF_TOO_LARGE` (the multipart limit truncates the stream; treat a truncated file or Fastify's file-too-large error as this code, not as the generic `PAYLOAD_TOO_LARGE`);
    - `targetRole` is missing or invalid → 400 `VALIDATION_FAILED`;
    - the bytes do not start with `%PDF-` (the file name and the declared content type are ignored) → 422 `PDF_INVALID`;
-   - extraction runs in a `worker_threads` worker with a 10 s timeout and `resourceLimits` (`maxOldGenerationSizeMb: 256`); a timeout, a crash or a parse error → 422 `PDF_INVALID`; a password-protected file → 422 `PDF_ENCRYPTED`; more than `LIMITS.maxPdfPages` (10) pages → 422 `PDF_TOO_MANY_PAGES` (checked before reading the text);
+   - extraction runs in a `worker_threads` worker with a 10 s timeout and `resourceLimits` (`maxOldGenerationSizeMb: 256`). The worker is one self-contained file next to the service (no relative imports, only `unpdf` and `node:` modules), loaded with `new URL('./pdf-text.worker.<ext>', import.meta.url)` where `<ext>` is `ts` when the service itself runs from `.ts` (Vitest; Node 24 strips the types) and `js` in `dist`; a timeout, a crash or a parse error → 422 `PDF_INVALID`; a password-protected file → 422 `PDF_ENCRYPTED`; more than `LIMITS.maxPdfPages` (10) pages → 422 `PDF_TOO_MANY_PAGES` (checked before reading the text);
    - the extracted text (pages joined with `\n`, trimmed) contains no letter (`\p{L}`) → 422 `PDF_NO_TEXT` with a detail that says the file looks scanned and suggests pasting the text;
    - the text is longer than `LIMITS.maxSourceChars` → 400 `VALIDATION_FAILED` with a detail that says so.
      Then the same transaction as for text, with `kind = 'pdf'`. The PDF bytes are never written to disk or to the database; only the text is kept. Text extraction uses `unpdf`.
@@ -47,7 +47,7 @@ A signed-in user creates a CV from pasted text or a PDF plus a target role and g
 
 ### Editing
 
-5. **PUT document.** The body is validated by `updateDocumentRequestSchema` (the full document schema with its limits). Then, in this order: `findOwned` → an active job → 409 `JOB_ACTIVE` → no document yet → 409 `DOCUMENT_NOT_READY` → store with a compare-and-set on `version` (`... WHERE id = :id AND version = :version`); no row updated → 409 `VERSION_CONFLICT`. On success `version` grows by one and the answer is `{document, version}` as stored.
+5. **PUT document.** The body is validated by `updateDocumentRequestSchema` (the full document schema with its limits). Then, in this order: `findOwned` → an active job → 409 `JOB_ACTIVE` → no document yet → 409 `DOCUMENT_NOT_READY` → store with a compare-and-set on `version` (`UPDATE cvs SET document = …, version = version + 1, updated_at = now() WHERE id = :id AND version = :version`; a native update skips MikroORM's `onUpdate`, so `updated_at` is set explicitly); no row updated → 409 `VERSION_CONFLICT`. On success `version` grows by one and the answer is `{document, version}` as stored.
 6. **Provenance on manual edits.** `factIds` and `factId` are server-owned; what the client sends for them is ignored. For every item the server compares with the stored document, by `id`:
    - a bullet or an `additional` item whose `text` is unchanged keeps its stored `factIds`; a changed or new one gets `[]`;
    - `summary` keeps its stored `factIds` only when `summary.text` is unchanged;
@@ -57,7 +57,7 @@ A signed-in user creates a CV from pasted text or a PDF plus a target role and g
 
 ### Questions
 
-8. **Answer.** Validate `answerQuestionRequestSchema`, then: `findOwned` → the question must belong to this CV, else 404 `QUESTION_NOT_FOUND` (also for a malformed `qid`) → it must be `open`, else 409 `QUESTION_CLOSED` → `answer.type` must equal the question's `answerType`, else 400 `VALIDATION_FAILED`. In one transaction: set `status = 'answered'`, `answer`, `applyStatus = 'applying'`, `applyNote = null`, and `GenerationQueue.enqueue(tx, cv, { kind: 'apply_answer', target: { questionId, section, itemId }, payload: { questionId, answer } })` with `section` and `itemId` from the question's target. An active job makes the queue throw 409 `JOB_ACTIVE`, the transaction rolls back and the question stays open: answers are applied one at a time. 202 `{question, job}`.
+8. **Answer.** Validate `answerQuestionRequestSchema`, then: `findOwned` → the question must belong to this CV, else 404 `QUESTION_NOT_FOUND` (also for a malformed `qid`) → it must be `open`, or `answered` with `applyStatus = 'failed'` (a failed application can be answered again, otherwise the answer would be lost), else 409 `QUESTION_CLOSED` → `answer.type` must equal the question's `answerType`, else 400 `VALIDATION_FAILED`. In one transaction: set `status = 'answered'`, `answer`, `applyStatus = 'applying'`, `applyNote = null`, and `GenerationQueue.enqueue(tx, cv, { kind: 'apply_answer', target: { questionId, section, itemId }, payload: { questionId, answer } })` with `section` and `itemId` from the question's target. An active job makes the queue throw 409 `JOB_ACTIVE`, the transaction rolls back and the question stays open: answers are applied one at a time. 202 `{question, job}`.
 9. **Dismiss.** Same lookups and `QUESTION_CLOSED` rule; set `status = 'dismissed'`; 200 `{question}`. Allowed while a job runs (it does not touch the document).
 
 ### Ownership
@@ -77,7 +77,7 @@ Test files `apps/api/test/cvs.acceptance.spec.ts` (and `sources.acceptance.spec.
   | PNG bytes sent as `cv.pdf`, `application/pdf`                                    | 422 `PDF_INVALID`        |
   | `%PDF-1.7` followed by garbage                                                   | 422 `PDF_INVALID`        |
   | a PDF whose only content is an image of text (printed from HTML with an `<img>`) | 422 `PDF_NO_TEXT`        |
-  | a password-protected PDF (committed fixture)                                     | 422 `PDF_ENCRYPTED`      |
+  | `fixtures/encrypted.pdf` (user password, see `fixtures/README.md`)               | 422 `PDF_ENCRYPTED`      |
   | a PDF with 11 pages                                                              | 422 `PDF_TOO_MANY_PAGES` |
   | 10 MiB + 1 byte starting with `%PDF-`                                            | 413 `PDF_TOO_LARGE`      |
 - **CVS-4 — the role is required for uploads too.** A valid text PDF without `targetRole` → 400 `VALIDATION_FAILED`; no CV.
@@ -88,7 +88,7 @@ Test files `apps/api/test/cvs.acceptance.spec.ts` (and `sources.acceptance.spec.
   | no document, generate job `failed`                                                               | `state: "failed"`                                                   |
   | document with `fullName` "Iryna Kovalenko", generate `succeeded`, questions: 2 open, 1 dismissed | `state: "ready"`, `fullName: "Iryna Kovalenko"`, `openQuestions: 2` |
   | document, apply_answer job `queued`                                                              | `state: "updating"`                                                 |
-- **CVS-6 — saving a document.** A CV with a document at `version: 1`; `PUT .../document` with a changed headline and `version: 1` → 200 with that headline and `version: 2`; `GET` shows `version: 2`.
+- **CVS-6 — saving a document.** A CV with a document at `version: 1`; `PUT .../document` with a changed headline and `version: 1` → 200 with that headline and `version: 2`; `GET` shows `version: 2` and an `updatedAt` later than before the save.
 - **CVS-7 — a stale save does not overwrite.** Same CV after CVS-6; `PUT` with `version: 1` → 409 `VERSION_CONFLICT`; the stored document and `version: 2` are unchanged.
 - **CVS-8 — no edits while AI works.** A CV with a document and a job in `queued`, and another in `running` → `PUT` with the current version → 409 `JOB_ACTIVE` for both.
 - **CVS-9 — no edits before the first generation.** A CV without a document → `PUT` with a valid document and `version: 0` → 409 `DOCUMENT_NOT_READY`.
@@ -99,6 +99,7 @@ Test files `apps/api/test/cvs.acceptance.spec.ts` (and `sources.acceptance.spec.
 - **CVS-14 — dismiss.** An open question → `POST .../dismiss` → 200 with `status: "dismissed"`; again → 409 `QUESTION_CLOSED`; dismissing works while a job is `running`.
 - **CVS-15 — the daily limit stops creation without a trace.** With `GENERATIONS_PER_USER_PER_DAY=1`, the second `POST /api/cvs` → 429 `GENERATION_LIMIT_REACHED`; the user has one CV.
 - **CVS-16 — ownership.** From a second account, every route of this spec with `:id` → 404 `CV_NOT_FOUND` (`apps/api/test/ownership.e2e-spec.ts`, main; it must pass with these routes registered).
+- **CVS-17 — a failed application can be answered again.** A question `answered` with `applyStatus: "failed"` and no active job → `POST .../answer` with a new valid answer → 202; the question has the new `answer` and `applyStatus: "applying"`, and a new `apply_answer` job is queued.
 
 ## Definition of done
 

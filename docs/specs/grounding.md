@@ -51,7 +51,9 @@ Two levels, no fuzzy matching:
 1. **Normalized substring.** Both texts are normalized: Unicode NFKC; typographic quotes `‘’‚‛“”„` to `'`/`"`; dashes `‐‑‒–—―−` to `-`; non-breaking and other Unicode spaces to a space; runs of whitespace (including line breaks) to one space; trimmed. The quote must be a substring of the normalized source.
 2. **Letters and digits only.** Both texts keep only `\p{L}` and `\p{N}`, lower-cased. The quote must be a non-empty substring.
 
-The span is `[start, end)` in the **original** source (the first match; `end` exclusive). An empty quote is not found.
+**Token boundaries, at both levels.** A match counts only when it starts and ends on token boundaries of the original text: the character before the matched span and the character after it are not a letter or digit (`\p{L}`, `\p{N}`), or the span touches the edge of the text. At level 2 the boundaries are checked on the original text after mapping the match back, so `nodejs` matches `Node.js`, while `Java` does not match inside `JavaScript` and `SQL` not inside `PostgreSQL`. The first occurrence whose boundaries hold wins.
+
+The span is `[start, end)` in the **original** source (`end` exclusive). An empty quote is not found.
 
 ### 2. Checking an extracted fact — `verifyFacts(source, extracted) → { facts, dropped }`
 
@@ -82,10 +84,12 @@ A fact whose span overlaps an instruction fragment is removed (reason `instructi
 
 - **References** — `checkReferences(item, positionId, facts)`: a bullet's `factIds` must be non-empty and every id must be its position's fact or an achievement whose `positionId` is that position. A summary sentence's `factIds` must be non-empty and every id must be a kept fact of any kind. Failure → the item is removed (unverified, class `wrong_reference`).
 - **Numbers** — `checkNumbers(text, referencedQuotes, source)`, on the text tokenized by the regular expressions below:
-  - a **metric** is a number with a unit: a `%`, a leading `+` or trailing `+`, a trailing `x`/`×`, a currency sign (`$ € £ ₴`) before or after, or a trailing `k`, `K`, `M`, `B` (for example `38%`, `+40%`, `3x`, `$2M`, `10k+`); it must appear in the referenced facts' quotes (compared without spaces, case-insensitive, `,` and `.` as written);
-  - a **standalone number** is digits (with optional `.`/`,` groups) not touching a letter on either side (`2021`, `14`, `4`); it must appear as a number anywhere in the source;
+  - a **metric** is a number with a unit: a `%`, a leading `+` or trailing `+`, a trailing `x`/`×`, a currency sign (`$ € £ ₴`) before or after, or a trailing `k`, `K`, `M`, `B` (for example `38%`, `+40%`, `3x`, `$2M`, `10k+`); it must be equal to a metric token of the referenced facts' quotes, tokenized the same way (compared without spaces, case-insensitive, `,` and `.` as written), so `40%` does not match `140%`;
+  - a **standalone number** is digits (with optional `.`/`,` groups) not touching a letter on either side (`2021`, `14`, `4`); it must be equal to a number token anywhere in the source (`14` does not match `140`);
   - a token where digits touch letters (`S3`, `ES6`, `p95`, `B2B`, `IPv6`, `2FA`) is not checked; the metric forms above are matched first, so `3x` and `10k` are metrics, not glued tokens.
-    Failure → the item is removed (unverified, class `number_not_in_source`).
+
+  Failure → the item is removed (unverified, class `number_not_in_source`).
+
 - **Order** — `checkOrder(order, positionIds)`: the writer's experience order must be a permutation of the kept position ids (no unknown id, no duplicate, none missing). Failure → the server uses the source order and logs it; nothing is removed.
 - **Skills** — the writer's skill selection keeps only ids of kept skill facts, in the writer's order; unknown ids are ignored.
 
@@ -98,21 +102,25 @@ The source is split into lines. Not counted: empty lines, lines without a letter
 Test file `apps/api/test/grounding.acceptance.spec.ts` (pure function calls through `apps/api/src/grounding/index.ts`); test names start with the example id.
 
 - **GRD-1 — quotes.** Source `Senior Engineer — Acme Corp, 2021 – present\n• Led the “billing” migration`:
-  | quote                                         | found               |
-  | --------------------------------------------- | ------------------- |
-  | `Senior Engineer — Acme Corp`                 | yes, span `[0, 27]` |
-  | `Senior Engineer - Acme Corp, 2021 - present` | yes (level 1)       |
-  | `Led the "billing"   migration`               | yes (level 1)       |
-  | `senior engineer acme corp 2021`              | yes (level 2)       |
-  | `Senior Engineer at Google`                   | no                  |
-  | `` (empty)                                    | no                  |
+  | quote                                         | found                     |
+  | --------------------------------------------- | ------------------------- |
+  | `Senior Engineer — Acme Corp`                 | yes, span `[0, 27]`       |
+  | `Senior Engineer - Acme Corp, 2021 - present` | yes (level 1)             |
+  | `Led the "billing"   migration`               | yes (level 1)             |
+  | `senior engineer acme corp 2021`              | yes (level 2)             |
+  | `Senior Engineer at Google`                   | no                        |
+  | `Engineer — Acme`                             | yes (whole tokens)        |
+  | `ngineer — Acme`                              | no (starts inside a word) |
+  | `` (empty)                                    | no                        |
 - **GRD-2 — structural values must be in their quote.** Source `Senior Engineer, Acme Corp, Kyiv, 2021 – present`; position fact with that quote and `company: "Google"`, `title: "Senior Engineer"`, `location: "Lviv"`, `start: "2019-03"`, `end: null`, `current: true` → kept with `company: ""`, `title: "Senior Engineer"`, `location: null`, `start: null`; with `start: "2021-03"` the start is kept.
-- **GRD-3 — invented facts disappear.** A position fact quoting `Staff Engineer, Google, 2020 – 2023` that is not in the source → dropped with `quote_not_found`; a skill fact `{name: "Kubernetes"}` quoting `TypeScript, PostgreSQL, React` → dropped with `field_not_in_quote`.
+- **GRD-3 — invented facts disappear.** A position fact quoting `Staff Engineer, Google, 2020 – 2023` that is not in the source → dropped with `quote_not_found`; a skill fact `{name: "Kubernetes"}` quoting `TypeScript, PostgreSQL, React` → dropped with `field_not_in_quote`. Substrings of other words are not values either: skill `{name: "Java"}` quoting `JavaScript, Node.js` and skill `{name: "SQL"}` quoting `TypeScript, PostgreSQL, React` → both dropped with `field_not_in_quote`; skill `{name: "Node.js"}` quoting `JavaScript, Node.js` is kept; a position with `company: "Meta"` quoting `Engineer, Metalab, 2020 – 2022` is kept with `company: ""`.
 - **GRD-4 — numbers.**
   | text                                      | referenced quotes                              | source also contains            | result                                 |
   | ----------------------------------------- | ---------------------------------------------- | ------------------------------- | -------------------------------------- |
   | `Cut the bundle size by 38%.`             | `…reducing the JavaScript bundle size by 38%.` | —                               | pass                                   |
   | `Cut the bundle size by 40%.`             | same                                           | —                               | fail                                   |
+  | `Cut costs by 40%.`                       | `Cut costs by 140%.`                           | —                               | fail                                   |
+  | `Raised $2M.`                             | `Raised $12M in the seed round.`               | —                               | fail                                   |
   | `Grew revenue 2x.`                        | `Grew revenue in two quarters.`                | —                               | fail                                   |
   | `Upgraded the app to Next.js 14.`         | `Upgraded the app to Next.js.`                 | —                               | fail                                   |
   | `Upgraded the app to Next.js 14.`         | `from Next.js 12 to Next.js 14`                | —                               | pass                                   |

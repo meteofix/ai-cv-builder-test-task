@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap">
+<link rel="stylesheet" href="./cv-builder.css">
+<link rel="stylesheet" href="./cv-template.css">
+</helmet>
+<div class="sheet" ref="{{ outerRef }}" style="{{ outerStyle }}">
+  <article class="cv" ref="{{ innerRef }}" style="{{ innerStyle }}" aria-label="CV preview">
+    <header class="cv-header">
+      <h1 class="cv-name">Iryna Kovalenko</h1>
+      <p class="cv-headline">Senior Full-Stack Engineer</p>
+      <ul class="cv-contacts">
+        <li><a href="mailto:iryna.kovalenko@example.com">iryna.kovalenko@example.com</a></li>
+        <li>Kyiv, Ukraine</li>
+        <li><a href="https://linkedin.com/in/iryna-kovalenko-example">linkedin.com/in/iryna-kovalenko-example</a></li>
+      </ul>
+    </header>
+    <sc-if value="{{ showSummary }}" hint-placeholder-val="{{ true }}">
+      <section class="cv-section cv-section--summary">
+        <h2 class="cv-section__title">Summary</h2>
+        <sc-if value="{{ writing }}">
+          <div class="cv-placeholder" role="status">
+            <span class="cv-placeholder__label">Writing…</span>
+            <span class="cv-placeholder__line"></span>
+            <span class="cv-placeholder__line cv-placeholder__line--short"></span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ final }}" hint-placeholder-val="{{ true }}">
+          <p class="cv-summary">Full-stack engineer with 7 years of experience building B2C and B2B web products in TypeScript, React and Node.js.</p>
+        </sc-if>
+      </section>
+    </sc-if>
+    <section class="cv-section cv-section--experience">
+      <h2 class="cv-section__title">Experience</h2>
+      <sc-for list="{{ positions }}" as="pos" hint-placeholder-count="3">
+        <article class="cv-entry">
+          <div class="cv-entry__head">
+            <h3 class="cv-entry__title">{{ pos.title }}</h3>
+            <span class="cv-entry__dates">{{ pos.dates }}</span>
+          </div>
+          <p class="cv-entry__meta"><span class="cv-entry__org">{{ pos.company }}</span><span class="cv-entry__location">{{ pos.location }}</span></p>
+          <sc-if value="{{ writing }}">
+            <div class="cv-placeholder" role="status">
+              <span class="cv-placeholder__label">Writing…</span>
+              <span class="cv-placeholder__line cv-placeholder__line--short"></span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ final }}" hint-placeholder-val="{{ true }}">
+            <ul class="cv-entry__bullets">
+              <sc-for list="{{ pos.bullets }}" as="b"><li>{{ b }}</li></sc-for>
+            </ul>
+          </sc-if>
+        </article>
+      </sc-for>
+    </section>
+    <section class="cv-section cv-section--education">
+      <h2 class="cv-section__title">Education</h2>
+      <article class="cv-entry cv-entry--compact">
+        <div class="cv-entry__head">
+          <h3 class="cv-entry__title">MSc in Computer Science</h3>
+          <span class="cv-entry__dates">2017 – 2019</span>
+        </div>
+        <p class="cv-entry__meta"><span class="cv-entry__org">State University of Technology</span></p>
+      </article>
+    </section>
+    <section class="cv-section cv-section--skills">
+      <h2 class="cv-section__title">Skills</h2>
+      <ul class="cv-skills"><li>TypeScript</li><li>React</li><li>Node.js</li><li>NestJS</li><li>PostgreSQL</li><li>Docker</li><li>Playwright</li></ul>
+    </section>
+    <section class="cv-section cv-section--extra">
+      <h2 class="cv-section__title">Languages</h2>
+      <ul class="cv-list">
+        <li>Ukrainian — native</li>
+        <li>English — C1</li>
+      </ul>
+    </section>
+  </article>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:640,&quot;height&quot;:920},&quot;draft&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;&quot;,&quot;writing&quot;,&quot;failed&quot;],&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;'writing' | 'failed' | undefined&quot;}}">
+class Component extends DCLogic {
+  state = { scale: 0.7, h: null };
+  outerRef = React.createRef();
+  innerRef = React.createRef();
+  componentDidMount() {
+    const fixed = parseFloat(this.props.fixedScale);
+    if (fixed > 0) {
+      // Print copies: known column width, no ResizeObserver
+      const set = () => { const i = this.innerRef.current; if (i) this.setState({ scale: fixed, h: Math.ceil(i.offsetHeight * fixed) }); };
+      set();
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(set);
+      return;
+    }
+    this.ro = new ResizeObserver(() => this.measure());
+    if (this.outerRef.current) this.ro.observe(this.outerRef.current);
+    if (this.innerRef.current) this.ro.observe(this.innerRef.current);
+    this.measure();
+  }
+  componentWillUnmount() { this.ro && this.ro.disconnect(); }
+  measure() {
+    const o = this.outerRef.current, i = this.innerRef.current;
+    if (!o || !i || !o.clientWidth) return;
+    const scale = Math.min(1, o.clientWidth / 794);
+    const h = Math.ceil(i.offsetHeight * scale);
+    if (Math.abs(scale - this.state.scale) > 0.001 || h !== this.state.h) this.setState({ scale, h });
+  }
+  renderVals() {
+    const draft = this.props.draft ?? null;
+    const positions = [
+      { title: 'Senior Full-Stack Engineer', company: 'Northwind Learning', location: 'Kyiv, Ukraine', dates: 'Mar 2023 – Present', bullets: [
+        'Led the migration of the web checkout to Next.js 14, reducing the JavaScript bundle size by 38%.',
+        'Designed a PostgreSQL-backed job queue for report generation, replacing a cron script that dropped jobs under load.',
+        'Built an internal A/B test dashboard used by 4 product teams to review experiment results without analyst support.'] },
+      { title: 'Full-Stack Engineer', company: 'Brightpath Studio', location: 'Remote', dates: 'Jan 2021 – Feb 2023', bullets: [
+        'Developed REST APIs in NestJS for a B2B scheduling product with 120 enterprise customers.',
+        'Implemented CSV import with row-level validation errors shown in the UI.'] },
+      { title: 'Frontend Developer', company: 'Lumen Media', location: 'Kyiv, Ukraine', dates: '', bullets: [
+        'Built responsive landing pages and quiz funnels in React for marketing campaigns in 6 markets.'] },
+    ];
+    return {
+      positions,
+      writing: draft === 'writing',
+      final: !draft,
+      showSummary: draft !== 'failed',
+      outerRef: this.outerRef,
+      innerRef: this.innerRef,
+      outerStyle: this.state.h ? { height: this.state.h + 'px' } : { height: Math.round(1123 * this.state.scale) + 'px' },
+      innerStyle: { transform: `scale(${this.state.scale})` },
+    };
+  }
+}
+</script>
+</body>
+</html>

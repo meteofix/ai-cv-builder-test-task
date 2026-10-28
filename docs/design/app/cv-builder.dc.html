@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>CV Builder — interface reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@500&amp;display=swap">
+<link rel="stylesheet" href="./cv-builder.css">
+</helmet>
+<div class="spec">
+  <header class="spec__intro">
+    <h1 class="spec__h1">CV Builder — interface reference</h1>
+    <p class="spec__lead">Еталон для перенесення в React + Tailwind 4. Токени й компоненти — у <code>cv-builder.css</code> (токени на початку файлу), стиль аркуша — у <code>cv-template.css</code> (те саме, що <code>renderCvShell</code>). Кожна рамка — окремий контейнер: <code>@container app</code> у макеті замінює звичайні брейкпоінти.</p>
+    <nav class="spec__toc" aria-label="Screens">
+      <a href="#s1a">1a Editor · desktop</a>
+      <a href="#s1b">1b Updating…</a>
+      <a href="#s1c">1c Component states</a>
+      <a href="#s2a">2a Editor · phone</a>
+      <a href="#s2b">2b Preview dialog</a>
+      <a href="#s3a">3a Generation</a>
+      <a href="#s3b">3b Generation failed</a>
+    </nav>
+  </header>
+
+  <section class="spec__section" id="s1a" data-screen-label="1a Editor desktop">
+    <div class="spec__label"><span class="spec__id">1a</span><h2 class="spec__title">Editor · desktop 1280 · default</h2></div>
+    <p class="spec__note">Форма ліворуч, превʼю праворуч (sticky). Превʼю в застосунку — <code>&lt;iframe sandbox="allow-same-origin"&gt;</code>, аркуш 794 px масштабується під ширину колонки. «Add phone» лише фокусує поле Phone. «Not in your CV» згорнута за замовчуванням — розгорнутий вигляд у <a href="#s1c">1c</a>.</p>
+    <div class="spec__frame">
+      <div class="spec__viewport spec__viewport--desktop">
+        <div class="app">
+          <header class="app-header">
+            <div class="app-header__brand">
+              <a class="app-header__name" href="#s1a">CV Builder</a>
+              <span class="badge">CV language: English</span>
+            </div>
+            <h1 class="app-header__role">Senior Full-Stack Engineer</h1>
+            <div class="app-header__actions">
+              <span class="save-status save-status--saved" role="status" aria-live="polite"><svg class="icon icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>Saved</span>
+              <a class="btn btn--primary" href="#s1a"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Download PDF</a>
+              <button type="button" class="btn btn--ghost"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"></path></svg>Log out</button>
+            </div>
+          </header>
+          <div class="editor">
+            <dc-import name="Editor Form" variant="desktop" hint-size="100%,2600px"></dc-import>
+            <aside class="preview" aria-label="Preview">
+              <div class="preview__head"><h2 class="preview__title">Preview</h2><span class="badge">A4</span></div>
+              <div class="preview__frame"><dc-import name="CV Sheet" hint-size="100%,760px"></dc-import></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spec__section" id="s1b" data-screen-label="1b Editor desktop updating">
+    <div class="spec__label"><span class="spec__id">1b</span><h2 class="spec__title">Editor · desktop · Updating…</h2></div>
+    <p class="spec__note">Після відповіді на питання про CSV import AI оновлює другу позицію (<code>job.target</code>). Уся форма в <code>&lt;fieldset disabled&gt;</code>, картка Brightpath Studio має <code>aria-busy="true"</code> і мітку «Updating…», «Download PDF» — <code>aria-disabled="true"</code> без <code>href</code>.</p>
+    <div class="spec__frame">
+      <div class="spec__viewport spec__viewport--desktop">
+        <div class="app">
+          <header class="app-header">
+            <div class="app-header__brand">
+              <a class="app-header__name" href="#s1b">CV Builder</a>
+              <span class="badge">CV language: English</span>
+            </div>
+            <h1 class="app-header__role">Senior Full-Stack Engineer</h1>
+            <div class="app-header__actions">
+              <span class="save-status save-status--saved" role="status" aria-live="polite"><svg class="icon icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>Saved</span>
+              <a class="btn btn--primary" role="link" aria-disabled="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Download PDF</a>
+              <button type="button" class="btn btn--ghost"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"></path></svg>Log out</button>
+            </div>
+          </header>
+          <div class="editor">
+            <dc-import name="Editor Form" variant="updating" hint-size="100%,2600px"></dc-import>
+            <aside class="preview" aria-label="Preview">
+              <div class="preview__head"><h2 class="preview__title">Preview</h2><span class="badge">A4</span></div>
+              <div class="preview__frame"><dc-import name="CV Sheet" hint-size="100%,760px"></dc-import></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spec__section" id="s1c" data-screen-label="1c Component states">
+    <div class="spec__label"><span class="spec__id">1c</span><h2 class="spec__title">Component states</h2></div>
+    <p class="spec__note">Статус автозбереження (<code>role="status"</code>, <code>aria-live="polite"</code>) і «Download PDF», яка неактивна, поки збереження не завершене або йде AI-задача. Праворуч — розгорнута панель «Not in your CV».</p>
+    <div class="spec__row">
+      <div class="spec__cell">
+        <span class="spec__cell-label">header actions · saving</span>
+        <div class="spec__swatch-row">
+          <span class="save-status save-status--saving" role="status"><span class="spinner" aria-hidden="true"></span>Saving…</span>
+          <a class="btn btn--primary" role="link" aria-disabled="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Download PDF</a>
+        </div>
+        <span class="spec__cell-label">header actions · saved</span>
+        <div class="spec__swatch-row">
+          <span class="save-status save-status--saved" role="status"><svg class="icon icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>Saved</span>
+          <a class="btn btn--primary" href="#s1c"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Download PDF</a>
+        </div>
+        <span class="spec__cell-label">header actions · save failed (retry 1 s, 2 s, 5 s)</span>
+        <div class="spec__swatch-row">
+          <span class="save-status save-status--failed" role="status"><svg class="icon icon--sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5M12 16.5v.01"></path></svg>Save failed</span>
+          <a class="btn btn--primary" role="link" aria-disabled="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Download PDF</a>
+        </div>
+      </div>
+      <div class="spec__cell" style="width: min(100%, 560px)">
+        <span class="spec__cell-label">not-in-cv · expanded</span>
+        <dc-import name="Editor Form" variant="not-in-cv" hint-size="100%,520px"></dc-import>
+      </div>
+    </div>
+  </section>
+
+  <section class="spec__section" id="s2a" data-screen-label="2a Editor phone">
+    <div class="spec__label"><span class="spec__id">2a</span><h2 class="spec__title">Editor · phone 360</h2></div>
+    <p class="spec__note">Липка панель секцій угорі (горизонтально прокручується всередині себе, сторінка — ні). Картки досвіду й освіти — згорнуті <code>&lt;details&gt;</code>. Внизу липка панель: статус збереження, «Preview» (відкриває <code>&lt;dialog&gt;</code>, див. <a href="#s2b">2b</a>) і «Download PDF».</p>
+    <div class="spec__frame spec__frame--fit">
+      <div class="spec__viewport spec__viewport--phone">
+        <div class="app">
+          <header class="app-header app-header--static">
+            <div class="app-header__brand">
+              <a class="app-header__name" href="#s2a">CV Builder</a>
+              <span class="badge">CV language: English</span>
+            </div>
+            <h1 class="app-header__role">Senior Full-Stack Engineer</h1>
+            <div class="app-header__actions">
+              <button type="button" class="btn btn--icon btn--ghost" aria-label="Log out"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"></path></svg></button>
+            </div>
+          </header>
+          <nav class="section-bar" aria-label="CV sections">
+            <a class="section-bar__link" href="#phone-contacts" aria-current="true">Contacts</a>
+            <a class="section-bar__link" href="#phone-summary">Summary</a>
+            <a class="section-bar__link" href="#phone-experience">Experience <span class="section-bar__count" aria-label="2 questions">2</span></a>
+            <a class="section-bar__link" href="#phone-education">Education</a>
+            <a class="section-bar__link" href="#phone-skills">Skills</a>
+            <a class="section-bar__link" href="#phone-more">More</a>
+          </nav>
+          <div class="editor">
+            <dc-import name="Editor Form" variant="phone" hint-size="100%,2400px"></dc-import>
+          </div>
+          <div class="action-bar">
+            <span class="save-status save-status--saved" role="status" aria-live="polite"><svg class="icon icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>Saved</span>
+            <button type="button" class="btn btn--secondary" onClick="{{ openPreview }}" aria-haspopup="dialog">Preview</button>
+            <a class="btn btn--primary" href="#s2a">Download PDF</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spec__section" id="s2b" data-screen-label="2b Preview dialog phone">
+    <div class="spec__label"><span class="spec__id">2b</span><h2 class="spec__title">Editor · phone · Preview dialog</h2></div>
+    <p class="spec__note"><code>&lt;dialog&gt;</code> через <code>showModal()</code>, на весь екран; аркуш на всю ширину. Закриття — <code>&lt;form method="dialog"&gt;</code> або Esc, фокус повертається на «Preview». Кнопка «Preview» у <a href="#s2a">2a</a> відкриває справжній діалог.</p>
+    <div class="spec__frame spec__frame--fit">
+      <div class="spec__viewport spec__viewport--phone">
+        <dialog class="preview-dialog preview-dialog--inline" open="{{ true }}" aria-labelledby="dlg-inline-title">
+          <div class="preview-dialog__bar">
+            <h2 class="preview-dialog__title" id="dlg-inline-title">Preview</h2>
+            <form method="dialog" class="preview-dialog__close-form"><button class="btn btn--icon btn--ghost" aria-label="Close preview"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></form>
+          </div>
+          <div class="preview-dialog__body"><dc-import name="CV Sheet" hint-size="100%,480px"></dc-import></div>
+        </dialog>
+      </div>
+    </div>
+  </section>
+
+  <section class="spec__section" id="s3a" data-screen-label="3a Generation">
+    <div class="spec__label"><span class="spec__id">3a</span><h2 class="spec__title">Generation · desktop · Writing</h2></div>
+    <p class="spec__note">Степер — <code>&lt;ol&gt;</code>, активний крок з <code>aria-current="step"</code>. Чернетка (<code>GET /draft</code>) показує те, що вже є; на місці summary і булітів — «Writing…».</p>
+    <div class="spec__frame">
+      <div class="spec__viewport spec__viewport--desktop">
+        <div class="app">
+          <header class="app-header">
+            <div class="app-header__brand">
+              <a class="app-header__name" href="#s3a">CV Builder</a>
+              <span class="badge">CV language: English</span>
+            </div>
+            <h1 class="app-header__role">Senior Full-Stack Engineer</h1>
+            <div class="app-header__actions">
+              <button type="button" class="btn btn--ghost"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"></path></svg>Log out</button>
+            </div>
+          </header>
+          <main class="generation">
+            <section class="progress-panel" aria-label="Progress">
+              <ol class="stepper">
+                <li class="stepper__step stepper__step--done"><span class="stepper__bar"></span><span class="stepper__label"><svg class="icon icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>Reading your CV</span></li>
+                <li class="stepper__step stepper__step--active" aria-current="step"><span class="stepper__bar"></span><span class="stepper__label"><span class="spinner" aria-hidden="true"></span>Writing</span></li>
+                <li class="stepper__step"><span class="stepper__bar"></span><span class="stepper__label"><span class="stepper__marker" aria-hidden="true"></span>Checking facts</span></li>
+                <li class="stepper__step"><span class="stepper__bar"></span><span class="stepper__label"><span class="stepper__marker" aria-hidden="true"></span>Finishing</span></li>
+              </ol>
+              <p class="progress-panel__note">You can close this page — generation continues.</p>
+            </section>
+            <section class="draft" aria-label="Draft">
+              <div class="draft__head"><h2 class="draft__title">Draft</h2></div>
+              <div class="preview__frame"><dc-import name="CV Sheet" draft="writing" hint-size="100%,1100px"></dc-import></div>
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="spec__section" id="s3b" data-screen-label="3b Generation failed">
+    <div class="spec__label"><span class="spec__id">3b</span><h2 class="spec__title">Generation · desktop · failed</h2></div>
+    <p class="spec__note">Повідомлення — <code>job.error.message</code> (<code>role="alert"</code>). «Retry» → <code>POST /job/retry</code> і назад до 3a. Чернетка нижче — лише для читання.</p>
+    <div class="spec__frame">
+      <div class="spec__viewport spec__viewport--desktop">
+        <div class="app">
+          <header class="app-header">
+            <div class="app-header__brand">
+              <a class="app-header__name" href="#s3b">CV Builder</a>
+              <span class="badge">CV language: English</span>
+            </div>
+            <h1 class="app-header__role">Senior Full-Stack Engineer</h1>
+            <div class="app-header__actions">
+              <button type="button" class="btn btn--ghost"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"></path></svg>Log out</button>
+            </div>
+          </header>
+          <main class="generation">
+            <div class="alert alert--danger" role="alert">
+              <div class="alert__body">
+                <svg class="icon alert__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5M12 16.5v.01"></path></svg>
+                <p class="alert__message">The AI service is unavailable right now.</p>
+              </div>
+              <button type="button" class="btn btn--secondary"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4.5h-4.5"></path></svg>Retry</button>
+            </div>
+            <section class="progress-panel" aria-label="Progress">
+              <ol class="stepper">
+                <li class="stepper__step stepper__step--done"><span class="stepper__bar"></span><span class="stepper__label"><svg class="icon icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>Reading your CV</span></li>
+                <li class="stepper__step stepper__step--failed" aria-current="step"><span class="stepper__bar"></span><span class="stepper__label"><svg class="icon icon--sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5M12 16.5v.01"></path></svg>Writing</span></li>
+                <li class="stepper__step"><span class="stepper__bar"></span><span class="stepper__label"><span class="stepper__marker" aria-hidden="true"></span>Checking facts</span></li>
+                <li class="stepper__step"><span class="stepper__bar"></span><span class="stepper__label"><span class="stepper__marker" aria-hidden="true"></span>Finishing</span></li>
+              </ol>
+            </section>
+            <section class="draft" aria-label="Draft">
+              <div class="draft__head"><h2 class="draft__title">Draft</h2><span class="badge">Read-only</span></div>
+              <div class="preview__frame"><dc-import name="CV Sheet" draft="failed" hint-size="100%,1100px"></dc-import></div>
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<dialog class="preview-dialog" ref="{{ dialogRef }}" aria-labelledby="dlg-title">
+  <div class="preview-dialog__bar">
+    <h2 class="preview-dialog__title" id="dlg-title">Preview</h2>
+    <form method="dialog" class="preview-dialog__close-form"><button class="btn btn--icon btn--ghost" aria-label="Close preview"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></form>
+  </div>
+  <div class="preview-dialog__body"><dc-import name="CV Sheet" hint-size="100%,480px"></dc-import></div>
+</dialog>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  dialogRef = React.createRef();
+  renderVals() {
+    return {
+      dialogRef: this.dialogRef,
+      openPreview: () => { const d = this.dialogRef.current; if (d && !d.open) d.showModal(); },
+    };
+  }
+}
+</script>
+</body>
+</html>

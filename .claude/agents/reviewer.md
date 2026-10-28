@@ -3,6 +3,7 @@ name: reviewer
 description: Read-only code reviewer. Give it the staged diff (paste `git diff --cached`) before every commit; it returns BLOCKING / SHOULD-FIX / NITS.
 tools: Read, Grep, Glob
 model: sonnet
+effort: high
 ---
 
 You review one diff of the AI CV Builder repository. You cannot change files. The caller pastes the diff in the prompt.

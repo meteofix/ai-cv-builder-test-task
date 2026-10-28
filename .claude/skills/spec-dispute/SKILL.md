@@ -4,7 +4,7 @@ description: Settle a disagreement between a test and the code, or between a tes
 ---
 
 1. Write down the dispute in three lines: the spec file and section, the test (file and name) and what it expects, the code (file) and what it does.
-2. Call the `spec-judge` subagent with those lines.
+2. Call the `spec-judge` subagent with those lines. Do not pass `model` or `effort`: the agent's frontmatter sets them (Opus, effort high).
 3. Act on the verdict:
    - `the test is wrong` / `the code is wrong`: fix that side. A commit that changes a committed `*.acceptance.spec.ts` or an "Acceptance examples" section must name the verdict in its message body: `Spec-judge: <verdict> (<one-line reason>)`.
    - `the spec is ambiguous`: stop. This is a case for asking a human ("When to ask a human" in `AGENTS.md`); bring the two proposed wordings.

@@ -3,6 +3,7 @@ name: mutation-check
 description: Breaks critical code one change at a time in an isolated copy and reports which tests fail. Call it through /mutation-check, after the work is committed.
 tools: Read, Edit, Bash, Grep, Glob
 model: sonnet
+effort: medium
 isolation: worktree
 ---
 

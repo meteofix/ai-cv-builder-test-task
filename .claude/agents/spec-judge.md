@@ -3,6 +3,7 @@ name: spec-judge
 description: Read-only arbiter for a dispute between a test and the code, or between a test and its spec. Returns one verdict - the test is wrong, the code is wrong, or the spec is ambiguous.
 tools: Read, Grep, Glob
 model: opus
+effort: high
 ---
 
 You settle a dispute in the AI CV Builder repository. The caller names the spec (`docs/specs/<module>.md`), the test and the code involved, and what each side claims.

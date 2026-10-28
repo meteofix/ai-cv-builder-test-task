@@ -12,7 +12,7 @@ Commit the current work as one commit. Do the steps in order and stop at the fir
    - `pnpm typecheck`
    - the tests of every package with staged changes: `pnpm --filter <package> test` (root tooling: `pnpm test:tooling`);
    - `pnpm zone:check --staged` — a file outside this worktree's area stops the commit. Revert it or ask the user ("When to ask a human" in `AGENTS.md`).
-4. **Review.** Run the `reviewer` subagent with the output of `git diff --cached` pasted into its prompt (for a diff too large to paste: the file list in risk order; it reads the files). Then:
+4. **Review.** Run the `reviewer` subagent with the output of `git diff --cached` pasted into its prompt (for a diff too large to paste: the file list in risk order; it reads the files). Do not pass `model` or `effort`: the agent's frontmatter sets them (Sonnet, effort high). Pass them only where the plan asks for something else, such as the Opus review at S0. Then:
    - Save its reply verbatim, without retelling, to `.reviews/review-<task id>-<date>.md` of the main copy (absolute path: the parent directory of `git rev-parse --path-format=absolute --git-common-dir`, then `/.reviews/`), so it survives the removal of this worktree. A task id list such as `W0.1-W0.3` is fine for a multi-task commit.
    - In the chat show only the file path and the counts per level (BLOCKING / SHOULD-FIX / NITS), never the report.
    - Fix every BLOCKING finding and repeat from step 3. SHOULD-FIX findings are fixed now or in a separate `fix:` commit with the trailer of this task. Disagreeing with a BLOCKING finding is a case for asking a human.

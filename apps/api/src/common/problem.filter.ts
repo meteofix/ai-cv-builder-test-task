@@ -6,7 +6,7 @@ import {
   type ExceptionFilter,
   type StandardSchemaValidationPipeOptions,
 } from '@nestjs/common';
-import type { ErrorCode, Problem } from '@cv/shared';
+import { ERROR_STATUS, type ErrorCode, type Problem } from '@cv/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ApiError } from './api-error.js';
 
@@ -18,6 +18,7 @@ const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {
   405: 'NOT_FOUND',
   413: 'PAYLOAD_TOO_LARGE',
   429: 'RATE_LIMITED',
+  503: 'UNAVAILABLE',
 };
 
 /**
@@ -66,9 +67,11 @@ export class ProblemFilter implements ExceptionFilter {
         exception.errors,
       );
     }
+    // The status follows the code (ERROR_STATUS), so a code means the same status everywhere: a 405 is a
+    // 404 NOT_FOUND, a 415 a 400 VALIDATION_FAILED.
     const status = statusOf(exception);
-    if (status >= 500) return problem(500, 'INTERNAL', requestId);
-    return problem(status, CODE_BY_STATUS[status] ?? 'VALIDATION_FAILED', requestId);
+    const code = CODE_BY_STATUS[status] ?? (status >= 500 ? 'INTERNAL' : 'VALIDATION_FAILED');
+    return problem(ERROR_STATUS[code], code, requestId);
   }
 }
 

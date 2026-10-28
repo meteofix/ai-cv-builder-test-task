@@ -44,6 +44,23 @@ describe('error responses (RFC 9457)', () => {
       413,
       'PAYLOAD_TOO_LARGE',
     ],
+    [
+      'an unsupported content type',
+      {
+        method: 'POST',
+        url: '/api/probe/validate',
+        headers: { 'content-type': 'text/plain', 'sec-fetch-site': 'same-origin' },
+        payload: 'x',
+      },
+      400,
+      'VALIDATION_FAILED',
+    ],
+    [
+      'a dependency that is down',
+      { method: 'GET', url: '/api/probe/unavailable' },
+      503,
+      'UNAVAILABLE',
+    ],
     ['an unexpected error', { method: 'GET', url: '/api/probe/crash' }, 500, 'INTERNAL'],
   ])('answers %s with problem+json', async (_case, request, status, code) => {
     const res = await inject(app, {

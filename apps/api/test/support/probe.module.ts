@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Inject, Ip, Module, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Ip,
+  Module,
+  Param,
+  Post,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { credentialsSchema, type Credentials } from '@cv/shared';
 import { ApiError } from '../../src/common/api-error.js';
 import { CurrentUser, Public, type SessionUser } from '../../src/common/current-user.js';
@@ -41,6 +51,12 @@ class ProbeController {
   @Get('conflict')
   conflict() {
     throw new ApiError('VERSION_CONFLICT', 'The CV was changed elsewhere.');
+  }
+
+  @Public()
+  @Get('unavailable')
+  unavailable() {
+    throw new ServiceUnavailableException('Database is not reachable');
   }
 
   @Public()

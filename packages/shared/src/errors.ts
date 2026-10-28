@@ -24,6 +24,7 @@ export const ERROR_CODES = [
   'PDF_ENCRYPTED',
   'PDF_TOO_MANY_PAGES',
   'PDF_RENDER_FAILED',
+  'UNAVAILABLE',
   'INTERNAL',
 ] as const;
 
@@ -54,6 +55,8 @@ export const ERROR_STATUS = {
   PDF_ENCRYPTED: 422,
   PDF_TOO_MANY_PAGES: 422,
   PDF_RENDER_FAILED: 503,
+  /** A dependency is down (the database for `/api/health/ready`). */
+  UNAVAILABLE: 503,
   INTERNAL: 500,
 } as const satisfies Record<ErrorCode, number>;
 

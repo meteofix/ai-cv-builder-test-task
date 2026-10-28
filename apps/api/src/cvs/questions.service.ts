@@ -7,6 +7,8 @@ import { GenerationQueue } from '../common/generation-queue.js';
 import { isUuid, OwnedCvs } from '../common/owned-cvs.js';
 import { CvQuestion, type ICvQuestion } from '../db/entities.js';
 import { toQuestionDto } from './cv-mapper.js';
+import { lockCv } from './lock-cv.js';
+import { assertNoNul } from './no-nul.js';
 
 /** Answering and dismissing the questions of a CV. */
 @Injectable()
@@ -27,8 +29,10 @@ export class QuestionsService {
     userId: string,
     { answer }: AnswerQuestionRequest,
   ): Promise<{ question: Question; job: Job }> {
+    assertNoNul(answer, 'answer');
     return this.em.fork().transactional(async (tx) => {
-      const cv = await this.owned.findOwned(cvId, userId, tx);
+      const owned = await this.owned.findOwned(cvId, userId, tx);
+      const cv = await lockCv(tx, owned.id, 'read');
       const question = await this.findAnswerable(tx, cv.id, questionId, { retry: true });
       if (answer.type !== question.answerType) {
         throw new ApiError(
@@ -58,7 +62,8 @@ export class QuestionsService {
   /** Dismissing does not touch the document, so it is allowed while a job runs. */
   async dismiss(cvId: string, questionId: string, userId: string): Promise<Question> {
     return this.em.fork().transactional(async (tx) => {
-      const cv = await this.owned.findOwned(cvId, userId, tx);
+      const owned = await this.owned.findOwned(cvId, userId, tx);
+      const cv = await lockCv(tx, owned.id, 'read');
       const question = await this.findAnswerable(tx, cv.id, questionId, { retry: false });
       question.status = 'dismissed';
       await tx.flush();

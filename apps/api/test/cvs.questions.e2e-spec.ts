@@ -1,7 +1,8 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { problemSchema, ROUTES, routePath } from '@cv/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { CvQuestion, GenerationJob } from '../src/db/entities.js';
+import { LockMode } from '@mikro-orm/core';
+import { Cv, CvQuestion, GenerationJob } from '../src/db/entities.js';
 import { createTestApp, inject } from './support/create-test-app.js';
 import { entityManager, resetDatabase } from './support/db.js';
 import { createCv, createQuestion, sampleDocument } from './support/factories.js';
@@ -65,6 +66,36 @@ describe('cvs questions', () => {
           answer: { type: 'text', text: 'I led a team of five.' },
         },
       });
+    });
+
+    it('refuses a NUL character in a text answer with 400 and keeps the question open', async () => {
+      const question = await createQuestion(entityManager(app), { cv, answerType: 'text' });
+      const res = await answerText(question.id, 'led a team\u0000 of five');
+      expect(res.statusCode).toBe(400);
+      expect(problemSchema.parse(res.json()).code).toBe('VALIDATION_FAILED');
+      expect((await entityManager(app).findOneOrFail(CvQuestion, question.id)).status).toBe('open');
+    });
+
+    it('takes the six characters backslash-u-0-0-0-0 as text in an answer', async () => {
+      const question = await createQuestion(entityManager(app), { cv, answerType: 'text' });
+      const res = await answerText(question.id, String.raw`Handled \u0000 in parsers.`);
+      expect(res.statusCode).toBe(202);
+    });
+
+    it('locks the CV row before the question row, so a delete cannot deadlock with an answer', async () => {
+      const question = await createQuestion(entityManager(app), { cv, answerType: 'text' });
+      let answering: ReturnType<typeof answerText> | undefined;
+      // This transaction plays a DELETE: it holds the CV row and would take the question rows next.
+      await entityManager(app).transactional(async (tx) => {
+        await tx.findOneOrFail(Cv, cv.id, { lockMode: LockMode.PESSIMISTIC_WRITE });
+        answering = answerText(question.id, 'An answer.');
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        // The answer waits for the CV row and has not locked the question: this would fail at once otherwise.
+        await tx.findOneOrFail(CvQuestion, question.id, {
+          lockMode: LockMode.PESSIMISTIC_WRITE_OR_FAIL,
+        });
+      });
+      expect((await answering)?.statusCode).toBe(202);
     });
 
     it.each([

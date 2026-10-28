@@ -1,3 +1,4 @@
+import { LockMode } from '@mikro-orm/core';
 import { MikroORM } from '@mikro-orm/postgresql';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
@@ -9,7 +10,7 @@ import {
   type CvDocument,
 } from '@cv/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GenerationQueue } from '../src/common/generation-queue.js';
+import { OwnedCvs } from '../src/common/owned-cvs.js';
 import { Cv } from '../src/db/entities.js';
 import { createTestApp, inject } from './support/create-test-app.js';
 import { entityManager, resetDatabase } from './support/db.js';
@@ -246,24 +247,78 @@ describe('cvs', () => {
       expect(problemSchema.parse(res.json()).code).toBe('VALIDATION_FAILED');
     });
 
-    it('refuses a save that lost the race after the version check (compare-and-set)', async () => {
-      // A parallel save lands after this request has loaded the CV and before its update runs.
+    it('reads the CV again after taking the lock, so the version another writer just committed is current', async () => {
+      // Another writer commits version 2 after this request has loaded the CV and before it has the lock.
+      const original = OwnedCvs.prototype.findOwned.bind(app.get(OwnedCvs));
       const spy = vi
-        .spyOn(GenerationQueue.prototype, 'hasActiveJob')
-        .mockImplementationOnce(async () => {
-          await entityManager(app).nativeUpdate(Cv, { id: cv.id }, { version: 2 });
-          return false; // no job is active, so the request goes on to the update
+        .spyOn(OwnedCvs.prototype, 'findOwned')
+        .mockImplementationOnce(async (...args) => {
+          const loaded = await original(...args);
+          await entityManager(app).nativeUpdate(
+            Cv,
+            { id: cv.id },
+            { version: 2, document: { ...document, headline: 'Written elsewhere' } },
+          );
+          return loaded;
         });
       try {
-        const res = await putDocument(cv.id, { ...document, headline: 'Late' }, 1);
-        expect(res.statusCode).toBe(409);
-        expect(problemSchema.parse(res.json()).code).toBe('VERSION_CONFLICT');
-        const stored = await entityManager(app).findOneOrFail(Cv, cv.id);
-        expect(stored).toMatchObject({ version: 2 });
-        expect(stored.document?.headline).toBe(document.headline);
+        // The client has seen version 2. Without the second read the stale entity would say 1 and refuse it.
+        const res = await putDocument(cv.id, { ...document, headline: 'Mine' }, 2);
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toMatchObject({ version: 3, document: { headline: 'Mine' } });
       } finally {
         spy.mockRestore();
       }
+    });
+
+    it('answers 404 when the CV is deleted between the ownership check and the lock', async () => {
+      const original = OwnedCvs.prototype.findOwned.bind(app.get(OwnedCvs));
+      const spy = vi
+        .spyOn(OwnedCvs.prototype, 'findOwned')
+        .mockImplementationOnce(async (...args) => {
+          const loaded = await original(...args);
+          await entityManager(app).nativeDelete(Cv, { id: cv.id });
+          return loaded;
+        });
+      try {
+        const res = await putDocument(cv.id, document, 1);
+        expect(res.statusCode).toBe(404);
+        expect(problemSchema.parse(res.json()).code).toBe('CV_NOT_FOUND');
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('refuses a save when the version is stale after the lock', async () => {
+      await entityManager(app).nativeUpdate(Cv, { id: cv.id }, { version: 2 });
+      const res = await putDocument(cv.id, { ...document, headline: 'Late' }, 1);
+      expect(res.statusCode).toBe(409);
+      expect(problemSchema.parse(res.json()).code).toBe('VERSION_CONFLICT');
+      const stored = await entityManager(app).findOneOrFail(Cv, cv.id);
+      expect(stored.document?.headline).toBe(document.headline);
+    });
+
+    it('refuses a save when a job is queued while it waits for the row lock', async () => {
+      let saving: ReturnType<typeof putDocument> | undefined;
+      // This transaction holds the CV row the way the answer route does while it inserts its job.
+      await entityManager(app).transactional(async (tx) => {
+        await tx.findOneOrFail(Cv, cv.id, { lockMode: LockMode.PESSIMISTIC_WRITE });
+        saving = putDocument(cv.id, { ...document, headline: 'Too late' }, 1);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await createJob(tx, { cv, kind: 'apply_answer', status: 'queued' });
+      });
+      // Without the lock the save does not wait: its update goes through and this is a 200, not JOB_ACTIVE.
+
+      const res = await saving;
+      expect(res?.statusCode).toBe(409);
+      expect(problemSchema.parse(res?.json()).code).toBe('JOB_ACTIVE');
+      expect((await entityManager(app).findOneOrFail(Cv, cv.id)).version).toBe(1);
+    });
+
+    it('saves a document that contains the six characters \\u0000 as text', async () => {
+      const text = String.raw`Escapes such as \u0000 are rejected by Postgres.`;
+      const res = await putDocument(cv.id, { ...document, headline: text }, 1);
+      expect(res.statusCode).toBe(200);
     });
 
     it('answers JOB_ACTIVE before DOCUMENT_NOT_READY while the first generation runs', async () => {

@@ -1,4 +1,4 @@
-import type { CvDocument } from '@cv/shared';
+import type { CvDocument, Locale } from '@cv/shared';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fontFaceCss, type FontSource } from './fonts.js';
 import { LABELS } from './labels.js';
@@ -113,16 +113,21 @@ export function renderCvBody(document: CvDocument): string {
 }
 
 /** A complete HTML page without content: the preview sets it once and then only swaps the body. */
-export function renderCvShell({ fonts }: RenderCvHtmlOptions, lang = 'en', title = ''): string {
+export function renderCvShell(
+  { fonts }: RenderCvHtmlOptions,
+  lang: Locale = 'en',
+  title = '',
+): string {
   return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${fontFaceCss(fonts)}${CV_CSS}</style></head><body></body></html>`;
 }
 
 /** The complete page the PDF endpoint prints: shell plus body, `<title>` and `<html lang>` from the document. */
 export function renderCvHtml(document: CvDocument, options: RenderCvHtmlOptions): string {
   const title = [document.contacts.fullName, document.headline].filter(Boolean).join(' — ');
+  // A replacer function: a string replacement would expand `$&`, `$'` and `$$` found in the CV text.
   return renderCvShell(options, document.locale, title).replace(
     '<body></body>',
-    `<body>${renderCvBody(document)}</body>`,
+    () => `<body>${renderCvBody(document)}</body>`,
   );
 }
 

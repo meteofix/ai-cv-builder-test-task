@@ -8,6 +8,9 @@ const PATHS = {
     </>
   ),
   logout: <path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  trash: <path d="M4 7h16M10 11v6M14 11v6M9 7V4.5h6V7M6 7l1 13h10l1-13" />,
+  retry: <path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4.5h-4.5" />,
 } as const;
 
 export type IconName = keyof typeof PATHS;

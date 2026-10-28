@@ -1,20 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { ConnectionBanner } from './components/ConnectionBanner';
-import { AppHeader } from './components/AppHeader';
 import { AuthPage } from './pages/AuthPage';
-
-/** Replaced by the real screens in task 3.2; the routes and the guard are final. */
-function Placeholder({ title }: { title: string }) {
-  return (
-    <>
-      <AppHeader />
-      <main className="generation">
-        <h1 className="auth__title">{title}</h1>
-      </main>
-    </>
-  );
-}
+import { CvListPage } from './pages/CvListPage';
+import { CvPage } from './pages/CvPage';
+import { NewCvPage } from './pages/NewCvPage';
 
 export function App() {
   return (
@@ -27,7 +17,7 @@ export function App() {
           path="/"
           element={
             <RequireAuth>
-              <Placeholder title="Your CVs" />
+              <CvListPage />
             </RequireAuth>
           }
         />
@@ -35,7 +25,7 @@ export function App() {
           path="/cvs/new"
           element={
             <RequireAuth>
-              <Placeholder title="New CV" />
+              <NewCvPage />
             </RequireAuth>
           }
         />
@@ -43,7 +33,7 @@ export function App() {
           path="/cvs/:id"
           element={
             <RequireAuth>
-              <Placeholder title="CV" />
+              <CvPage />
             </RequireAuth>
           }
         />

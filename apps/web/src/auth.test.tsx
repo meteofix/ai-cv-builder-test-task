@@ -146,6 +146,7 @@ describe('auth screens', () => {
   it('a failed logout keeps the session and says why', async () => {
     server.use(
       mockRoute('me', () => USER),
+      mockRoute('listCvs', () => ({ items: [] })),
       mockRoute('logout', () => problem('INTERNAL', { requestId: 'req-7' })),
     );
     const { user } = renderApp('/');

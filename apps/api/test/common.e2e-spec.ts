@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { OwnedCvs } from '../src/common/owned-cvs.js';
 import { createTestApp, inject } from './support/create-test-app.js';
 import { entityManager, resetDatabase } from './support/db.js';
 import { createCv, createUser } from './support/factories.js';
@@ -128,5 +129,20 @@ describe('trustProxy wiring', () => {
 
   it('ignores X-Forwarded-For from a public address', async () => {
     expect(await ipSeen('198.51.100.7')).toBe('198.51.100.7');
+  });
+});
+
+describe('provider overrides in createTestApp', () => {
+  it('replaces a provider with a test double while keeping the real wiring', async () => {
+    const fake = { findOwned: (id: string) => Promise.resolve({ id: `fake-${id}` }) };
+    const app = await createTestApp(
+      {},
+      { imports: [ProbeModule], overrides: [{ provide: OwnedCvs, useValue: fake }] },
+    );
+    const { headers } = await signIn(entityManager(app));
+    const res = await inject(app, { method: 'GET', url: '/api/probe/cvs/abc', headers });
+    await app.close();
+    expect(res.json()).toEqual({ id: 'fake-abc' });
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
   });
 });

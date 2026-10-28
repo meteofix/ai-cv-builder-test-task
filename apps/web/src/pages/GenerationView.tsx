@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { CvDetail, Locale } from '@cv/shared';
+import type { CvDetail } from '@cv/shared';
 import { useEffect } from 'react';
 import { useDraft, useJob, useRetryJob } from '../api/cvs';
 import { errorMessage } from '../api/errors';
@@ -7,13 +7,8 @@ import { queryKeys } from '../api/keys';
 import { AppHeader } from '../components/AppHeader';
 import { CvPreview } from '../components/CvPreview';
 import { Icon } from '../components/Icon';
+import { LanguageBadge } from '../components/LanguageBadge';
 import { Stepper } from '../components/Stepper';
-
-const LANGUAGE_NAMES: Record<Locale, string> = { en: 'English', uk: 'Ukrainian' };
-
-export function LanguageBadge({ locale }: { locale: Locale }) {
-  return <span className="badge">CV language: {LANGUAGE_NAMES[locale]}</span>;
-}
 
 /** The CV has no document yet: the job writes it (progress) or has failed (message, Retry). */
 export function GenerationView({ cv }: { cv: CvDetail }) {

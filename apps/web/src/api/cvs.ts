@@ -68,10 +68,11 @@ export function useCv(id: string) {
   });
 }
 
-export function useJob(id: string) {
+export function useJob(id: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.job(id),
     queryFn: () => api('getJob', { params: { id } }),
+    enabled,
     refetchInterval: (query: Query<Job>) => (isJobActive(query.state.data) ? POLL_MS : false),
   });
 }

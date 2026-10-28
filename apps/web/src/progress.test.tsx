@@ -103,6 +103,8 @@ describe('generation progress', () => {
     await vi.advanceTimersByTimeAsync(1500);
     await vi.waitFor(() => {
       expect(previewText()).toContain('Full-stack engineer with 7 years of experience.');
+      // The editor shows the finished document.
+      expect(screen.getByLabelText('Full name')).toHaveValue('Iryna Kovalenko');
     });
     expect(draftRequests).toBe(1);
     expect(cvRequests).toBeGreaterThanOrEqual(2);

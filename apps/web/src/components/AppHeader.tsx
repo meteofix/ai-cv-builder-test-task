@@ -11,7 +11,7 @@ interface AppHeaderProps {
   badge?: ReactNode;
   /** Buttons placed before "Log out" (save status, Download PDF). */
   actions?: ReactNode;
-  /** The phone layout does not stick to the top. */
+  /** The phone layout does not stick to the top and keeps only the icon of "Log out". */
   isStatic?: boolean;
 }
 
@@ -36,7 +36,8 @@ export function AppHeader({ role, badge, actions, isStatic = false }: AppHeaderP
         ) : null}
         <button
           type="button"
-          className="btn btn--ghost"
+          className={isStatic ? 'btn btn--icon btn--ghost' : 'btn btn--ghost'}
+          aria-label={isStatic ? 'Log out' : undefined}
           disabled={logout.isPending}
           onClick={() => {
             // Straight to a clean /login: the route guard would add the page to come back to.
@@ -44,7 +45,7 @@ export function AppHeader({ role, badge, actions, isStatic = false }: AppHeaderP
           }}
         >
           <Icon name="logout" />
-          Log out
+          {isStatic ? null : 'Log out'}
         </button>
       </div>
     </header>

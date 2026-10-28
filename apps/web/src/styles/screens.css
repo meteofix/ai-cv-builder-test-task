@@ -203,3 +203,22 @@
 .tag-input__tags {
   display: contents;
 }
+
+/* "Show in CV" flash: the target of a question is highlighted for a moment (set by showInCv). */
+[data-flash] {
+  background-color: var(--color-highlight);
+  transition: background-color 0.3s;
+}
+
+/* A PDF error is a sentence, not a status word: it wraps, and on the phone it sits above the buttons. */
+.pdf-error {
+  white-space: normal;
+}
+.action-bar {
+  flex-wrap: wrap;
+}
+.action-bar .pdf-error {
+  order: -1;
+  flex-basis: 100%;
+  min-height: 0;
+}

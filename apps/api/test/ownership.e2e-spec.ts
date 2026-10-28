@@ -1,6 +1,7 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { problemSchema, ROUTES, routePath, type ApiRoute, type RouteName } from '@cv/shared';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { Cv, CvQuestion, CvSource, GenerationJob, GenerationUsage } from '../src/db/entities.js';
 import { createTestApp, inject } from './support/create-test-app.js';
 import { entityManager, resetDatabase } from './support/db.js';
 import {
@@ -46,6 +47,7 @@ const cvRoutes = Object.entries(ROUTES).filter(([, route]) => route.path.include
 describe('ownership: a foreign CV id is 404 CV_NOT_FOUND', () => {
   let attacker: TestSession;
   let ids: { id: string; qid: string };
+  let before: Awaited<ReturnType<typeof victimState>>;
 
   afterAll(async () => {
     await app.close();
@@ -60,7 +62,32 @@ describe('ownership: a foreign CV id is 404 CV_NOT_FOUND', () => {
     await createJob(em, { cv, status: 'failed', errorCode: 'AI_UNAVAILABLE' });
     ids = { id: cv.id, qid: question.id };
     attacker = await signIn(em);
+    before = await victimState();
   });
+
+  /** Everything an attacker's request could change about the victim's CV. */
+  async function victimState() {
+    const em = entityManager(app);
+    const cv = await em.findOne(Cv, ids.id);
+    const questions = await em.find(CvQuestion, { cv: ids.id });
+    const jobs = await em.find(GenerationJob, { cv: ids.id });
+    return {
+      cv: cv && { version: cv.version, document: cv.document, updatedAt: cv.updatedAt },
+      source: await em.count(CvSource, { cv: ids.id }),
+      questions: questions.map(({ status, answer, applyStatus }) => ({
+        status,
+        answer,
+        applyStatus,
+      })),
+      jobs: jobs.map(({ status, attempts, llmCalls, lockedBy }) => ({
+        status,
+        attempts,
+        llmCalls,
+        lockedBy,
+      })),
+      usage: await em.count(GenerationUsage, {}),
+    };
+  }
 
   it.each(cvRoutes)('%s', async (name, route) => {
     if (!registered.has(`${route.method} ${route.path}`)) {
@@ -80,6 +107,8 @@ describe('ownership: a foreign CV id is 404 CV_NOT_FOUND', () => {
     });
     expect(res.statusCode).toBe(404);
     expect(problemSchema.parse(res.json()).code).toBe('CV_NOT_FOUND');
+    // A handler that writes before it checks the owner would still answer 404.
+    expect(await victimState()).toEqual(before);
   });
 
   it('has a valid body for every CV route that takes one', () => {

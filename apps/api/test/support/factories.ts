@@ -39,6 +39,9 @@ export interface CvFactoryInput {
   document?: CvDocument | null;
   version?: number;
   source?: { kind?: 'pdf' | 'text'; text?: string; facts?: Record<string, unknown> | null };
+  /** Explicit times keep "newest first" assertions independent of the clock's resolution. */
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 /** A CV with its source text, as `POST /api/cvs` leaves it before the job runs (unless `document` is given). */
@@ -48,6 +51,8 @@ export async function createCv(em: EntityManager, input: CvFactoryInput): Promis
     targetRole: input.targetRole ?? 'Senior Full-Stack Engineer',
     document: input.document ?? null,
     version: input.version ?? (input.document ? 1 : 0),
+    ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+    ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}),
   });
   em.create(CvSource, {
     cv,
@@ -64,7 +69,21 @@ export async function createJob(
   input: { cv: ICv } & Partial<
     Pick<
       IGenerationJob,
-      'kind' | 'status' | 'step' | 'attempts' | 'payload' | 'target' | 'errorCode' | 'errorMessage'
+      | 'kind'
+      | 'status'
+      | 'step'
+      | 'attempts'
+      | 'maxAttempts'
+      | 'runAfter'
+      | 'lockedBy'
+      | 'lockedUntil'
+      | 'llmCalls'
+      | 'state'
+      | 'payload'
+      | 'target'
+      | 'errorCode'
+      | 'errorMessage'
+      | 'createdAt'
     >
   >,
 ): Promise<IGenerationJob> {
@@ -77,7 +96,19 @@ export async function createJob(
 export async function createQuestion(
   em: EntityManager,
   input: { cv: ICv } & Partial<
-    Pick<ICvQuestion, 'kind' | 'target' | 'prompt' | 'context' | 'answerType' | 'status'>
+    Pick<
+      ICvQuestion,
+      | 'kind'
+      | 'target'
+      | 'prompt'
+      | 'context'
+      | 'answerType'
+      | 'status'
+      | 'answer'
+      | 'applyStatus'
+      | 'applyNote'
+      | 'createdAt'
+    >
   >,
 ): Promise<ICvQuestion> {
   const { cv, ...fields } = input;

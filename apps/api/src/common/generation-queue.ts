@@ -1,4 +1,4 @@
-import { UniqueConstraintViolationException } from '@mikro-orm/core';
+import { LockMode, UniqueConstraintViolationException } from '@mikro-orm/core';
 import { EntityManager } from '@mikro-orm/postgresql';
 import { Inject, Injectable } from '@nestjs/common';
 import {
@@ -31,6 +31,8 @@ export type EnqueueInput =
 /** Any constant works; it only has to be the same for every process that charges the quota. */
 const QUOTA_LOCK_KEY = 4_211_028;
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** The partial unique index on `generation_jobs (cv_id) WHERE status IN ('queued', 'running')`. */
+const ACTIVE_JOB_INDEX = 'generation_jobs_one_active_per_cv';
 
 /** Default texts for failed jobs; the worker may store a more specific one. */
 const JOB_ERROR_MESSAGES: Record<NonNullable<IGenerationJob['errorCode']>, string> = {
@@ -99,7 +101,17 @@ export class GenerationQueue {
   async retry(em: EntityManager, cv: ICv): Promise<Job> {
     return this.guardActive(() =>
       em.transactional(async (tx) => {
-        const job = await this.latest(cv.id, tx);
+        // The row lock makes a parallel retry wait and then see `queued`: without it both would charge the
+        // quota, and the second could reset a job a worker has already claimed.
+        const job = await tx.findOne(
+          GenerationJob,
+          { cv: cv.id },
+          {
+            orderBy: { createdAt: 'desc', id: 'desc' },
+            lockMode: LockMode.PESSIMISTIC_WRITE,
+            refresh: true,
+          },
+        );
         if (job && ACTIVE_JOB_STATUSES.some((status) => status === job.status)) {
           throw new ApiError('JOB_ACTIVE');
         }
@@ -145,14 +157,14 @@ export class GenerationQueue {
     if (mine >= this.config.GENERATIONS_PER_USER_PER_DAY) {
       throw new ApiError(
         'GENERATION_LIMIT_REACHED',
-        `You can start ${this.config.GENERATIONS_PER_USER_PER_DAY} generations a day. Try again tomorrow.`,
+        `You can start ${this.config.GENERATIONS_PER_USER_PER_DAY} generations in 24 hours. Try again later.`,
       );
     }
     const everyone = await tx.count(GenerationUsage, { createdAt: { $gt: since } });
     if (everyone >= this.config.GENERATIONS_TOTAL) {
       throw new ApiError(
         'GENERATION_LIMIT_REACHED',
-        'The service has reached its daily generation limit. Try again tomorrow.',
+        'The service has reached its generation limit for the last 24 hours. Try again later.',
       );
     }
     tx.create(GenerationUsage, { user: userId });
@@ -163,7 +175,13 @@ export class GenerationQueue {
     try {
       return await work();
     } catch (error) {
-      if (error instanceof UniqueConstraintViolationException) throw new ApiError('JOB_ACTIVE');
+      // Only this index means "already active"; the savepoint may also flush the caller's own entities.
+      if (
+        error instanceof UniqueConstraintViolationException &&
+        (error as { constraint?: string }).constraint === ACTIVE_JOB_INDEX
+      ) {
+        throw new ApiError('JOB_ACTIVE');
+      }
       throw error;
     }
   }

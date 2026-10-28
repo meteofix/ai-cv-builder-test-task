@@ -2,7 +2,14 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ApiError } from '../src/common/api-error.js';
 import { GenerationQueue } from '../src/common/generation-queue.js';
-import { Cv, CvQuestion, GenerationJob, GenerationUsage, type ICv } from '../src/db/entities.js';
+import {
+  Cv,
+  CvQuestion,
+  CvSource,
+  GenerationJob,
+  GenerationUsage,
+  type ICv,
+} from '../src/db/entities.js';
 import { createTestApp } from './support/create-test-app.js';
 import { entityManager, resetDatabase } from './support/db.js';
 import { createCv, createJob, createQuestion, createUser } from './support/factories.js';
@@ -59,7 +66,33 @@ describe('GenerationQueue', () => {
         queue.enqueue(entityManager(app), cv, { kind: 'generate' }),
       ]);
       expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      const [rejected] = results.filter((result) => result.status === 'rejected');
+      expect(rejected?.reason).toBeInstanceOf(ApiError);
+      expect((rejected?.reason as ApiError).code).toBe('JOB_ACTIVE');
       expect(await entityManager(app).count(GenerationJob, { cv: cv.id })).toBe(1);
+    });
+
+    it.each([
+      ['commits the CV, its source, the job and the usage together', false],
+      ['leaves nothing behind when the caller rolls back', true],
+    ])('in the caller’s transaction: %s', async (_case, rollBack) => {
+      const user = await createUser(entityManager(app));
+      const em = entityManager(app);
+      const work = em.transactional(async (tx) => {
+        const cv = tx.create(Cv, { user: user.id, targetRole: 'Engineer', document: null });
+        tx.create(CvSource, { cv, kind: 'text', text: 'Iryna Kovalenko' });
+        await queue.enqueue(tx, cv, { kind: 'generate' });
+        if (rollBack) throw new Error('rollback');
+      });
+      if (rollBack) await expect(work).rejects.toThrow('rollback');
+      else await work;
+
+      const fresh = entityManager(app);
+      const expected = rollBack ? 0 : 1;
+      expect(await fresh.count(Cv, { user: user.id })).toBe(expected);
+      expect(await fresh.count(CvSource, {})).toBe(expected);
+      expect(await fresh.count(GenerationJob, {})).toBe(expected);
+      expect(await fresh.count(GenerationUsage, {})).toBe(expected);
     });
 
     it('carries the target and payload of an apply_answer job and does not charge the quota', async () => {
@@ -156,6 +189,33 @@ describe('GenerationQueue', () => {
       const row = await entityManager(app).findOneOrFail(GenerationJob, failed.id);
       expect(row).toMatchObject({ attempts: 0, llmCalls: 0, errorCode: null, lockedBy: null });
       expect(await entityManager(app).count(GenerationUsage, {})).toBe(1);
+    });
+
+    it('lets only one of two parallel retries through and charges the quota once', async () => {
+      const cv = await newCv();
+      await createJob(entityManager(app), { cv, status: 'failed', errorCode: 'AI_UNAVAILABLE' });
+      const results = await Promise.allSettled([
+        queue.retry(entityManager(app), cv),
+        queue.retry(entityManager(app), cv),
+      ]);
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      const [rejected] = results.filter((result) => result.status === 'rejected');
+      expect((rejected?.reason as ApiError).code).toBe('JOB_ACTIVE');
+      expect(await entityManager(app).count(GenerationUsage, {})).toBe(1);
+    });
+
+    it('does not reset a job that a worker claimed after the retry', async () => {
+      const cv = await newCv();
+      const failed = await createJob(entityManager(app), { cv, status: 'failed' });
+      await queue.retry(entityManager(app), cv);
+      await entityManager(app).nativeUpdate(
+        GenerationJob,
+        { id: failed.id },
+        { status: 'running', lockedBy: 'worker-1', llmCalls: 2 },
+      );
+      await rejectsWith(queue.retry(entityManager(app), cv), 'JOB_ACTIVE');
+      const row = await entityManager(app).findOneOrFail(GenerationJob, failed.id);
+      expect(row).toMatchObject({ status: 'running', lockedBy: 'worker-1', llmCalls: 2 });
     });
 
     it('puts the question of a failed apply_answer job back to applying', async () => {

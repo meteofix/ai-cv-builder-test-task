@@ -1,0 +1,57 @@
+# Web app — screens, client, editor
+
+**Area:** `apps/web/src/**`, `apps/web/public/**`, `apps/web/index.html`. Build and container files (`package.json`, `vite.config.ts`, `tsconfig*.json`, `Dockerfile`, `nginx.conf`) are the user's. **Builds on (frozen at S0):** `ROUTES`, the DTOs, `problemSchema`, `cvDocumentSchema`, `answerSchema`, `LIMITS` from `@cv/shared`; `renderCvShell` and `renderCvBody` from `@cv/cv-template`. Decisions: [001](../DECISIONS.md#001-react-spa-behind-nginx-on-one-origin), [004](../DECISIONS.md#004-polling-while-a-job-is-active), [011](../DECISIONS.md#011-one-cv-document-with-optimistic-locking-read-only-editor-during-ai-jobs), [012](../DECISIONS.md#012-single-flight-autosave), [013](../DECISIONS.md#013-staged-draft-assembled-on-read), [019](../DECISIONS.md#019-one-html-template-for-preview-and-pdf).
+
+## Goal
+
+The whole flow — sign up, create a CV from a PDF or text, watch it being written, answer questions, edit, download the PDF — works on a desktop and on a 360 px phone, never loses typing, and always says what went wrong.
+
+## Contracts
+
+- **Routes of the app:** `/login`, `/signup`, `/` (list), `/cvs/new`, `/cvs/:id` (progress, failure, editor). Anything else → the list. Without a session (`GET /api/auth/me` is 401) every route except login and sign-up goes to `/login` and comes back after login.
+- **API client:** one typed client over `ROUTES` (method, path, body and response schemas); `fetch` with `credentials: 'same-origin'`, JSON bodies, multipart for `createCvFromPdf`. Responses are parsed with the route's response schema. Errors become one `ApiError` type: `problem+json` → its `code`, `detail`, `requestId`; a non-JSON error from nginx (413, 502, 504) → a code by status (`PAYLOAD_TOO_LARGE`, `UNAVAILABLE`); a network failure → `OFFLINE`.
+- **Mock API:** MSW handlers in `src/test/` (and for `pnpm dev` without the API, optional) that follow the same schemas; tests parse handler responses with the response schema so the mock cannot drift.
+
+## Behaviour
+
+1. **Auth screens.** Email and password with the limits of `credentialsSchema`; `INVALID_CREDENTIALS` → "Wrong email or password."; `EMAIL_TAKEN` → "An account with this email already exists."; `RATE_LIMITED` → "Too many attempts. Wait a minute and try again." Logout in the header.
+2. **List** (`/`): a card per CV with role, name (or "Untitled" when `fullName` is null), state ("Generating…", "Failed", "Updating…", "Ready") and "N open questions"; "New CV" button; delete through a `<dialog>` confirmation. The list is polled every 1.5 s only while some item is `generating` or `updating`.
+3. **New CV** (`/cvs/new`): tabs "Upload PDF" / "Paste text" and the target role (required). Before upload the file is checked: not a PDF (by type or `.pdf` name) or larger than `LIMITS.maxPdfBytes` → an inline message, no request. Server codes map to messages: `PDF_NO_TEXT` "This PDF has no text layer (it looks scanned). Paste the text instead.", `PDF_ENCRYPTED`, `PDF_TOO_MANY_PAGES` (10 pages), `PDF_INVALID`, `PDF_TOO_LARGE`, `GENERATION_LIMIT_REACHED` (the server's `detail`). On 202 → `/cvs/:id`.
+4. **Progress** (`/cvs/:id` without a document): `GET /job` every 1.5 s while the job is active; a stepper with the four steps (Reading your CV · Writing · Checking facts · Finishing) from `job.step`. Once `step` is past `extract`, `GET /draft` is fetched once and shown in the preview with "Writing…" in place of empty summary and bullets. When the job succeeds → fetch the CV and show the editor; polling stops. A reload at any point shows the same state (everything comes from the server).
+5. **Failure:** a failed job shows its `error.message`, a Retry button (`POST /job/retry`; 409/429 messages from the code) and the draft read-only when there is one.
+6. **Editor** — one page: desktop: the form on the left, the preview on the right; phone: experience and education cards collapse (`<details>`), a sticky section bar with question counters, the preview opens in a `<dialog>`. One react-hook-form form for the whole document with `zodResolver(cvDocumentSchema)`. Fields: contacts, headline, summary, positions (↑/↓ buttons to reorder, add/remove bullets), education, skills, additional sections; dates as two `<select>` (month with "—", year) plus a "Present" checkbox that clears the end date. A "CV language: English/Ukrainian" label. No rich text, no "improve with AI".
+7. **Autosave** — single-flight: changes are debounced 1 s; at most one `PUT` is in flight; changes made meanwhile are sent next with the version returned by the previous save; after success the form is not reset (only the stored version and snapshot change). Status: "Saving…", "Saved", "Save failed" (retried with backoff 1 s, 2 s, 5 s). `VERSION_CONFLICT` → load the latest CV, reset the form, show "This CV was changed elsewhere. We loaded the latest version." `JOB_ACTIVE` → read-only. Pending changes are flushed before answering a question and on route change; `beforeunload` warns while changes are unsaved.
+8. **Read-only during AI jobs:** while the latest job is active the form is disabled, the card of `job.target` shows "Updating…", and `GET /job` is polled; when the job ends the CV is fetched and the form reset from it.
+9. **Questions:** a "Needs clarification · N" block lists open questions with their `prompt` and `context`; a dates answer uses the same month/year/Present inputs, a text answer a textarea (≤ `LIMITS.maxAnswerChars`); "Show in CV" scrolls to and highlights the target. Answering flushes autosave, then `POST .../answer` → the card shows "Updating…". "Dismiss" → `POST .../dismiss`. Answered questions show "Applied", "Partially applied" with `applyNote`, or "Could not apply". When the document has no email or no phone, computed items "Add email" / "Add phone" focus the field (no API call).
+10. **Not in your CV:** a panel from `GET /not-in-cv` grouped by reason: "Couldn't verify", "Not used", "Ignored (looked like an instruction)", "Not recognized", each with `text` and `context`.
+11. **Preview:** an `<iframe sandbox="allow-same-origin">` (no `allow-scripts`); its document is set once with `renderCvShell({ fonts: { baseUrl: '/fonts' } }, locale, title)`, then every change writes `renderCvBody(document)` into its `body` — no reload, no flicker, scroll kept. Height follows the content; the page is scaled from 794 px to the available width.
+12. **PDF:** a "Download PDF" link to `GET /api/cvs/:id/pdf`; disabled while a save is pending or a job is active; `DOCUMENT_NOT_READY` and `PDF_RENDER_FAILED` show messages.
+13. **Errors and connection:** any 5xx shows "Something went wrong. Error ID: <requestId>"; a banner while the browser is offline or the API is unreachable; a session that expires mid-use → `/login`.
+14. **Layout:** no horizontal scroll at 360 px on every screen; everything works with the keyboard; English UI without i18n.
+
+## Acceptance examples
+
+Tests in `apps/web/src/**/*.test.tsx` with Testing Library and MSW; names start with the example id; fake timers where time matters.
+
+- **WEB-1 — sign-in gate.** With `GET /api/auth/me` answering 401, opening `/cvs/new` shows the login page; after a successful login the app is on `/cvs/new`.
+- **WEB-2 — login error.** Login answered with 401 `INVALID_CREDENTIALS` → "Wrong email or password." and the password field keeps focus.
+- **WEB-3 — the list polls only while needed.** A list with one `generating` item → `GET /api/cvs` repeats every 1.5 s; once the handler returns it as `ready`, no further list requests happen within 5 s.
+- **WEB-4 — files are checked before upload.** Choosing an 11 MiB PDF, or a `.png`, shows a message and sends no request.
+- **WEB-5 — progress and the staged draft.** Job answers in sequence `queued`/`null`, `running`/`extract`, `running`/`write`, `running`/`judge`, `succeeded`/`finalize`: the stepper follows; `GET /draft` is requested exactly once, after `write` is reported, and the preview shows its name and "Writing…"; after `succeeded` the editor shows the document and job polling stops.
+- **WEB-6 — failure and retry.** A failed job with `error: {code: "AI_UNAVAILABLE", message: "…"}` shows the message and Retry; Retry sends `POST /job/retry` and returns to the progress view.
+- **WEB-7 — typing during a save is neither lost nor a conflict.** In the editor at `version: 3`: type "A" in the headline → after 1 s one `PUT` with `version: 3` is sent and held open by the handler; type "B" meanwhile → no second `PUT` yet; release the first (answers `version: 4`) → exactly one more `PUT` with `version: 4` and a headline ending in "AB"; the input shows "AB" throughout; no 409 happens.
+- **WEB-8 — a conflict reloads the latest version.** A `PUT` answered with 409 `VERSION_CONFLICT` → the CV is fetched again, the form shows the server's document, and the conflict message is visible.
+- **WEB-9 — read-only while AI updates a card.** A CV whose job is `running` with `target.itemId` of the second position → every input is disabled and that card shows "Updating…"; when the job turns `succeeded` the CV is fetched and the inputs are enabled.
+- **WEB-10 — answering a dates question.** An open `dates` question: choose month "Mar", year 2021 and "Present" → `POST .../answer` with `{"answer":{"type":"dates","start":"2021-03","end":null,"current":true}}`; a pending autosave is sent before it; choosing month "—" sends `"2021"`.
+- **WEB-11 — not in your CV.** Items of the four reasons are shown under their group titles.
+- **WEB-12 — preview without reloads.** After several edits the iframe's document was set once, its `body` holds the latest name, and the iframe has `sandbox="allow-same-origin"` without `allow-scripts`.
+- **WEB-13 — error messages.** A 500 `problem+json` with `requestId: "req-42"` → "Error ID: req-42"; a 413 with an HTML body → "The file is too large (max 10 MB)."; a 502 with an HTML body → the API-unreachable message.
+- **WEB-14 — reorder.** ↑ on the second position moves it first and autosaves the new order; ↑ is disabled on the first position.
+
+## Definition of done
+
+The acceptance examples pass; every screen is checked in a real browser at 360 px (no horizontal scroll) and on a desktop width, against the API on S1; `pnpm check` is green; this spec matches the code.
+
+## Required tests
+
+The acceptance examples, plus: `beforeunload` is prevented while changes are unsaved; a session that expires (a 401 from any request) leads to `/login`.

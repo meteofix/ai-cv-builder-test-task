@@ -3,6 +3,9 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import { extractText, getDocumentProxy } from 'unpdf';
 
+/** PDF.js `VerbosityLevel.ERRORS`: no warnings. */
+const PDFJS_ERRORS_ONLY = 0;
+
 /** What the worker answers; `reason` is how the caller tells a protected file from a broken one. */
 export type PdfTextResult =
   { ok: true; text: string } | { ok: false; reason: 'encrypted' | 'too_many_pages' | 'invalid' };
@@ -10,7 +13,9 @@ export type PdfTextResult =
 async function run(bytes: Uint8Array, maxPages: number): Promise<PdfTextResult> {
   let pdf;
   try {
-    pdf = await getDocumentProxy(bytes);
+    // Verbosity 0 (errors only): PDF.js warnings quote values from the file on stderr, which the API forwards
+    // to its own log, and a log line must never carry the content of a CV.
+    pdf = await getDocumentProxy(bytes, { verbosity: PDFJS_ERRORS_ONLY });
   } catch (error) {
     return {
       ok: false,

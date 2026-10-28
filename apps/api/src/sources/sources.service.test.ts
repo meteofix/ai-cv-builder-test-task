@@ -35,4 +35,18 @@ describe('SourcesService', () => {
       });
     }
   });
+
+  it.each([
+    ['an empty file', Buffer.alloc(0)],
+    ['PNG bytes', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+    ['a BOM before the signature', Buffer.from('\ufeff%PDF-1.7')],
+    ['white space before the signature', Buffer.from(' %PDF-1.7')],
+    ['a signature without the dash', Buffer.from('%PDF1.7')],
+    ['text that merely mentions %PDF-', Buffer.from('Hello %PDF- world')],
+  ])('refuses %s by its signature, without starting a worker', async (_case, bytes) => {
+    vi.mocked(extractPdfText).mockClear();
+    const service = new SourcesService(pino({ level: 'silent' }));
+    await expect(service.textFromPdf(bytes)).rejects.toMatchObject({ code: 'PDF_INVALID' });
+    expect(extractPdfText).not.toHaveBeenCalled();
+  });
 });

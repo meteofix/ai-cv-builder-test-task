@@ -7,5 +7,6 @@ coverage
 !.env.example
 .claude/worktrees/
 .claude/settings.local.json
+.playwright-mcp/
 examples/local/
 .DS_Store

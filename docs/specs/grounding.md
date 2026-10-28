@@ -40,6 +40,8 @@ interface Fact {
 }
 ```
 
+In code `Fact` is a discriminated union on `kind` (`facts.ts`): each kind carries exactly its own structured field, and the extractor's output schema (`extractedFactSchema`, `Fact` without `span`) is the same union, so a position without position fields cannot be parsed. The quote has no length cap in that schema: one long paragraph must not fail the whole extraction (the skeleton lists text over the document's limits as `unused`). Stored facts are read back through `factSchema`.
+
 The functions below take the source text and plain data and return results; they never throw on bad model output (bad input is a result, not an exception).
 
 ## Behaviour
@@ -51,11 +53,11 @@ Two levels, no fuzzy matching:
 1. **Normalized substring.** Both texts are normalized: Unicode NFKC; typographic quotes `‘’‚‛“”„` to `'`/`"`; dashes `‐‑‒–—―−` to `-`; non-breaking and other Unicode spaces to a space; runs of whitespace (including line breaks) to one space; trimmed. The quote must be a substring of the normalized source.
 2. **Letters and digits only.** Both texts keep only `\p{L}` and `\p{N}`, lower-cased, plus any `+` or `#` that directly follows a letter or another such `+`/`#` (so `C++` stays `c++` and `C#` stays `c#`). The quote must be a non-empty substring.
 
-**Token boundaries, at both levels.** A match counts only when it starts and ends on token boundaries of the original text: the character before the matched span and the character after it are not a letter or digit (`\p{L}`, `\p{N}`), or the span touches the edge of the text. A `+` or `#` directly after a letter belongs to the token (`C++`, `C#`, `F#`), so a match may not end right before one. At level 2 the boundaries are checked on the original text after mapping the match back, so `nodejs` matches `Node.js`, while `Java` does not match inside `JavaScript` and `SQL` not inside `PostgreSQL`. The first occurrence whose boundaries hold wins.
+**Token boundaries, at both levels.** A match counts only when it starts and ends on token boundaries of the original text: neither end of the matched span lies between two token characters, or the span touches the edge of the text. Token characters are letters and digits (`\p{L}`, `\p{N}`) and a `+` or `#` directly after a letter or another such sign, so `C++`, `C#`, `F#` are whole tokens and a match may not end right before their signs. A span whose own edge is punctuation (`Acme Corp,` in `Acme Corp,Kyiv`) does not cut a token. At level 2 the boundaries are checked on the original text after mapping the match back, so `nodejs` matches `Node.js`, while `Java` does not match inside `JavaScript` and `SQL` not inside `PostgreSQL`. The first occurrence whose boundaries hold wins.
 
 The span is `[start, end)` in the **original** source (`end` exclusive). An empty quote is not found.
 
-### 2. Checking an extracted fact — `verifyFacts(source, extracted) → { facts, dropped }`
+### 2. Checking an extracted fact — `verifyFacts(source, extracted, instructionSpans?) → { facts, dropped }`
 
 - The quote is not found → the fact is dropped (`dropped`, reason `quote_not_found`). It is not user text, so it is logged as a counter and shown nowhere.
 - Structural values must be found in the fact's own quote with `findQuote(quote, value)`:
@@ -63,14 +65,16 @@ The span is `[start, end)` in the **original** source (`end` exclusive). An empt
   - dates — only the year: the four digits of `start`/`end` must appear in the quote; otherwise the date becomes `null` (months are not checked);
   - `skill.name`, `contact.value` — not found → the fact is dropped (`field_not_in_quote`): a skill or contact without its value is nothing;
   - `achievement.positionId` must be the id of a kept position fact, else the fact is dropped (`unknown_position`).
-- Duplicate ids keep the first fact; the server then renumbers kept facts `f1…fn` in source order of their spans, rewriting `positionId` references.
+- A fact whose span overlaps one of `instructionSpans` (the result of `instructionFragments`, §3) is dropped (`instruction`) before its values are checked, so an achievement of an injected position is dropped too (`unknown_position`).
+- Duplicate ids keep the first fact whose quote is found (`duplicate_id` for the later ones), so an invented fact cannot push out a real one that reuses its id; the server then renumbers kept facts `f1…fn` in source order of their spans, rewriting `positionId` references.
+- `dropped` lists `{id, kind, reason}` only, never text, so it can be logged as counters.
 
 ### 3. Instruction-like text — `instructionFragments(source, ignoredInstructions) → line spans`
 
-The source reaches the models only inside delimiters as data. On top of that, a line of the source is an **instruction fragment** when:
+The source reaches the models only inside delimiters as data. On top of that, a line of the source is an **instruction fragment** when (lines break at `\n`, `\r\n`, a lone `\r`, a form feed, a vertical tab, U+2028 and U+2029, so an injected line cannot hide inside the line before it in PDF text):
 
 - it contains a quote from the extractor's `ignoredInstructions` (found with `findQuote`), or
-- it matches one of these patterns (case-insensitive; this list is the whole list):
+- it matches one of these patterns after level-1 normalization of the line (so full-width look-alikes match too; case-insensitive; this list is the whole list):
   1. a verb, an injection marker, then the object, each at most two words apart:
      - `\b(ignore|disregard|forget|override)\s+(?:\w+\s+){0,2}?(previous|prior|above|earlier|all|any|your|these)\s+(?:\w+\s+){0,2}?(instructions?|prompts?)\b`
      - `\b(ignore|disregard|forget|override)\s+(?:\w+\s+){0,2}?(previous|prior|above|earlier|your|these)\s+(?:\w+\s+){0,2}?(rules|guidelines)\b` (no `all`/`any` here: "override any default rules" is ordinary developer language)
@@ -80,17 +84,17 @@ The source reaches the models only inside delimiters as data. On top of that, a 
   5. `\b(respond|reply|answer|output|return)\s+only\s+(with|in|as)\s+(json|yaml|xml)\b`, or `\b(respond|reply|answer)\s+with\s+the\s+following\b`
   6. `</?\s*(cv_source|system|assistant|user|instructions?)\s*>`
 
-A fact whose span overlaps an instruction fragment is removed (reason `instruction`); the fragment lines are shown in "Not in your CV" as `ignored`.
+A fact whose span overlaps an instruction fragment is removed (reason `instruction`, inside `verifyFacts`); the fragment lines are shown in "Not in your CV" as `ignored`.
 
 ### 4. Checking the writer's prose
 
 - **References** — `checkReferences(item, positionId, facts)`: a bullet's `factIds` must be non-empty and every id must be its position's fact or an achievement whose `positionId` is that position. A summary sentence's `factIds` must be non-empty and every id must be a kept fact of any kind. Failure → the item is removed (unverified, class `wrong_reference`).
 - **Numbers** — `checkNumbers(text, referencedQuotes, source)`, on the text tokenized by the regular expressions below:
   - a **metric** is a number with a unit: a `%`, a leading `+` or trailing `+`, a trailing `x`/`×`, a currency sign (`$ € £ ₴`) before or after, or a trailing `k`, `K`, `M`, `B` (for example `38%`, `+40%`, `3x`, `$2M`, `10k+`); it must be equal to a metric token of the referenced facts' quotes, tokenized the same way (compared without spaces, case-insensitive, `,` and `.` as written), so `40%` does not match `140%`;
-  - a **standalone number** is digits (with optional `.`/`,` groups) not touching a letter on either side (`2021`, `14`, `4`); it must be equal to a number token anywhere in the source (`14` does not match `140`);
-  - a token where digits touch letters (`S3`, `ES6`, `p95`, `B2B`, `IPv6`, `2FA`) is not checked; the metric forms above are matched first, so `3x` and `10k` are metrics, not glued tokens.
+  - a **standalone number** is digits (with optional `.`/`,` groups) not touching a letter on either side (`2021`, `14`, `4`); it must be equal to a standalone number anywhere in the source (`14` does not match `140`; the number inside a source metric such as `5+` or `$2M` does not count, so a writer that drops the unit is questioned);
+  - a token where digits touch letters (`S3`, `ES6`, `p95`, `B2B`, `IPv6`, `2FA`), and the tail of a dotted run (`v1.2.3`), is not checked; the metric forms above are matched first, so `3x` and `10k` are metrics, not glued tokens.
 
-  Failure → the item is removed (unverified, class `number_not_in_source`).
+  The result is `{ok, unsupported}`; `unsupported` lists the failing tokens for counters. Failure → the item is removed (unverified, class `number_not_in_source`).
 
 - **Order** — `checkOrder(order, positionIds)`: the writer's experience order must be a permutation of the kept position ids (no unknown id, no duplicate, none missing). Failure → the server uses the source order and logs it; nothing is removed.
 - **Skills** — the writer's skill selection keeps only ids of kept skill facts, in the writer's order; unknown ids are ignored.

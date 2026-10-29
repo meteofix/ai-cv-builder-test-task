@@ -10,7 +10,15 @@ const focusedOrSkippedTests = {
 };
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/coverage/**', 'docs/design/**', '.claude/worktrees/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      'docs/design/**',
+      '.claude/worktrees/**',
+      '.playwright-mcp/**',
+    ],
+  },
   js.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],

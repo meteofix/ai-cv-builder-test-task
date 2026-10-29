@@ -1,10 +1,11 @@
 import { bulletsOf, cvDocumentSchema } from '@cv/shared';
 import { describe, expect, it } from 'vitest';
 import { authorAnswer, SOURCE } from '../../../test/generation/compose-fixture.js';
-import { compose, prepareSource, reviewRequest } from './compose.js';
+import { authorRequest, compose, prepareSource, reviewRequest } from './compose.js';
 import type { ReviewOutput } from './review.js';
 
 const ROLE = 'Senior Backend Engineer';
+const NOW = new Date('2026-10-29T12:00:00Z');
 const NO_ISSUES: ReviewOutput = { issues: [] };
 const source = prepareSource(SOURCE);
 
@@ -348,7 +349,7 @@ describe('compose — the review', () => {
         third!,
       ],
     });
-    const lines = reviewRequest(source, answer, ROLE).input.split('\n');
+    const lines = reviewRequest(source, answer, ROLE, NOW).input.split('\n');
     const header = lines.findIndex((line) =>
       line.startsWith('Bullets of the company, shared by jobs 1–2'),
     );
@@ -356,8 +357,19 @@ describe('compose — the review', () => {
     expect(lines[header + 1]).toContain('[job.1.1] (unchanged, from S6)');
   });
 
+  it('both models get the current month in their input, outside the cached source', () => {
+    const requests = [
+      authorRequest(source, ROLE, NOW),
+      reviewRequest(source, authorAnswer(), ROLE, NOW),
+    ];
+    for (const request of requests) {
+      expect(request.input).toContain('<current_month>2026-10</current_month>');
+      expect(request.cached).toBe(source.cached);
+    }
+  });
+
   it('the reviewer sees kept items marked as unchanged and every job field with its id', () => {
-    const request = reviewRequest(source, authorAnswer(), ROLE);
+    const request = reviewRequest(source, authorAnswer(), ROLE, NOW);
     expect(request.input).toContain('[job.1.1] (unchanged, from S6)');
     expect(request.input).toContain('[job.2.1] (rewritten, evidence S9, S10)');
     expect(request.input).toContain('[job.3.dates] 2015 – 2019');

@@ -32,7 +32,11 @@ const entry: Part = {
   group: 0,
 };
 const item = (text: string, ...segments: string[]) => ({ text, segments });
-const asked = { question: 'What did you do?', context: 'Migrated billing' };
+const asked = {
+  question: 'What did you do?',
+  context: 'Migrated billing',
+  now: new Date('2026-10-29T12:00:00Z'),
+};
 
 /** Job A with its groups changed. */
 const withGroups = (
@@ -128,6 +132,7 @@ describe('partRequest — what the author sees and the check of its answer', () 
 
   it('shows a group-wide part to rewrite, the person’s own items as staying', () => {
     const { input } = request(job(0));
+    expect(input).toContain('<current_month>2026-10</current_month>');
     expect(input).toContain('- "Migrated billing" (from S3)');
     expect(input).toContain('- "Wrote the onboarding guide" (stays as it is)');
     expect(input).toContain('<cv_question>\nQuestion: What did you do?');
@@ -270,5 +275,6 @@ describe('the reviewer of a part', () => {
       'The summary is longer',
     );
     expect(made.input).toContain('the question and what it was about are not');
+    expect(made.input).toContain('<current_month>2026-10</current_month>');
   });
 });

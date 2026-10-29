@@ -140,8 +140,9 @@ export async function runReviewerTest(
         signal,
       });
       const { answer, planted } = applyPlants(author, source, plants);
+      const now = new Date();
       const review = (input: typeof author) =>
-        reviewer.client.parse({ ...reviewRequest(source, input, role), job, signal });
+        reviewer.client.parse({ ...reviewRequest(source, input, role, now), job, signal });
       const [clean, dirty] = await Promise.all([review(author), review(answer)]);
       return { file, planted, clean, dirty, items: list.length };
     }),

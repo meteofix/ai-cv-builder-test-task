@@ -63,7 +63,7 @@ export class GenerateHandler implements JobHandler {
   }
 
   private async write(run: JobRun, cv: ICv, source: PreparedSource): Promise<void> {
-    const output = await this.ask(run, authorRequest(source, cv.targetRole));
+    const output = await this.ask(run, authorRequest(source, cv.targetRole, this.clock.now()));
     this.log.info(
       {
         jobId: run.job.id,
@@ -79,7 +79,10 @@ export class GenerateHandler implements JobHandler {
 
   private async review(run: JobRun, cv: ICv, source: PreparedSource): Promise<void> {
     const author = this.authored(run);
-    const review = await this.ask(run, reviewRequest(source, author, cv.targetRole));
+    const review = await this.ask(
+      run,
+      reviewRequest(source, author, cv.targetRole, this.clock.now()),
+    );
     this.log.info(
       {
         jobId: run.job.id,

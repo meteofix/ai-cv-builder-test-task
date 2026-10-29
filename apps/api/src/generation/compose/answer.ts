@@ -15,7 +15,7 @@ import {
 import { itemText } from './author-schema.js';
 import type { ModelRequest, PreparedSource } from './compose.js';
 import type { DraftItem } from './draft.js';
-import { AUTHOR_PART_SYSTEM, defuse, REVIEWER_SYSTEM } from './prompts.js';
+import { AUTHOR_PART_SYSTEM, currentMonth, defuse, REVIEWER_SYSTEM } from './prompts.js';
 import {
   reviewOutputSchema,
   reviewSchema,
@@ -126,6 +126,8 @@ export interface PartInput {
   document: CvDocument;
   part: Part;
   targetRole: string;
+  /** The job's clock: both prompts count years of experience up to its month. */
+  now: Date;
 }
 
 export interface PartQuestion {
@@ -142,6 +144,7 @@ export function partRequest(input: PartInput & PartQuestion): ModelRequest<PartO
     cached: input.source.cached,
     input: [
       `<target_role>${defuse(input.targetRole)}</target_role>`,
+      currentMonth(input.now),
       answersBlock(input.answers),
       questionBlock(input.question, input.context),
       partBlock(input.document, input.part),
@@ -193,6 +196,7 @@ export function partReviewRequest(
     cached: input.source.cached,
     input: [
       `<target_role>${defuse(input.targetRole)}</target_role>`,
+      currentMonth(input.now),
       answersBlock(input.answers),
       questionBlock(input.question, input.context),
       `<cv_document>\n${defuse(view.text)}\n</cv_document>`,

@@ -1,11 +1,20 @@
-import { LIMITS, splitList, type CvDocument, type CvSkill } from '@cv/shared';
+import { LIMITS, SPLIT_AT_DOTS_ONLY, splitList, type CvDocument, type CvSkill } from '@cv/shared';
 import { useState, type ReactNode } from 'react';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
 import { AddButton, FieldError } from './fields';
 import { ItemGroup } from './ItemGroup';
 import { newId } from './prepare';
 
-const names = (items: readonly CvSkill[]) => items.map((skill) => skill.name).join(', ');
+/**
+ * The skills as the line the person edits. Commas, unless a name has one of its own ("Activation,
+ * Retention & Monetization"): then ` · `, which `splitList` cuts at instead — after a lone name too —
+ * so the line reads back as the same skills.
+ */
+export function skillsLine(items: readonly CvSkill[]): string {
+  const names = items.map((skill) => skill.name);
+  if (!names.some((name) => splitList(name).length > 1)) return names.join(', ');
+  return names.length === 1 ? `${names[0] ?? ''}${SPLIT_AT_DOTS_ONLY}` : names.join(' · ');
+}
 
 /** The first message in a branch of form errors: a skill's name, or the list of one group. */
 function firstMessage(error: unknown): string | undefined {
@@ -69,9 +78,9 @@ function SkillGroup({ index, onRemove }: { index: number; onRemove: () => void }
           rows={2}
           aria-invalid={message ? true : undefined}
           aria-describedby={message ? errorId : undefined}
-          value={line ?? names(items)}
+          value={line ?? skillsLine(items)}
           onFocus={() => {
-            setLine(names(items));
+            setLine(skillsLine(items));
           }}
           onBlur={() => {
             setLine(null);

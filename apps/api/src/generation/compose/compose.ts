@@ -73,9 +73,11 @@ function documentProblem(draft: Draft): string | null {
     : `The CV this answer makes does not fit its limits: ${z.prettifyError(result.error)}`;
 }
 
+/** `now` is the job's clock: years of experience are counted up to its month. */
 export function authorRequest(
   source: PreparedSource,
   targetRole: string,
+  now: Date,
 ): ModelRequest<AuthorOutput> {
   const answer = checkWith(authorSchema(source.index));
   return {
@@ -84,7 +86,7 @@ export function authorRequest(
     output: 'tool',
     system: AUTHOR_SYSTEM,
     cached: source.cached,
-    input: authorInput(targetRole),
+    input: authorInput(targetRole, now),
     schema: authorOutputSchema,
     check: (output) =>
       answer(output) ?? documentProblem(buildDraft(output, source.index, source.text, targetRole)),
@@ -95,6 +97,7 @@ export function reviewRequest(
   source: PreparedSource,
   author: AuthorOutput,
   targetRole: string,
+  now: Date,
 ): ModelRequest<ReviewOutput> {
   const draft = () => buildDraft(author, source.index, source.text, targetRole);
   const view = reviewView(draft());
@@ -103,7 +106,7 @@ export function reviewRequest(
     role: 'reviewer',
     system: REVIEWER_SYSTEM,
     cached: source.cached,
-    input: reviewerInput(targetRole, view.text),
+    input: reviewerInput(targetRole, view.text, now),
     schema: reviewOutputSchema,
     check: (output) => {
       const problem = answer(output);

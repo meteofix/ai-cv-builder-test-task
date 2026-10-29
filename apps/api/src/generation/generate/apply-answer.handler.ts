@@ -90,6 +90,7 @@ export class ApplyAnswerHandler implements JobHandler {
       targetRole: cv.targetRole,
       question: question.prompt,
       context: question.context ?? null,
+      now: this.clock.now(),
     };
     const nothing = { kind: 'part' as const, scope, items: [], left: 0 };
     // An answer that reads as an instruction is never shown to a model (it is still kept).

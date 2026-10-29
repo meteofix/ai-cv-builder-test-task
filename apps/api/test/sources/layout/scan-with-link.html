@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Invented person. Stands in for a scan: the page has no text of its own, only a grey block (where a
+     scan has its picture) wrapped in a link, so the PDF carries a link annotation and nothing to extract. -->
+    <style>
+      @page {
+        size: A4;
+        margin: 14mm 16mm;
+      }
+      body {
+        margin: 0;
+      }
+      .scan {
+        display: block;
+        width: 160mm;
+        height: 220mm;
+        background: #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <a class="scan" href="https://t.me/scan_example_person"></a>
+  </body>
+</html>

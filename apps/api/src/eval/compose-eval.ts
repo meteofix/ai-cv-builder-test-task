@@ -57,6 +57,7 @@ export async function runCompose(
   const signal = new AbortController().signal;
   const started = performance.now();
   const source = prepareSource(text);
+  const now = new Date();
   // Every refused answer, schema error or failed check, so the report says why a file was asked again.
   const problems: string[] = [];
   const recorded = <T>(request: ModelRequest<T>): ModelRequest<T> => ({
@@ -69,12 +70,12 @@ export async function runCompose(
   });
   try {
     const author = await client.parse({
-      ...recorded(authorRequest(source, targetRole)),
+      ...recorded(authorRequest(source, targetRole, now)),
       job,
       signal,
     });
     const review = await client.parse({
-      ...recorded(reviewRequest(source, author, targetRole)),
+      ...recorded(reviewRequest(source, author, targetRole, now)),
       job,
       signal,
     });

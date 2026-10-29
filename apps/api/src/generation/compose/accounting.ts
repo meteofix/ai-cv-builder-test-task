@@ -3,6 +3,7 @@ import type { Segment } from '../../grounding/index.js';
 import type { Asked } from './apply-review.js';
 import type { AuthorOutput } from './author-schema.js';
 import { groupItems, positionId, type Draft } from './draft.js';
+import { headerRests } from './header-rest.js';
 import { verbatim, type SegmentIndex } from './verbatim.js';
 
 /**
@@ -96,6 +97,12 @@ export function accountSource(input: {
   author.notIncluded.forEach((entry) => {
     entry.segments.forEach((id) => accounted.add(id));
   });
+  // What a job header cites but does not show; a line any other item of the CV cites is shown there.
+  const besidesHeaders = draftCitations({
+    ...draft,
+    experience: draft.experience.map((job) => ({ ...job, segments: [] })),
+  });
+  const rests = headerRests(draft.experience, besidesHeaders, index);
   for (const id of author.headings) {
     const segment = index.get(id);
     if (segment && isHeadingLength(segment.text)) accounted.add(id);
@@ -124,7 +131,7 @@ export function accountSource(input: {
     .map((segment): NotInCvItem => ({ text: segment.text, reason: 'ignored' }));
 
   return {
-    items: [...notIncluded, ...notLinks, ...unconfirmed, ...notPlaced, ...ignored],
+    items: [...notIncluded, ...notLinks, ...unconfirmed, ...rests, ...notPlaced, ...ignored],
     coverage: {
       contentLines: content.length,
       notRecognized: notPlaced.length,

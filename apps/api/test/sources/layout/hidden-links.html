@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Invented person. A sidebar whose contacts show only labels ("Telegram", "LinkedIn", "Portfolio"):
+     the addresses are in the links alone. One link shows its own address, the email and the phone link to
+     what they show, and one link points inside the page. -->
+    <style>
+      @page {
+        size: A4;
+        margin: 14mm 16mm;
+      }
+      body {
+        margin: 0;
+        font:
+          10.5pt/1.4 Helvetica,
+          Arial,
+          sans-serif;
+        color: #222;
+      }
+      a {
+        color: #1b4f8a;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 52mm 1fr;
+        gap: 10mm;
+      }
+      h1 {
+        font-size: 22pt;
+        margin: 0 0 4mm;
+      }
+      h2 {
+        font-size: 11pt;
+        text-transform: uppercase;
+        margin: 0 0 2mm;
+      }
+      p {
+        margin: 0 0 1.5mm;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grid">
+      <aside>
+        <h1 id="top">Ilona Verbytska</h1>
+        <h2>Contact</h2>
+        <p>Lviv, Ukraine</p>
+        <p><a href="tel:+380501112233">+38 (050) 111-22-33</a></p>
+        <p><a href="mailto:ilona.verbytska@example.com">ilona.verbytska@example.com</a></p>
+        <p><a href="https://t.me/ilona_v_design">Telegram</a></p>
+        <p><a href="https://www.linkedin.com/in/ilona-verbytska-example/">LinkedIn</a></p>
+        <p><a href="https://www.example-portfolio.net/ilonav">Portfolio</a></p>
+        <p><a href="https://github.com/ilona-v-example">github.com/ilona-v-example</a></p>
+      </aside>
+      <main>
+        <h2>Experience</h2>
+        <p><strong>Motion Designer</strong>, Quillbeam Studio · Mar 2023 – present</p>
+        <p>Produced about 120 short ad videos a month for app install campaigns.</p>
+        <p><a href="#top">Back to top</a></p>
+      </main>
+    </div>
+  </body>
+</html>

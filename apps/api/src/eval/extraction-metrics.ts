@@ -1,4 +1,4 @@
-import { normalizeText, sourceLines, type Fact } from '../grounding/index.js';
+import { contentLines, type Fact } from '../grounding/index.js';
 import type { SourceFacts } from '../generation/generate/schemas.js';
 import { buildQuestions } from '../generation/generate/questions.js';
 import { buildSkeleton } from '../generation/generate/skeleton.js';
@@ -24,20 +24,6 @@ export interface ExtractionMetrics {
   /** Questions the draft alone would raise, by kind: dates, company, title. */
   questions: Record<string, number>;
   expected: Expected | null;
-}
-
-const HAS_LETTER = /\p{L}/u;
-
-export function contentLineCount(text: string, sectionHeadings: readonly string[]): number {
-  const headings = new Set(sectionHeadings.map((heading) => normalizeText(heading).toLowerCase()));
-  const lines = new Set<string>();
-  for (const { text: line } of sourceLines(text)) {
-    const trimmed = line.trim();
-    if (HAS_LETTER.test(trimmed) && !headings.has(normalizeText(trimmed).toLowerCase())) {
-      lines.add(trimmed);
-    }
-  }
-  return lines.size;
 }
 
 type FactOf<K extends Fact['kind']> = Extract<Fact, { kind: K }>;
@@ -79,7 +65,7 @@ export function measureExtraction(input: {
     kept: facts.length,
     dropped: input.dropped,
     placed: input.placed,
-    contentLines: contentLineCount(text, stored.sectionHeadings),
+    contentLines: contentLines(text, stored.sectionHeadings).length,
     uncovered: stored.uncoveredLines.length,
     positions,
     matches: expected ? matchPositions(expected.positions, positions) : [],

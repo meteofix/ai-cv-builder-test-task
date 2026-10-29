@@ -21,10 +21,11 @@ import { LIMITS } from '@cv/shared';
 import { z } from 'zod';
 import { loadConfig, loadEnvFile } from '../config/env.js';
 import { extractSourceFacts } from '../generation/generate/extract-step.js';
+import { contentLines } from '../grounding/index.js';
 import { extractPdfText } from '../sources/extract-pdf-text.js';
 import { evalLlm } from './eval-llm.js';
 import { parseExpected, type Expected } from './expected.js';
-import { contentLineCount, measureExtraction } from './extraction-metrics.js';
+import { measureExtraction } from './extraction-metrics.js';
 import { measureFullRun } from './full-metrics.js';
 import { ApiSession } from './full-run.js';
 import {
@@ -172,7 +173,7 @@ async function runFull(files: CorpusFile[]): Promise<string> {
       name: file.name,
       metrics,
       // Headings are unknown here; every line with a letter counts, so the share is a lower bound.
-      contentLines: contentLineCount(text, []),
+      contentLines: contentLines(text, []).length,
       steps: run.steps,
       totalMs: run.totalMs,
     });

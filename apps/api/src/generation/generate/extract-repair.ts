@@ -1,5 +1,5 @@
 import type { DroppedFact, ExtractedFact } from '../../grounding/index.js';
-import { JobError } from '../job-errors.js';
+import { JobError, OPTIONAL_REQUEST_FAILURES } from '../job-errors.js';
 import type { AskExtractor } from './extract-step.js';
 import { REPAIR_SYSTEM, repairInput, type FactToFix } from './prompts.js';
 import { repairOutputSchema, type RepairOutput } from './schemas.js';
@@ -9,12 +9,6 @@ import { repairOutputSchema, type RepairOutput } from './schemas.js';
  * dropped as an instruction or a duplicate is never offered back to the model.
  */
 const REPAIRABLE = new Set<DroppedFact['reason']>(['quote_not_found', 'field_not_in_quote']);
-
-/**
- * The model's failures that cost only the repair: the first extraction stands. The call budget and a lost
- * lease still stop the job, as they would at the next step.
- */
-const SKIPPABLE = new Set(['INTERNAL', 'AI_REFUSED', 'AI_UNAVAILABLE']);
 
 /**
  * One more request for the facts the checks dropped as misquoted (docs/specs/generation.md §3.1): the
@@ -45,7 +39,8 @@ export async function repairFacts(
       schema: repairOutputSchema,
     }));
   } catch (error) {
-    if (error instanceof JobError && SKIPPABLE.has(error.code)) return { facts: [...facts], asked };
+    if (error instanceof JobError && OPTIONAL_REQUEST_FAILURES.has(error.code))
+      return { facts: [...facts], asked };
     throw error;
   }
   // Only the facts the server chose can change, each once: the model cannot pick what to rewrite.

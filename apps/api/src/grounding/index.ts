@@ -10,6 +10,6 @@ export {
   selectSkills,
   type NumberCheck,
 } from './prose.js';
-export { uncoveredLines } from './uncovered.js';
+export { contentLines, uncoveredLines } from './uncovered.js';
 export { overlaps } from './span.js';
 export { verifyFacts, type VerifiedFacts } from './verify-facts.js';

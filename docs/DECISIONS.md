@@ -234,7 +234,7 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 ## 027. The extractor answers in groups per employer
 
 **Context.** On real CVs one employer often has several consecutive positions under one company line, with bullets shared by all of them. A flat list of facts made the model link every bullet to a position by id and repeat the company in every position's quote; one wrong link or a company line outside the quote lost the position, its company or its bullets.
-**Decision.** The extractor returns experience as the CV lays it out: per employer the company and its line, the positions with their own lines, and the bullets with the index of their position or "the whole group". A deterministic function flattens this into the existing facts and assigns every id; a position's company is checked in the group line when that line is one source line before the position with nothing of another company in between. The writer, the judge, "Not in your CV" and the document schema are unchanged. Owner's decision, 2026-10-29 (task R0-EXTRACT-NESTED).
+**Decision.** The extractor returns experience as the CV lays it out: per employer the company and its line, the positions with their own lines, and the bullets with the index of their position or "the whole group". A deterministic function flattens this into the existing facts and assigns every id; a position's company is checked in the group line when that line stands before the position with nothing of another company in between; a long company name may wrap over up to three lines, as long as the name itself starts on the first and ends on the last. The writer, the judge, "Not in your CV" and the document schema are unchanged. Owner's decision, 2026-10-29 (task R0-EXTRACT-NESTED).
 
 ## 028. No cascade: achievements outlive a dropped position
 
@@ -251,3 +251,8 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 
 **Context.** A fact whose quote is not copied exactly is dropped; on real CVs this hit position lines most (a title with its dates), and before decision 028 it took the job's bullets with it.
 **Decision.** After the checks, the facts dropped as `quote_not_found` or `field_not_in_quote` go back to the extractor once, each with its problem in words. The model may only give a new quote or a new value for a skill or contact; it cannot add facts, and every fix is verified like the original. One request at most per generation, inside the job's call budget; when it fails on the model's side, the first extraction stands. A repaired quote may land on another job's bullet, which the judge checks as it checks the first pass. Owner's decision, 2026-10-29 (task R0-REPAIR).
+
+## 031. A second extractor pass over uncovered lines
+
+**Context.** One extraction of a long CV left most of a sidebar and of the second page uncovered (skills, wrapped lines, sections the model skipped); they surfaced only as "Not recognized".
+**Decision.** When more than 15 % of the content lines stay uncovered after the repair, the extractor reads only those lines, with the jobs found so far as labels, and its answer is verified together with the first pass. The threshold was chosen on the dev corpus: clean one-column CVs stay below it, CVs that lost a column or a page are far above. The pass is optional (a failure keeps the first pass) and counts against the job's call budget. Owner's decision, 2026-10-29 (task R0-COVERAGE).

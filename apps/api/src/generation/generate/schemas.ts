@@ -90,6 +90,19 @@ export const repairOutputSchema = z.object({
 });
 export type RepairOutput = z.infer<typeof repairOutputSchema>;
 
+/**
+ * The second pass over lines no fact covers: bullets of the positions found so far (by the label the
+ * request gave them), new employer groups, and every other kind, as in the first pass.
+ */
+export const coverageOutputSchema = z.object({
+  bullets: z.array(z.object({ ...quoted, position: z.string().nullable() })),
+  experience: z.array(experienceGroupSchema),
+  facts: z.array(otherKindsSchema),
+  sectionHeadings: z.array(z.string()),
+  ignoredInstructions: z.array(z.string()),
+});
+export type CoverageOutput = z.infer<typeof coverageOutputSchema>;
+
 const writtenItem = (max: number) =>
   z.object({ text: z.string().min(1).max(max), factIds: z.array(z.string()).max(20) });
 

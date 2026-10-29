@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { verifyFacts, type ExtractedFact } from '../grounding/index.js';
-import { contentLineCount, measureExtraction } from './extraction-metrics.js';
+import { measureExtraction } from './extraction-metrics.js';
 
 const SOURCE = [
   'Experience',
@@ -32,14 +32,6 @@ const EXTRACTED: ExtractedFact[] = [
   },
   { id: 's', kind: 'skill', quote: 'Go', skill: { name: 'Go' } },
 ];
-
-describe('contentLineCount', () => {
-  it('counts lines with a letter once and leaves out section headings', () => {
-    expect(
-      contentLineCount('Experience\nAcme\n----\nAcme\n2021\nBuilt things', ['Experience']),
-    ).toBe(2);
-  });
-});
 
 describe('measureExtraction', () => {
   it('counts kinds, pairs positions with the expectation and lists missing contacts', () => {

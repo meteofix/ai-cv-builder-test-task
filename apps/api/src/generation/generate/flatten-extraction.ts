@@ -11,13 +11,15 @@ import type { ExtractorOutput } from './schemas.js';
  */
 export function flattenExtraction(
   output: Pick<ExtractorOutput, 'experience' | 'facts'>,
+  /** Keeps the ids of a second pass apart from the first one's. */
+  prefix = '',
 ): ExtractedFact[] {
   const facts: ExtractedFact[] = [];
   output.experience.forEach((group, g) => {
-    const ids = group.positions.map((_, p) => `g${g}p${p}`);
+    const ids = group.positions.map((_, p) => `${prefix}g${g}p${p}`);
     group.positions.forEach(({ quote, vague, ...position }, p) => {
       facts.push({
-        id: `g${g}p${p}`,
+        id: `${prefix}g${g}p${p}`,
         kind: 'position',
         quote,
         ...(vague ? { vague } : {}),
@@ -29,9 +31,10 @@ export function flattenExtraction(
       });
     });
     group.bullets.forEach(({ quote, vague, position }, b) => {
-      const positionId = (position === null ? undefined : ids[position]) ?? ids[0] ?? `g${g}`;
+      const positionId =
+        (position === null ? undefined : ids[position]) ?? ids[0] ?? `${prefix}g${g}`;
       facts.push({
-        id: `g${g}b${b}`,
+        id: `${prefix}g${g}b${b}`,
         kind: 'achievement',
         quote,
         ...(vague ? { vague } : {}),
@@ -39,6 +42,6 @@ export function flattenExtraction(
       });
     });
   });
-  output.facts.forEach((fact, i) => facts.push({ ...fact, id: `x${i}` }));
+  output.facts.forEach((fact, i) => facts.push({ ...fact, id: `${prefix}x${i}` }));
   return facts;
 }

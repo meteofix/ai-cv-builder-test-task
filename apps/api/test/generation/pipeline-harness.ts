@@ -1,7 +1,11 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { AppConfig } from '../../src/config/env.js';
 import { Clock } from '../../src/generation/clock.js';
-import { REPAIR_SYSTEM, type JudgedItem } from '../../src/generation/generate/prompts.js';
+import {
+  COVERAGE_SYSTEM,
+  REPAIR_SYSTEM,
+  type JudgedItem,
+} from '../../src/generation/generate/prompts.js';
 import type {
   ExtractorOutput,
   RepairOutput,
@@ -123,8 +127,16 @@ export function extractorAnswer(
     ...nestFacts(facts),
     ...rest,
   } satisfies ExtractorOutput;
-  // The extract step may ask the extractor once more, to fix dropped quotes; by default it fixes none.
-  return (request) => ({ output: request.system === REPAIR_SYSTEM ? repair : output });
+  // The extract step may ask the extractor again, to fix dropped quotes and to read uncovered lines; by
+  // default it fixes none and finds nothing more.
+  return (request) => ({
+    output:
+      request.system === REPAIR_SYSTEM
+        ? repair
+        : request.system === COVERAGE_SYSTEM
+          ? { bullets: [], experience: [], facts: [], sectionHeadings: [], ignoredInstructions: [] }
+          : output,
+  });
 }
 
 /**

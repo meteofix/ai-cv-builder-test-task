@@ -102,8 +102,9 @@ export class JobStore {
   /**
    * Runs `work` in one transaction that first applies `update` to the job under its lease. The fenced
    * update also locks the job row: no other worker can claim the job until the commit. When `work` touches
-   * other rows of the CV, the CV row is locked before the job, in the order a CV delete cascades (CV, then
-   * its questions and jobs), so a delete and a finalization never wait for each other in a circle.
+   * other rows of the CV, the CV row is locked before the job, in the order a CV delete takes its locks
+   * (the CV row, then its jobs, then its sources and questions: the cascade triggers fire in the order the
+   * migration created the foreign keys), so a delete and a finalization never wait for each other in a circle.
    */
   async fenced<T>(
     job: ClaimedJob,
@@ -146,28 +147,29 @@ export class JobStore {
     error: { code: JobErrorCode; message: string | null },
     now: Date,
   ): Promise<void> {
-    await this.fenced(
-      job,
-      {
-        status: 'failed',
-        lockedBy: null,
-        lockedUntil: null,
-        errorCode: error.code,
-        errorMessage: error.message,
-        updatedAt: now,
-      },
-      async (tx) => {
-        if (job.kind !== 'apply_answer') return;
-        // A failure must always be recordable: a payload the queue did not write leaves the question alone.
-        const payload = applyAnswerPayloadSchema.safeParse(job.payload);
-        if (!payload.success) return;
-        await tx.nativeUpdate(
-          CvQuestion,
-          { id: payload.data.questionId, cv: job.cvId },
-          { applyStatus: 'failed', updatedAt: now },
-        );
-      },
-    );
+    const update = {
+      status: 'failed' as const,
+      lockedBy: null,
+      lockedUntil: null,
+      errorCode: error.code,
+      errorMessage: error.message,
+      updatedAt: now,
+    };
+    // Only an answer's failure writes another row (its question), so only it needs the CV lock.
+    if (job.kind !== 'apply_answer') {
+      await this.fenced(job, update);
+      return;
+    }
+    await this.fenced(job, update, async (tx) => {
+      // A failure must always be recordable: a payload the queue did not write leaves the question alone.
+      const payload = applyAnswerPayloadSchema.safeParse(job.payload);
+      if (!payload.success) return;
+      await tx.nativeUpdate(
+        CvQuestion,
+        { id: payload.data.questionId, cv: job.cvId },
+        { applyStatus: 'failed', updatedAt: now },
+      );
+    });
   }
 
   /** Gives the job back on shutdown: a stopped process is not a failed attempt. */

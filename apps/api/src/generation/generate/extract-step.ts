@@ -1,6 +1,7 @@
 import { LOCALES, type Locale } from '@cv/shared';
 import type { z } from 'zod';
 import { instructionFragments, uncoveredLines, verifyFacts } from '../../grounding/index.js';
+import { flattenExtraction } from './flatten-extraction.js';
 import { EXTRACTOR_SYSTEM, extractorInput } from './prompts.js';
 import { extractorOutputSchema, type SourceFacts } from './schemas.js';
 
@@ -34,7 +35,11 @@ export async function extractSourceFacts(
   });
   const locale: Locale = LOCALES.find((known) => known === output.locale) ?? 'en';
   const instructionSpans = instructionFragments(text, output.ignoredInstructions);
-  const { facts, dropped } = verifyFacts(text, output.facts, instructionSpans);
+  const { facts, dropped, headers } = verifyFacts(
+    text,
+    flattenExtraction(output),
+    instructionSpans,
+  );
   const stored: SourceFacts = {
     locale,
     facts,
@@ -42,7 +47,7 @@ export async function extractSourceFacts(
     instructionSpans,
     uncoveredLines: uncoveredLines(
       text,
-      [...facts.map((fact) => fact.span), ...instructionSpans],
+      [...facts.map((fact) => fact.span), ...headers, ...instructionSpans],
       output.sectionHeadings,
     ),
     answers: [],

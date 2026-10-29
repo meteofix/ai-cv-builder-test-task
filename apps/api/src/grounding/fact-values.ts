@@ -1,6 +1,6 @@
 import { LIMITS } from '@cv/shared';
 import type { ExtractedFact } from './facts.js';
-import { DASHES, indexText, matchQuote } from './find-quote.js';
+import { DASHES, indexText, matchQuote, type QuoteIndex } from './find-quote.js';
 import type { Span } from './span.js';
 
 /**
@@ -32,20 +32,16 @@ function phoneInner(char: string): boolean {
  * Addresses (email, link, phone) are stored as the source writes them and must match whole; display
  * values keep the model's spelling unless the source has it exactly (docs/specs/grounding.md §2).
  */
-export function checkValues(fact: ExtractedFact, source: string, span: Span): ExtractedFact | null {
+export function checkValues(
+  fact: ExtractedFact,
+  source: string,
+  span: Span,
+  companySpan: Span = span,
+): ExtractedFact | null {
   const located = source.slice(span[0], span[1]);
   const index = indexText(located);
 
-  /** A display value: the source's text on an exact match, the model's when only letters and digits match. */
-  const display = (value: string): string | null => {
-    const match = matchQuote(index, value);
-    if (!match) return null;
-    const stored = (match.level === 1 ? located.slice(match.span[0], match.span[1]) : value)
-      .replace(/\s+/g, ' ')
-      .trim();
-    // A source slice can be longer than the value the schema allowed (spaced letters, NFD text).
-    return stored.length > LIMITS.maxFieldChars ? null : stored;
-  };
+  const display = (value: string) => displayValue(located, index, value);
 
   /**
    * An address: the exact source text of an occurrence that is a whole address, not a part of a longer
@@ -72,14 +68,16 @@ export function checkValues(fact: ExtractedFact, source: string, span: Span): Ex
   switch (fact.kind) {
     case 'position': {
       const { company, title, location, start, end, current } = fact.position;
+      const companyText = source.slice(companySpan[0], companySpan[1]);
       const verifiedEnd = date(end);
       // "Current" and a verified end date contradict each other, and the quote cannot tell which is
       // right (a year in it may be a promotion): both are dropped, so the dates become a question.
       const conflict = current && verifiedEnd !== null;
       return {
         ...fact,
+        // `companyQuote` is the model's text: it only chose where the company is checked, and is not kept.
         position: {
-          company: text(company),
+          company: displayValue(companyText, indexText(companyText), company) ?? '',
           title: text(title),
           location: optional(location),
           start: date(start),
@@ -115,6 +113,17 @@ export function checkValues(fact: ExtractedFact, source: string, span: Span): Ex
     default:
       return fact;
   }
+}
+
+/** A display value: the source's text on an exact match, the model's when only letters and digits match. */
+function displayValue(located: string, index: QuoteIndex, value: string): string | null {
+  const match = matchQuote(index, value);
+  if (!match) return null;
+  const stored = (match.level === 1 ? located.slice(match.span[0], match.span[1]) : value)
+    .replace(/\s+/g, ' ')
+    .trim();
+  // A source slice can be longer than the value the schema allowed (spaced letters, NFD text).
+  return stored.length > LIMITS.maxFieldChars ? null : stored;
 }
 
 /** The match with the signs written around it that belong to the address. */

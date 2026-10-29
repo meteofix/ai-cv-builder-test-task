@@ -1,7 +1,6 @@
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
-import { extractedFactSchema } from '../grounding/index.js';
+import { extractorOutputSchema } from '../generation/generate/schemas.js';
 import { retryAfterMs, statusError } from './anthropic-transport.js';
 
 describe('retryAfterMs', () => {
@@ -44,13 +43,41 @@ describe('statusError', () => {
 });
 
 describe('zodOutputFormat', () => {
-  it('turns the extractor fact schema into a JSON schema the SDK accepts', () => {
-    const format = zodOutputFormat(z.object({ facts: z.array(extractedFactSchema) }));
+  it('turns the extractor output schema into a JSON schema the SDK accepts', () => {
+    const format = zodOutputFormat(extractorOutputSchema);
     expect(format.type).toBe('json_schema');
-    expect(() =>
-      format.parse('{"facts":[{"id":"a","kind":"profile","quote":"Calm"}]}'),
-    ).not.toThrow();
-    expect(() => format.parse('{"facts":[{"id":"a","kind":"position","quote":"x"}]}')).toThrow(
+    const answer = {
+      locale: 'en',
+      experience: [
+        {
+          company: 'Acme',
+          companyQuote: 'Acme',
+          positions: [
+            {
+              quote: 'Lead 2022',
+              title: 'Lead',
+              location: null,
+              start: '2022',
+              end: null,
+              current: true,
+            },
+          ],
+          bullets: [
+            { quote: 'Shipped', position: null },
+            { quote: 'Led', position: 0 },
+          ],
+        },
+      ],
+      facts: [{ kind: 'profile', quote: 'Calm' }],
+      sectionHeadings: [],
+      ignoredInstructions: [],
+    };
+    expect(format.parse(JSON.stringify(answer))).toEqual(answer);
+    const noTitle = {
+      ...answer,
+      experience: [{ ...answer.experience[0], positions: [{ quote: 'x' }] }],
+    };
+    expect(() => format.parse(JSON.stringify(noTitle))).toThrow(
       /Failed to parse structured output/,
     );
   });

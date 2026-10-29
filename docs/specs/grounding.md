@@ -40,7 +40,7 @@ interface Fact {
 }
 ```
 
-In code `Fact` is a discriminated union on `kind` (`facts.ts`): each kind carries exactly its own structured field, and the extractor's output schema (`extractedFactSchema`, `Fact` without `span`) is the same union, so a position without position fields cannot be parsed. The quote has no length cap in that schema: one long paragraph must not fail the whole extraction (the skeleton lists text over the document's limits as `unused`). Stored facts are read back through `factSchema`.
+In code `Fact` is a discriminated union on `kind` (`facts.ts`): each kind carries exactly its own structured field, and the facts grounding verifies (`extractedFactSchema`, `Fact` without `span`) are the same union, so a position without position fields cannot exist. The extractor itself answers in groups per employer; the generation module builds these flat facts from its answer (generation.md §3.1), and the other kinds come from the model in this same shape without ids. The quote has no length cap in that schema: one long paragraph must not fail the whole extraction (the skeleton lists text over the document's limits as `unused`). Stored facts are read back through `factSchema`.
 
 The functions below take the source text and plain data and return results; they never throw on bad model output (bad input is a result, not an exception).
 
@@ -62,6 +62,7 @@ The span is `[start, end)` in the **original** source (`end` exclusive). An empt
 - The quote is not found → the fact is dropped (`dropped`, reason `quote_not_found`). It is not user text, so it is logged as a counter and shown nowhere.
 - Structural values must be found in the fact's own quote — in code, in the source text at the fact's span, which is what the quote stands for — with `findQuote`:
   - `position.company`, `position.title`, `position.location`, `education.institution`, `education.degree` — a value not found becomes `''` (company, title, institution) or `null` (location, degree); the fact stays, the gap becomes a question;
+  - a position may carry `companyQuote`, the text naming its company apart from the title (a company line above several positions): when that text is found in the source before the position (or at its start) and nothing of another company starts between them — neither another company's line nor a position quoted under another company — the company is checked in that text instead of the position's own quote; otherwise in the position's quote as above. `companyQuote` is never stored;
   - dates — only the year: the four digits of `start`/`end` must appear in the quote; otherwise the date becomes `null` (months are not checked);
   - `skill.name`, `contact.value` — not found → the fact is dropped (`field_not_in_quote`): a skill or contact without its value is nothing;
   - `achievement.positionId` must be the id of a kept position fact, else the fact is dropped (`unknown_position`).
@@ -106,7 +107,7 @@ A fact whose span overlaps an instruction fragment is removed (reason `instructi
 
 ### 5. Lines not recognized — `uncoveredLines(source, spans, sectionHeadings) → string[]`
 
-The source is split into lines. Not counted: empty lines, lines without a letter, and lines equal (after normalization of level 1, case-insensitive) to a section heading the extractor returned. A line is covered when any kept fact's span or any instruction fragment overlaps it, even partly. Identical lines count as one: covered when any copy is covered (footers repeated on every PDF page). The result keeps source order, each text once, trimmed.
+The source is split into lines. Not counted: empty lines, lines without a letter, and lines equal (after normalization of level 1, case-insensitive) to a section heading the extractor returned. A line is covered when any kept fact's span, a group line a kept position's company was checked in (§2), or any instruction fragment overlaps it, even partly. Identical lines count as one: covered when any copy is covered (footers repeated on every PDF page). The result keeps source order, each text once, trimmed.
 
 ## Acceptance examples
 

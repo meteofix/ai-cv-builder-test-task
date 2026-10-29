@@ -95,15 +95,76 @@ export const SAMPLE_FACTS: ExtractedFact[] = [
 
 export const SAMPLE_HEADINGS = ['Experience', 'Education', 'Skills'];
 
-export function extractorAnswer(overrides: Partial<ExtractorOutput> = {}): FakeAnswer {
+/** A fact as the extractor answers it: the server numbers facts itself. */
+function withoutId(fact: Exclude<ExtractedFact, { kind: 'position' | 'achievement' }>) {
+  return Object.fromEntries(
+    Object.entries(fact).filter(([key]) => key !== 'id'),
+  ) as ExtractorOutput['facts'][number];
+}
+
+/** What a test scripts for the extractor: the flat facts it means, nested by `nestFacts`. */
+export interface ExtractorScript extends Omit<Partial<ExtractorOutput>, 'facts'> {
+  facts?: ExtractedFact[];
+}
+
+export function extractorAnswer(overrides: ExtractorScript = {}): FakeAnswer {
+  const { facts = SAMPLE_FACTS, ...rest } = overrides;
   return {
     output: {
       locale: 'en',
-      facts: SAMPLE_FACTS,
       sectionHeadings: SAMPLE_HEADINGS,
       ignoredInstructions: [],
-      ...overrides,
+      ...nestFacts(facts),
+      ...rest,
     } satisfies ExtractorOutput,
+  };
+}
+
+/**
+ * Flat test facts as the extractor answers: each position is its own group (its quote names the
+ * company), an achievement a bullet of its position's group, and an achievement of an unknown position
+ * a bullet of a group without positions. Ids are the server's to assign, so the facts' own ids go.
+ */
+export function nestFacts(
+  facts: readonly ExtractedFact[],
+): Pick<ExtractorOutput, 'experience' | 'facts'> {
+  const positions = facts.filter((fact) => fact.kind === 'position');
+  const experience: ExtractorOutput['experience'] = positions.map((fact) => ({
+    company: fact.position.company,
+    companyQuote: fact.position.companyQuote ?? fact.quote,
+    positions: [
+      {
+        quote: fact.quote,
+        ...(fact.vague ? { vague: true } : {}),
+        title: fact.position.title,
+        location: fact.position.location,
+        start: fact.position.start,
+        end: fact.position.end,
+        current: fact.position.current,
+      },
+    ],
+    bullets: [],
+  }));
+  const orphans: ExtractorOutput['experience'][number] = {
+    company: '',
+    companyQuote: '',
+    positions: [],
+    bullets: [],
+  };
+  const others: ExtractorOutput['facts'] = [];
+  for (const fact of facts) {
+    if (fact.kind === 'position') continue;
+    if (fact.kind === 'achievement') {
+      const index = positions.findIndex((position) => position.id === fact.achievement.positionId);
+      const bullet = { quote: fact.quote, position: 0, ...(fact.vague ? { vague: true } : {}) };
+      (experience[index] ?? orphans).bullets.push(bullet);
+      continue;
+    }
+    others.push(withoutId(fact));
+  }
+  return {
+    experience: orphans.bullets.length > 0 ? [...experience, orphans] : experience,
+    facts: others,
   };
 }
 

@@ -1,5 +1,6 @@
 import type { DroppedFact, DropReason, ExtractedFact, Fact } from './facts.js';
 import { findQuote, indexText } from './find-quote.js';
+import { groupHeaders } from './group-headers.js';
 import { checkValues } from './fact-values.js';
 import { overlaps, type Span } from './span.js';
 
@@ -7,6 +8,8 @@ export interface VerifiedFacts {
   /** Kept facts, renumbered `f1…fn` in source order. */
   facts: Fact[];
   dropped: DroppedFact[];
+  /** Group lines a kept position's company was checked in: covered like the facts' own quotes. */
+  headers: Span[];
 }
 
 /**
@@ -25,7 +28,7 @@ export function verifyFacts(
     dropped.push({ id: fact.id, kind: fact.kind, reason });
 
   const seen = new Set<string>();
-  const located: Fact[] = [];
+  const found: { fact: ExtractedFact; span: Span }[] = [];
   for (const fact of extracted) {
     const span = findQuote(index, fact.quote);
     if (!span) {
@@ -42,8 +45,14 @@ export function verifyFacts(
       drop(fact, 'instruction');
       continue;
     }
+    found.push({ fact, span });
+  }
+
+  const companySpans = groupHeaders(source, index, found, instructionSpans);
+  const located: Fact[] = [];
+  for (const { fact, span } of found) {
     const sourceText = source.slice(span[0], span[1]);
-    const checked = checkValues(fact, source, span);
+    const checked = checkValues(fact, source, span, companySpans.get(fact));
     if (!checked) {
       drop(fact, 'field_not_in_quote');
       continue;
@@ -62,7 +71,11 @@ export function verifyFacts(
       kept.push(fact);
     }
   }
-  return { facts: renumber(kept), dropped };
+  const keptPositions = new Set(kept.filter((fact) => fact.kind === 'position').map((f) => f.id));
+  const headers = [...companySpans]
+    .filter(([fact]) => keptPositions.has(fact.id))
+    .map(([, span]) => span);
+  return { facts: renumber(kept), dropped, headers };
 }
 
 function renumber(facts: Fact[]): Fact[] {

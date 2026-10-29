@@ -27,21 +27,52 @@ const common = {
   vague: z.boolean().optional(),
 };
 
+/** The kinds besides positions and achievements; the extractor returns these as they are. */
+export const contactFactSchema = z.object({
+  ...common,
+  kind: z.literal('contact'),
+  contact: z.object({ field: z.enum(CONTACT_FIELDS), value: field }),
+});
+export const educationFactSchema = z.object({
+  ...common,
+  kind: z.literal('education'),
+  education: z.object({
+    institution: field,
+    degree: field.nullable(),
+    start: dateSchema,
+    end: dateSchema,
+  }),
+});
+export const skillFactSchema = z.object({
+  ...common,
+  kind: z.literal('skill'),
+  skill: z.object({ name: field }),
+});
+export const profileFactSchema = z.object({ ...common, kind: z.literal('profile') });
+export const otherFactSchema = z.object({
+  ...common,
+  kind: z.literal('other'),
+  other: z.object({ section: field }),
+});
+
 /**
- * A fact as the extractor returns it. The kind decides which structured field it carries, so a fact
- * cannot claim to be a position without the fields a position needs.
+ * A fact to verify. The kind decides which structured field it carries, so a fact cannot claim to be a
+ * position without the fields a position needs. The server builds positions and achievements from the
+ * extractor's experience groups (`flattenExtraction`).
  */
 export const extractedFactSchema = z.discriminatedUnion('kind', [
-  z.object({
-    ...common,
-    kind: z.literal('contact'),
-    contact: z.object({ field: z.enum(CONTACT_FIELDS), value: field }),
-  }),
+  contactFactSchema,
   z.object({
     ...common,
     kind: z.literal('position'),
     position: z.object({
       company: field,
+      /**
+       * The text naming the company when it stands apart from the title, such as a company line above
+       * several positions; the company is checked there instead of in the position's own quote. Never
+       * stored: verification drops it.
+       */
+      companyQuote: z.string().optional(),
       title: field,
       location: field.nullable(),
       start: dateSchema,
@@ -54,19 +85,10 @@ export const extractedFactSchema = z.discriminatedUnion('kind', [
     kind: z.literal('achievement'),
     achievement: z.object({ positionId: z.string().max(64) }),
   }),
-  z.object({
-    ...common,
-    kind: z.literal('education'),
-    education: z.object({
-      institution: field,
-      degree: field.nullable(),
-      start: dateSchema,
-      end: dateSchema,
-    }),
-  }),
-  z.object({ ...common, kind: z.literal('skill'), skill: z.object({ name: field }) }),
-  z.object({ ...common, kind: z.literal('profile') }),
-  z.object({ ...common, kind: z.literal('other'), other: z.object({ section: field }) }),
+  educationFactSchema,
+  skillFactSchema,
+  profileFactSchema,
+  otherFactSchema,
 ]);
 export type ExtractedFact = z.infer<typeof extractedFactSchema>;
 

@@ -125,6 +125,8 @@ export function NewCvPage() {
                 aria-selected={tab === value}
                 aria-controls={`${ids}-panel-${value}`}
                 tabIndex={tab === value ? 0 : -1}
+                // A reset of a pending request would detach it from this page: it would create the CV unseen.
+                disabled={create.isPending}
                 className="tabs__tab"
                 onClick={() => {
                   selectTab(value);

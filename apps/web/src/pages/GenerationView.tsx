@@ -13,7 +13,7 @@ import { Stepper } from '../components/Stepper';
 /** The CV has no document yet: the job writes it (progress) or has failed (message, Retry). */
 export function GenerationView({ cv }: { cv: CvDetail }) {
   const client = useQueryClient();
-  const jobQuery = useJob(cv.id);
+  const jobQuery = useJob(cv.id, true, cv.job);
   const job = jobQuery.data ?? cv.job;
   const draft = useDraft(cv.id, job);
   const retry = useRetryJob(cv.id);

@@ -83,7 +83,11 @@ export const extractedFactSchema = z.discriminatedUnion('kind', [
   z.object({
     ...common,
     kind: z.literal('achievement'),
-    achievement: z.object({ positionId: z.string().max(64) }),
+    /**
+     * Null once verified when no kept position stands above it in the source: the fact stays visible
+     * under "Not in your CV" instead of disappearing with a position whose quote failed.
+     */
+    achievement: z.object({ positionId: z.string().max(64).nullable() }),
   }),
   educationFactSchema,
   skillFactSchema,
@@ -101,7 +105,6 @@ export type Fact = ExtractedFact & { span: Span };
 export const DROP_REASONS = [
   'quote_not_found',
   'field_not_in_quote',
-  'unknown_position',
   'instruction',
   'duplicate_id',
 ] as const;

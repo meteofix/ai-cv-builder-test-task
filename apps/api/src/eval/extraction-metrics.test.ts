@@ -55,6 +55,7 @@ describe('measureExtraction', () => {
         answers: [],
       },
       dropped: {},
+      placed: { reattached: 0, unplaced: 0 },
       expected: {
         positions: [
           { company: 'Acme Corp', title: 'Engineer', start: '2021', end: '2023', bullets: 1 },
@@ -93,6 +94,7 @@ describe('measureExtraction', () => {
         answers: [],
       },
       dropped: {},
+      placed: { reattached: 0, unplaced: 0 },
       expected: null,
     });
     // The quote holds neither the company nor the years.

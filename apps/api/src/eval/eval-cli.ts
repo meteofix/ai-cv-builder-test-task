@@ -137,6 +137,7 @@ async function runExtract(files: CorpusFile[]): Promise<string> {
       text,
       stored,
       dropped: counters.dropped,
+      placed: { reattached: counters.reattached, unplaced: counters.unplaced },
       expected: await expectedFor(file),
     });
     rows.push({ name: file.name, metrics, textMs, calls: llm.calls.slice(before) });

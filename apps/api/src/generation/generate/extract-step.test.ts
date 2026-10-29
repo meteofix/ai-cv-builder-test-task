@@ -36,6 +36,8 @@ describe('extractSourceFacts', () => {
     expect(counters).toEqual({
       kept: 1,
       dropped: { quote_not_found: 1 },
+      reattached: 0,
+      unplaced: 0,
       instructionLines: 1,
       uncoveredLines: 1,
     });
@@ -95,7 +97,7 @@ describe('extractSourceFacts with a company line above two positions', () => {
       fact.kind === 'position'
         ? `${fact.position.title} @ ${fact.position.company}`
         : fact.kind === 'achievement'
-          ? `${fact.quote} → ${(byId.get(fact.achievement.positionId) as { quote: string }).quote}`
+          ? `${fact.quote} → ${byId.get(fact.achievement.positionId ?? '')?.quote ?? 'none'}`
           : fact.kind,
     );
     expect(summary).toEqual([

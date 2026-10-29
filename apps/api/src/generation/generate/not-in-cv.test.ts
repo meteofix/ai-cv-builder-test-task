@@ -1,7 +1,7 @@
 import type { CvDocument } from '@cv/shared';
 import { describe, expect, it } from 'vitest';
 import type { Fact } from '../../grounding/index.js';
-import { buildNotInCv } from './not-in-cv.js';
+import { buildNotInCv, NO_POSITION } from './not-in-cv.js';
 import { buildSkeleton } from './skeleton.js';
 import type { SourceFacts } from './schemas.js';
 
@@ -156,5 +156,20 @@ describe('buildNotInCv', () => {
       { text: 'Job 12', reason: 'unused' },
       { text: 'second@example.com', reason: 'unused' },
     ]);
+  });
+
+  it('lists an achievement no position stands above as unused, saying so', () => {
+    const orphan: Fact = { ...FACTS[1]!, achievement: { positionId: null } } as Fact;
+    const items = buildNotInCv({
+      source: SOURCE,
+      sourceFacts: { ...SOURCE_FACTS, facts: [FACTS[0]!, orphan, FACTS[2]!] },
+      document: documentUsing(['f1', 'f3']),
+      removed: [],
+    });
+    expect(items).toContainEqual({
+      text: 'Shipped search',
+      reason: 'unused',
+      context: NO_POSITION,
+    });
   });
 });

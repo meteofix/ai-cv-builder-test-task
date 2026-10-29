@@ -4,6 +4,9 @@ import { positionLabel } from './questions.js';
 import type { RemovedItem, SourceFacts } from './schemas.js';
 import { verbatim, withScheme } from './skeleton.js';
 
+/** The context of an achievement no position of the CV stands above (grounding.md §2). */
+export const NO_POSITION = 'No job found above it in your CV';
+
 /**
  * "Not in your CV" (docs/specs/generation.md §4.2): removed prose, facts the CV does not use, ignored
  * instruction lines and lines no fact covers — grouped in that order, in source order inside a group.
@@ -45,7 +48,14 @@ export function buildNotInCv(input: {
       unused.push({
         text: verbatim(source, fact),
         reason: 'unused',
-        ...(fact.kind === 'achievement' ? { context: contextOf(fact.achievement.positionId) } : {}),
+        ...(fact.kind === 'achievement'
+          ? {
+              context:
+                fact.achievement.positionId === null
+                  ? NO_POSITION
+                  : contextOf(fact.achievement.positionId),
+            }
+          : {}),
       });
     }
   }

@@ -8,6 +8,8 @@ import { matchPositions, type FoundPosition, type PositionMatch } from './positi
 export interface ExtractionMetrics {
   kept: number;
   dropped: Record<string, number>;
+  /** Achievements moved to another position because theirs was not kept, and those left without one. */
+  placed: { reattached: number; unplaced: number };
   /** Lines with a letter that are not a section heading, each text once (as `uncoveredLines` counts). */
   contentLines: number;
   uncovered: number;
@@ -45,6 +47,7 @@ export function measureExtraction(input: {
   text: string;
   stored: SourceFacts;
   dropped: Record<string, number>;
+  placed: ExtractionMetrics['placed'];
   expected: Expected | null;
 }): ExtractionMetrics {
   const { text, stored, expected } = input;
@@ -75,6 +78,7 @@ export function measureExtraction(input: {
   return {
     kept: facts.length,
     dropped: input.dropped,
+    placed: input.placed,
     contentLines: contentLineCount(text, stored.sectionHeadings),
     uncovered: stored.uncoveredLines.length,
     positions,

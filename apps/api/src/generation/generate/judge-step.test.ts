@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { Fact } from '../../grounding/index.js';
+import {
+  uncoveredLines,
+  verifyFacts,
+  type ExtractedFact,
+  type Fact,
+} from '../../grounding/index.js';
 import { applyVerdicts, judgeEvidence, type ItemToJudge } from './judge-step.js';
 import type { JudgeOutput } from './schemas.js';
 
@@ -246,5 +251,52 @@ describe('judgeEvidence', () => {
     expect(item?.unrecognizedBefore?.[0]).toBe('Engineer, Globex');
     expect(item?.unrecognizedBefore?.at(-1)).toBe('Responsibilities:');
     expect(item?.unrecognizedBefore).toHaveLength(6);
+  });
+});
+
+describe('judgeEvidence for an achievement whose own position was not kept', () => {
+  it('shows the judge the line of the dropped job between the new position and the quote', () => {
+    const source = [
+      'Engineer, Acme Corp, 2019 – 2022',
+      'Analyst, Globex, 2016 – 2019',
+      'Built the reporting pipeline',
+    ].join('\n');
+    const job = (id: string, quote: string, company: string): ExtractedFact => ({
+      id,
+      kind: 'position',
+      quote,
+      position: {
+        company,
+        title: quote.split(',')[0] ?? '',
+        location: null,
+        start: null,
+        end: null,
+        current: false,
+      },
+    });
+    const { facts } = verifyFacts(source, [
+      job('acme', 'Engineer, Acme Corp, 2019 – 2022', 'Acme Corp'),
+      job('globex', 'Analyst at Globex, 2016 – 2019', 'Globex'),
+      {
+        id: 'b',
+        kind: 'achievement',
+        quote: 'Built the reporting pipeline',
+        achievement: { positionId: 'globex' },
+      },
+    ]);
+    const bullet = facts.find((fact) => fact.kind === 'achievement');
+    expect(bullet).toMatchObject({ achievement: { positionId: 'f1' } });
+    const uncovered = uncoveredLines(
+      source,
+      facts.map((fact) => fact.span),
+      [],
+    );
+    const [evidence] = judgeEvidence(facts, source, source.length, uncovered).evidence([
+      bullet!.id,
+    ]);
+    expect(evidence).toMatchObject({
+      appearsUnder: 'Engineer — Acme Corp (? – ?)',
+      unrecognizedBefore: ['Analyst, Globex, 2016 – 2019'],
+    });
   });
 });

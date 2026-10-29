@@ -1,5 +1,6 @@
 import type { DroppedFact, DropReason, ExtractedFact, Fact } from './facts.js';
-import { findQuote, indexText } from './find-quote.js';
+import { findQuote, indexText, normalizeText } from './find-quote.js';
+import { sourceLines } from './instructions.js';
 import { groupHeaders } from './group-headers.js';
 import { checkValues } from './fact-values.js';
 import { overlaps, type Span } from './span.js';
@@ -10,6 +11,9 @@ export interface VerifiedFacts {
   dropped: DroppedFact[];
   /** Group lines a kept position's company was checked in: covered like the facts' own quotes. */
   headers: Span[];
+  /** Achievements moved to another position because theirs was not kept, and those left without one. */
+  reattached: number;
+  unplaced: number;
 }
 
 /**
@@ -21,6 +25,7 @@ export function verifyFacts(
   source: string,
   extracted: readonly ExtractedFact[],
   instructionSpans: readonly Span[] = [],
+  sectionHeadings: readonly string[] = [],
 ): VerifiedFacts {
   const index = indexText(source);
   const dropped: DroppedFact[] = [];
@@ -62,20 +67,75 @@ export function verifyFacts(
   }
 
   // Achievements are resolved last: their position may come later in the model's list.
-  const positions = new Set(located.filter((fact) => fact.kind === 'position').map((f) => f.id));
-  const kept: Fact[] = [];
-  for (const fact of located) {
-    if (fact.kind === 'achievement' && !positions.has(fact.achievement.positionId)) {
-      drop(fact, 'unknown_position');
-    } else {
-      kept.push(fact);
-    }
-  }
+  const headingSpans = headingLines(source, sectionHeadings);
+  const {
+    facts: kept,
+    reattached,
+    unplaced,
+  } = placeAchievements(
+    // Facts that won their id first: their group is the one the id stands for.
+    [...found.map(({ fact }) => fact), ...extracted],
+    located,
+    headingSpans,
+  );
   const keptPositions = new Set(kept.filter((fact) => fact.kind === 'position').map((f) => f.id));
   const headers = [...companySpans]
     .filter(([fact]) => keptPositions.has(fact.id))
     .map(([, span]) => span);
-  return { facts: renumber(kept), dropped, headers };
+  return { facts: renumber(kept), dropped, headers, reattached, unplaced };
+}
+
+/**
+ * An achievement whose position was not kept (its quote failed, or the model named no real position)
+ * is not dropped with it (grounding.md §2). It goes to the first kept position of the same group (where
+ * the group's shared bullets live), else to the nearest kept position at or above it in the source —
+ * where the judge looks for the position a quote stands under — unless a section heading lies between
+ * them: a bullet of another section (projects, volunteering) is not a duty of the job above it. The
+ * heading guard is for that fallback only: the group is the model's own grouping by employer. Without a
+ * target it keeps no position and is shown as not used.
+ */
+function placeAchievements(
+  extracted: readonly ExtractedFact[],
+  located: Fact[],
+  headings: readonly Span[],
+) {
+  const positions = located
+    .filter((fact) => fact.kind === 'position')
+    .sort((a, b) => a.span[0] - b.span[0]);
+  const kept = new Set(positions.map((fact) => fact.id));
+  const groupOf = new Map<string, string>();
+  for (const fact of extracted) {
+    if (fact.kind === 'position' && fact.position.companyQuote !== undefined) {
+      if (!groupOf.has(fact.id)) groupOf.set(fact.id, fact.position.companyQuote);
+    }
+  }
+  let reattached = 0;
+  let unplaced = 0;
+  const facts = located.map((fact): Fact => {
+    if (fact.kind !== 'achievement') return fact;
+    const own = fact.achievement.positionId;
+    if (own !== null && kept.has(own)) return fact;
+    const group = own === null ? undefined : groupOf.get(own);
+    const above = positions.filter((position) => position.span[0] <= fact.span[0]).at(-1);
+    const sameSection =
+      above !== undefined &&
+      !headings.some((heading) => heading[0] >= above.span[1] && heading[1] <= fact.span[0]);
+    const target =
+      (group === undefined ? undefined : positions.find((p) => groupOf.get(p.id) === group)) ??
+      (sameSection ? above : undefined);
+    if (target) reattached++;
+    else unplaced++;
+    return { ...fact, achievement: { positionId: target?.id ?? null } };
+  });
+  return { facts, reattached, unplaced };
+}
+
+/** Lines of the source that equal a section heading (level-1 normalization, any case). */
+function headingLines(source: string, sectionHeadings: readonly string[]): Span[] {
+  const headings = new Set(sectionHeadings.map((heading) => normalizeText(heading).toLowerCase()));
+  return sourceLines(source)
+    .filter(({ text }) => headings.has(normalizeText(text).toLowerCase()))
+    .map(({ span }) => span);
 }
 
 function renumber(facts: Fact[]): Fact[] {
@@ -90,7 +150,8 @@ function renumber(facts: Fact[]): Fact[] {
   return ordered.map((fact) => {
     const id = ids.get(fact.id) ?? fact.id;
     if (fact.kind !== 'achievement') return { ...fact, id };
-    const positionId = ids.get(fact.achievement.positionId) ?? fact.achievement.positionId;
+    const own = fact.achievement.positionId;
+    const positionId = own === null ? null : (ids.get(own) ?? own);
     return { ...fact, id, achievement: { positionId } };
   });
 }

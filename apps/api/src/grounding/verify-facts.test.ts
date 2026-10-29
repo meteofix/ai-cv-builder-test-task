@@ -65,14 +65,12 @@ describe('verifyFacts', () => {
     expect(dropped).toEqual([{ id: 'pos', kind: 'position', reason: 'quote_not_found' }]);
   });
 
-  it('drops an achievement of an unknown or dropped position', () => {
+  it('keeps an achievement whose position was dropped and no position stands above, without a position', () => {
     const invented = { ...position, quote: 'Staff Engineer, Google' };
-    const { facts, dropped } = verifyFacts(SOURCE, [invented, achievement]);
-    expect(facts).toEqual([]);
-    expect(dropped).toEqual([
-      { id: 'pos', kind: 'position', reason: 'quote_not_found' },
-      { id: 'ach', kind: 'achievement', reason: 'unknown_position' },
-    ]);
+    const { facts, dropped, unplaced } = verifyFacts(SOURCE, [invented, achievement]);
+    expect(facts).toMatchObject([{ kind: 'achievement', achievement: { positionId: null } }]);
+    expect(dropped).toEqual([{ id: 'pos', kind: 'position', reason: 'quote_not_found' }]);
+    expect(unplaced).toBe(1);
   });
 
   it('drops a contact whose value is not in its quote', () => {

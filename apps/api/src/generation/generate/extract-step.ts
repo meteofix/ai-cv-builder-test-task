@@ -16,6 +16,9 @@ export type AskExtractor = <T>(request: {
 export interface ExtractCounters {
   kept: number;
   dropped: Record<string, number>;
+  /** Achievements moved to another position because theirs was not kept, and those left without one. */
+  reattached: number;
+  unplaced: number;
   instructionLines: number;
   uncoveredLines: number;
 }
@@ -35,10 +38,11 @@ export async function extractSourceFacts(
   });
   const locale: Locale = LOCALES.find((known) => known === output.locale) ?? 'en';
   const instructionSpans = instructionFragments(text, output.ignoredInstructions);
-  const { facts, dropped, headers } = verifyFacts(
+  const { facts, dropped, headers, reattached, unplaced } = verifyFacts(
     text,
     flattenExtraction(output),
     instructionSpans,
+    output.sectionHeadings,
   );
   const stored: SourceFacts = {
     locale,
@@ -57,6 +61,8 @@ export async function extractSourceFacts(
     counters: {
       kept: facts.length,
       dropped: countBy(dropped.map((fact) => fact.reason)),
+      reattached,
+      unplaced,
       instructionLines: instructionSpans.length,
       uncoveredLines: stored.uncoveredLines.length,
     },

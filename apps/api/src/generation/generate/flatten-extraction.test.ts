@@ -54,9 +54,12 @@ describe('flattenExtraction', () => {
       facts: [],
     });
     expect(facts).toMatchObject([{ kind: 'achievement', achievement: { positionId: 'g0' } }]);
-    expect(verifyFacts('Orphan', facts).dropped).toEqual([
-      { id: 'g0b0', kind: 'achievement', reason: 'unknown_position' },
-    ]);
+    // With no position above it either, the bullet stays, without a position (grounding.md §2).
+    expect(verifyFacts('Orphan', facts)).toMatchObject({
+      facts: [{ kind: 'achievement', achievement: { positionId: null } }],
+      dropped: [],
+      unplaced: 1,
+    });
   });
 
   it('lets grounding check the company in the group line above the positions', () => {

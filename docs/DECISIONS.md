@@ -268,3 +268,8 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 
 **Context.** The writer ordered the positions by relevance to the target role, so a CV's chronology broke and grouped positions of one company could be split.
 **Decision.** The writer chooses bullets and their order, not the order of the jobs; the document lists positions as the source does. The writer's output has no order field and the server has no order to check. Owner's decision, 2026-10-29 (task R0-ORDER).
+
+## 034. Say when much of the CV could not be read
+
+**Context.** A CV whose text came out garbled or half skipped ended up with dozens of "Not recognized" lines and no sign that half of it was lost.
+**Decision.** `GET /not-in-cv` gains an optional `sourceCoverage` field (content lines, lines not recognized, `low`); the editor shows a warning with a link to "Not in your CV" and the hint to paste the text when more than a quarter of the content lines were not recognized. The threshold comes from the dev corpus: after the extraction fixes every CV there is at or below 15 %, while the failures before them were at 35–75 %. Additive API change; owner's decision, 2026-10-29 (task R0-SIGNAL).

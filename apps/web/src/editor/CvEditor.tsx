@@ -155,6 +155,17 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
                   {notice}
                 </p>
               ) : null}
+              {notInCv.data?.sourceCoverage?.low ? (
+                <p className="alert" role="status">
+                  <span>
+                    Part of your CV could not be read. Check{' '}
+                    <a href="#section-not-in-cv" onClick={openNotInCv}>
+                      Not in your CV
+                    </a>
+                    , or paste the text of your CV instead.
+                  </span>
+                </p>
+              ) : null}
               <QuestionsBlock
                 cvId={cv.id}
                 questions={cv.questions}
@@ -173,7 +184,7 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
                   {errorMessage(notInCv.error)}
                 </p>
               ) : null}
-              <NotInCvPanel items={notInCv.data ?? []} />
+              <NotInCvPanel items={notInCv.data?.items ?? []} />
             </fieldset>
           </form>
         </FormProvider>
@@ -217,4 +228,10 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
       )}
     </>
   );
+}
+
+/** A fragment link does not open a closed `<details>`: open the panel, then let the link scroll to it. */
+function openNotInCv(): void {
+  const panel = document.getElementById('section-not-in-cv');
+  if (panel instanceof HTMLDetailsElement) panel.open = true;
 }

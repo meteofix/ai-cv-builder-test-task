@@ -1,5 +1,5 @@
-import type { CvDocument, NotInCvItem } from '@cv/shared';
-import type { Fact } from '../../grounding/index.js';
+import type { CvDocument, NotInCvItem, SourceCoverage } from '@cv/shared';
+import { contentLines, type Fact } from '../../grounding/index.js';
 import { positionLabel } from './questions.js';
 import type { RemovedItem, SourceFacts } from './schemas.js';
 import { verbatim, withScheme } from './skeleton.js';
@@ -92,4 +92,21 @@ function referencedFactIds(document: CvDocument): Set<string> {
     for (const item of section.items) item.factIds.forEach(add);
   }
   return ids;
+}
+
+/**
+ * Share of content lines left unrecognized above which the editor warns that part of the CV could not be
+ * read (decision 034). Chosen on the dev corpus: after the extraction fixes no CV there is above 15 %,
+ * while CVs whose text came out garbled or half-skipped were at 35–75 %.
+ */
+export const LOW_COVERAGE_SHARE = 0.25;
+
+export function sourceCoverage(source: string, sourceFacts: SourceFacts): SourceCoverage {
+  const total = contentLines(source, sourceFacts.sectionHeadings).length;
+  const notRecognized = sourceFacts.uncoveredLines.length;
+  return {
+    contentLines: total,
+    notRecognized,
+    low: total > 0 && notRecognized / total > LOW_COVERAGE_SHARE,
+  };
 }

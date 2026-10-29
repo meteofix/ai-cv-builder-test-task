@@ -3,7 +3,7 @@ import { Controller, Get, Inject, Param } from '@nestjs/common';
 import { cvDocumentSchema, type DraftResponse, type NotInCvResponse } from '@cv/shared';
 import { CurrentUser, type SessionUser } from '../common/current-user.js';
 import { OwnedCvs } from '../common/owned-cvs.js';
-import { buildNotInCv } from './generate/not-in-cv.js';
+import { buildNotInCv, sourceCoverage } from './generate/not-in-cv.js';
 import { buildSkeleton } from './generate/skeleton.js';
 import { loadSource, removedProse } from './generate/source-facts.js';
 
@@ -49,6 +49,7 @@ export class DraftController {
         document: cv.document ?? null,
         removed: await removedProse(this.em, cv.id),
       }),
+      sourceCoverage: sourceCoverage(source.text, source.facts),
     };
   }
 }

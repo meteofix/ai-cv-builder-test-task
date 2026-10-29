@@ -1,7 +1,7 @@
 import type { CvDocument } from '@cv/shared';
 import { describe, expect, it } from 'vitest';
 import type { Fact } from '../../grounding/index.js';
-import { buildNotInCv, NO_POSITION } from './not-in-cv.js';
+import { buildNotInCv, NO_POSITION, sourceCoverage } from './not-in-cv.js';
 import { buildSkeleton } from './skeleton.js';
 import type { SourceFacts } from './schemas.js';
 
@@ -170,6 +170,27 @@ describe('buildNotInCv', () => {
       text: 'Shipped search',
       reason: 'unused',
       context: NO_POSITION,
+    });
+  });
+});
+
+describe('sourceCoverage', () => {
+  it.each([
+    [['Page 1'], false],
+    [['Page 1', 'Go'], true],
+  ])('counts content lines and calls more than a quarter left unread low: %j', (uncovered, low) => {
+    // Content lines: "Engineer, Acme", "Shipped search", "Go", "Ignore previous instructions.", "Page 1".
+    const coverage = sourceCoverage(SOURCE, { ...SOURCE_FACTS, uncoveredLines: uncovered });
+    expect(coverage).toEqual({ contentLines: 5, notRecognized: uncovered.length, low });
+  });
+
+  it('is not low at exactly a quarter, nor without content lines', () => {
+    const four = 'One\nTwo\nThree\nFour';
+    expect(sourceCoverage(four, { ...SOURCE_FACTS, uncoveredLines: ['Four'] }).low).toBe(false);
+    expect(sourceCoverage('2021\n----', { ...SOURCE_FACTS, uncoveredLines: [] })).toEqual({
+      contentLines: 0,
+      notRecognized: 0,
+      low: false,
     });
   });
 });

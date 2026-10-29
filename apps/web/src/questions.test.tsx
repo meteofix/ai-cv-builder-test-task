@@ -333,3 +333,36 @@ describe('Not in your CV', () => {
     expect(screen.queryByText('Not in your CV')).not.toBeInTheDocument();
   });
 });
+
+describe('A CV that could be read only in part', () => {
+  const item = { text: 'Page 1', reason: 'not_recognized' as const };
+  it.each([
+    [{ contentLines: 40, notRecognized: 20, low: true }, true],
+    [{ contentLines: 40, notRecognized: 2, low: false }, false],
+    [undefined, false],
+  ])('shows the warning only when coverage is low: %j', async (sourceCoverage, shown) => {
+    server.use(
+      mockRoute('me', () => USER),
+      mockRoute('getCv', () => cvDetail({ document: editorDocument() })),
+      mockRoute('getNotInCv', () => ({
+        items: [item],
+        ...(sourceCoverage ? { sourceCoverage } : {}),
+      })),
+    );
+    renderApp(`/cvs/${CV_ID}`);
+    // The panel appears with the same answer, so the warning's absence is not a race.
+    const panel = (
+      await screen.findByText('Not in your CV', { selector: '.not-in-cv__title' })
+    ).closest('details')!;
+    if (!shown) {
+      expect(screen.queryByText(/Part of your CV could not be read/)).not.toBeInTheDocument();
+      return;
+    }
+    expect(screen.getByText(/Part of your CV could not be read/)).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'Not in your CV' });
+    expect(link).toHaveAttribute('href', '#section-not-in-cv');
+    expect(panel).not.toHaveAttribute('open');
+    link.click();
+    expect(panel).toHaveAttribute('open');
+  });
+});

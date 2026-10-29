@@ -8,12 +8,12 @@ Turn the source text into a CV without inventing facts, in the background, survi
 
 ## Contracts
 
-| Route (`ROUTES.*`)                        | Success                           | Errors (besides 401, 404 `CV_NOT_FOUND`)                              |
-| ----------------------------------------- | --------------------------------- | --------------------------------------------------------------------- |
-| `getJob` `GET /api/cvs/:id/job`           | 200 `Job`                         | 404 `NOT_FOUND` when the CV has no job (not reachable via the API)    |
-| `retryJob` `POST /api/cvs/:id/job/retry`  | 202 `Job`                         | 409 `JOB_ACTIVE`, `JOB_NOT_RETRYABLE`; 429 `GENERATION_LIMIT_REACHED` |
-| `getDraft` `GET /api/cvs/:id/draft`       | 200 `{draft: CvDocument \| null}` | —                                                                     |
-| `getNotInCv` `GET /api/cvs/:id/not-in-cv` | 200 `{items: NotInCvItem[]}`      | —                                                                     |
+| Route (`ROUTES.*`)                        | Success                                       | Errors (besides 401, 404 `CV_NOT_FOUND`)                              |
+| ----------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------- |
+| `getJob` `GET /api/cvs/:id/job`           | 200 `Job`                                     | 404 `NOT_FOUND` when the CV has no job (not reachable via the API)    |
+| `retryJob` `POST /api/cvs/:id/job/retry`  | 202 `Job`                                     | 409 `JOB_ACTIVE`, `JOB_NOT_RETRYABLE`; 429 `GENERATION_LIMIT_REACHED` |
+| `getDraft` `GET /api/cvs/:id/draft`       | 200 `{draft: CvDocument \| null}`             | —                                                                     |
+| `getNotInCv` `GET /api/cvs/:id/not-in-cv` | 200 `{items: NotInCvItem[], sourceCoverage?}` | —                                                                     |
 
 Every handler calls `findOwned` first. `getJob` and `retryJob` use `GenerationQueue.getLatestJob` and `GenerationQueue.retry`; the `Job` shape comes only from `toJobDto`.
 
@@ -74,7 +74,7 @@ Errors `parse` throws carry a job error code (`JobError`): `AI_UNAVAILABLE` (tra
 ### 4. Draft and "Not in your CV"
 
 1. `GET /draft`: `{draft: null}` when the CV has a document or no facts yet; otherwise `buildSkeleton(facts, targetRole, locale)` built on every request; nothing is stored. The draft is validated with `cvDocumentSchema` before it is returned.
-2. `GET /not-in-cv`: `[]` before facts exist; otherwise, grouped in this order and in source order inside a group: `unverified` (removed prose; `context` = "<title> — <company>" or "Summary"), `unused` (only once a document exists: kept achievement, skill, profile and `other` facts not referenced by any `factId`/`factIds` of the document, plus items cut by limits; `text` = the quote), `ignored` (instruction fragment lines), `not_recognized` (uncovered lines). In code: removed summary sentences come first, removed bullets follow their position's place in the source. `unused` lists every kept fact the document does not show, whatever its kind — left out by the writer, cut by `LIMITS` (a 13th position, a 31st skill, a too long extra line) or removed by hand; a contact counts as shown when its value is one of the document's contact fields or links. An `unused` item's `text` is the source text at the fact's span, and an unused achievement has its position as `context` ("No job found above it in your CV" for one without a position, grounding.md §2). The extract step's counters also hold `reattached` and `unplaced`, the achievements grounding moved to another position or left without one.
+2. `GET /not-in-cv`: `[]` before facts exist; otherwise, grouped in this order and in source order inside a group: `unverified` (removed prose; `context` = "<title> — <company>" or "Summary"), `unused` (only once a document exists: kept achievement, skill, profile and `other` facts not referenced by any `factId`/`factIds` of the document, plus items cut by limits; `text` = the quote), `ignored` (instruction fragment lines), `not_recognized` (uncovered lines). In code: removed summary sentences come first, removed bullets follow their position's place in the source. `unused` lists every kept fact the document does not show, whatever its kind — left out by the writer, cut by `LIMITS` (a 13th position, a 31st skill, a too long extra line) or removed by hand; a contact counts as shown when its value is one of the document's contact fields or links. With facts, the answer also has `sourceCoverage: {contentLines, notRecognized, low}` (owner's decision R0-SIGNAL, ADR 034; an additive, optional field of `notInCvResponseSchema`): the content lines of the source (with a letter, not a returned heading, each text once), how many of them no fact covers, and `low` when that is more than a quarter of them. An `unused` item's `text` is the source text at the fact's span, and an unused achievement has its position as `context` ("No job found above it in your CV" for one without a position, grounding.md §2). The extract step's counters also hold `reattached` and `unplaced`, the achievements grounding moved to another position or left without one.
 
 ### 5. `apply_answer`
 

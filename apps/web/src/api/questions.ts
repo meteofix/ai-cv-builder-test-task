@@ -9,7 +9,6 @@ export function useNotInCv(id: string) {
   return useQuery({
     queryKey: queryKeys.notInCv(id),
     queryFn: () => api('getNotInCv', { params: { id } }),
-    select: (data) => data.items,
   });
 }
 

@@ -20,5 +20,20 @@ export const notInCvItemSchema = z.object({
 });
 export type NotInCvItem = z.infer<typeof notInCvItemSchema>;
 
-export const notInCvResponseSchema = z.object({ items: z.array(notInCvItemSchema) });
+/**
+ * How much of the source the extraction could read: content lines (with a letter, not a heading) and how
+ * many of them no fact covers. `low` asks the editor to say so (decision 034). Optional: added later,
+ * and absent before the facts exist.
+ */
+export const sourceCoverageSchema = z.object({
+  contentLines: z.number().int().nonnegative(),
+  notRecognized: z.number().int().nonnegative(),
+  low: z.boolean(),
+});
+export type SourceCoverage = z.infer<typeof sourceCoverageSchema>;
+
+export const notInCvResponseSchema = z.object({
+  items: z.array(notInCvItemSchema),
+  sourceCoverage: sourceCoverageSchema.optional(),
+});
 export type NotInCvResponse = z.infer<typeof notInCvResponseSchema>;

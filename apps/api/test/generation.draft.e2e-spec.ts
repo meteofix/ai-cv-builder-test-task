@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { JobEngine } from '../src/generation/job-engine.js';
 import { inject } from './support/create-test-app.js';
 import { entityManager, resetDatabase } from './support/db.js';
-import { createCv, createJob, sampleDocument } from './support/factories.js';
+import { createCv, createJob, SAMPLE_SOURCE_TEXT, sampleDocument } from './support/factories.js';
 import { signIn, type TestSession } from './support/session.js';
 import {
   extractorAnswer,
@@ -52,6 +52,25 @@ describe('draft and not-in-cv endpoints', () => {
     fake.on('extractor', extractorAnswer()).on('writer', writerAnswer()).on('judge', judgeAnswer());
     await app.get(JobEngine).processNext();
     expect((await get('getDraft', cv.id)).json()).toEqual({ draft: null });
+    // The sample facts cover every content line: nothing to warn about (R0-SIGNAL).
+    expect((await get('getNotInCv', cv.id)).json()).toMatchObject({
+      sourceCoverage: { notRecognized: 0, low: false },
+    });
+  });
+
+  it('says when most of the source was not recognized (R0-SIGNAL)', async () => {
+    const em = entityManager(app);
+    const unread = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} nobody quoted`).join('\n');
+    const cv = await createCv(em, {
+      user: owner.user,
+      source: { text: `${SAMPLE_SOURCE_TEXT}\n${unread}` },
+    });
+    await createJob(em, { cv });
+    fake.on('extractor', extractorAnswer()).on('writer', writerAnswer()).on('judge', judgeAnswer());
+    await app.get(JobEngine).processNext();
+    expect((await get('getNotInCv', cv.id)).json()).toMatchObject({
+      sourceCoverage: { notRecognized: 30, low: true },
+    });
   });
 
   it('has no draft for a CV whose document was written without a generation', async () => {

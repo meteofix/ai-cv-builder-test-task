@@ -11,7 +11,7 @@ import { testConfig } from './test-config.js';
 export interface TestAppOptions {
   /** Extra modules, for example a probe controller that exposes what a route sees. */
   imports?: (Type | DynamicModule)[];
-  /** Providers replaced by test doubles, for example the LLM client: `{ provide: LlmClient, useValue: fake }`. */
+  /** Providers replaced by test doubles, for example the LLM transport: `{ provide: LlmTransport, useValue: fake }`. */
   overrides?: { provide: InjectionToken; useValue: unknown }[];
   /** Runs after the app is built and before routes are registered, for example to add an `onRoute` hook. */
   beforeInit?: (app: NestFastifyApplication) => void;

@@ -274,6 +274,21 @@ describe('verifyFacts', () => {
       '6 12 34 56 78',
       'Tel: +33\u202f6\u202f12\u202f34\u202f56\u202f78',
     ],
+    [
+      'a phone written with non-breaking hyphens',
+      'phone',
+      '123-45-67',
+      'Tel: 050\u2011123\u201145\u201167',
+    ],
+    ['a phone written with en dashes', 'phone', '123-45-67', 'Tel: 050–123–45–67'],
+    ['a phone after an area code and a slash', 'phone', '1234567', 'Tel: 0171/1234567'],
+    [
+      'a link without the port of the real one',
+      'link',
+      'https://example.com',
+      'Site: https://example.com:8443/cv',
+    ],
+    ['a phone after a spaced en dash', 'phone', '123 45 67', 'Tel: 050 – 123 45 67'],
   ] as const)('drops %s', (_case, field, value, quote) => {
     const { facts, dropped } = verifyFacts(quote, [
       { id: 'c', kind: 'contact', quote, contact: { field, value } },
@@ -361,6 +376,13 @@ describe('verifyFacts', () => {
       'iryna.k@example.com, k@example.com',
       'k@example.com',
       'k@example.com',
+    ],
+    [
+      'a link with a final slash before a full stop',
+      'link',
+      'See https://github.com/iryna-k/.',
+      'https://github.com/iryna-k',
+      'https://github.com/iryna-k/',
     ],
   ] as const)('keeps an address %s', (_case, field, quote, value, stored) => {
     const { facts } = verifyFacts(quote, [
@@ -450,4 +472,29 @@ describe('verifyFacts', () => {
     ]);
     expect(facts[0]?.quote).toBe('Cut costs by 1,140');
   });
+
+  it.each([
+    [
+      'a link without its scheme',
+      'link',
+      'Code: https://github.com/iryna-k',
+      'github.com/iryna-k',
+      'https://github.com/iryna-k',
+    ],
+    [
+      'a phone without its plus',
+      'phone',
+      'Tel: +380 50 123 45 67',
+      '380 50 123 45 67',
+      '+380 50 123 45 67',
+    ],
+  ] as const)(
+    'keeps %s when the quote is only the value, taking what belongs to it from the source',
+    (_case, field, source, value, stored) => {
+      const { facts } = verifyFacts(source, [
+        { id: 'c', kind: 'contact', quote: value, contact: { field, value } },
+      ]);
+      expect(facts[0]).toMatchObject({ contact: { value: stored } });
+    },
+  );
 });

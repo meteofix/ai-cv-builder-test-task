@@ -26,7 +26,8 @@ const QUOTES: Record<string, string> = {
   '”': '"',
   '„': '"',
 };
-const DASHES = new Set(['‐', '‑', '‒', '–', '—', '―', '−']);
+/** The dashes level 1 treats as `-`; a phone may be written with any of them. */
+export const DASHES = new Set(['‐', '‑', '‒', '–', '—', '―', '−']);
 const WHITESPACE = /^\s$/u;
 const LETTER_OR_DIGIT = /^[\p{L}\p{N}]$/u;
 const LETTER = /^\p{L}$/u;

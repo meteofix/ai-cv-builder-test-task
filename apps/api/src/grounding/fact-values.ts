@@ -1,6 +1,6 @@
 import { LIMITS } from '@cv/shared';
 import type { ExtractedFact } from './facts.js';
-import { indexText, matchQuote } from './find-quote.js';
+import { DASHES, indexText, matchQuote } from './find-quote.js';
 import type { Span } from './span.js';
 
 /**
@@ -8,13 +8,21 @@ import type { Span } from './span.js';
  * neighbour from this set means the match is only part of a longer address. Anything else — whitespace,
  * punctuation, a label's colon, an icon glyph — ends it.
  */
-const CONTINUES: Record<'email' | 'link', RegExp> = {
-  email: /[\p{L}\p{N}._%+\-@]/u,
-  link: /[\p{L}\p{N}._%+\-@/~#?=&]/u,
+const CONTINUES: Record<'email' | 'link', { left: RegExp; right: RegExp }> = {
+  // After an e-mail only its domain could go on (letters, digits, dots, dashes).
+  email: { left: /[\p{L}\p{N}._%+\-@]/u, right: /[\p{L}\p{N}.-]/u },
+  link: { left: /[\p{L}\p{N}._%+\-@/~#?=&]/u, right: /[\p{L}\p{N}._%+\-@/~#?=&]/u },
 };
-/** What a phone is written with between its digit groups (horizontal whitespace, dots, dashes). */
-const PHONE_INNER = /[^\S\r\n\f\v\u2028\u2029]|[.-]/u;
+const SPACE = /\s/u;
+const LETTER = /\p{L}/u;
 const DIGIT = /\p{N}/u;
+
+/** What a phone is written with between its digit groups: horizontal whitespace, dots and any dash. */
+function phoneInner(char: string): boolean {
+  return (
+    /[^\S\r\n\f\v\u2028\u2029]/u.test(char) || char === '.' || char === '-' || DASHES.has(char)
+  );
+}
 
 /**
  * The fact with every value checked against the source text at the fact's span (what its quote stands
@@ -43,13 +51,13 @@ export function checkValues(fact: ExtractedFact, source: string, span: Span): Ex
    * `www.` written before it and a final `/`.
    */
   const address = (value: string, field: 'email' | 'link' | 'phone'): string | null => {
+    // Offsets are absolute: what belongs to the address may stand just outside the quote.
     const match = matchQuote(index, value, ([start, end]) => {
-      const widened = widen(located, start, end, field);
-      const whole = wholeAddress(source, span[0] + widened[0], span[0] + widened[1], field);
-      return whole ? widened : null;
+      const widened = widen(source, span[0] + start, span[0] + end, field);
+      return wholeAddress(source, widened[0], widened[1], field) ? widened : null;
     });
     if (!match) return null;
-    const stored = located.slice(match.span[0], match.span[1]).replace(/\s+/g, ' ');
+    const stored = source.slice(match.span[0], match.span[1]).replace(/\s+/g, ' ');
     return stored.length > LIMITS.maxFieldChars ? null : stored;
   };
 
@@ -117,7 +125,9 @@ function widen(text: string, start: number, end: number, field: 'email' | 'link'
   if (field === 'link') {
     const prefix = /(?:[a-z][a-z0-9+.-]*:\/\/)?(?:www\.)?$/i.exec(text.slice(0, from))?.[0] ?? '';
     from -= prefix.length;
-    if (text[to] === '/' && !CONTINUES.link.test(text[to + 1] ?? ' ')) to++;
+    const afterSlash = text[to + 1] ?? ' ';
+    const sentenceEnd = afterSlash === '.' && !CONTINUES.link.right.test(text[to + 2] ?? ' ');
+    if (text[to] === '/' && (!CONTINUES.link.right.test(afterSlash) || sentenceEnd)) to++;
   }
   return [from, to];
 }
@@ -125,9 +135,11 @@ function widen(text: string, start: number, end: number, field: 'email' | 'link'
 /**
  * Neither neighbour of the match can continue the address (a trailing `.` before whitespace or the end
  * closes a sentence). So `k@example.com` inside `iryna.k@example.com`, `iryna@example.com` inside
- * `iryna@example.com.ua` and `https://github.com/iryna` inside `https://github.com/iryna-k` are not
- * found, while `Email:iryna@example.com` and `+380 50 123 45 67 (Viber)` are. A phone's neighbours are
- * looked at across its own separators: a digit, `+`, a `(` before a digit or a `)` after one continues it.
+ * `iryna@example.com.ua`, `https://github.com/iryna` inside `https://github.com/iryna-k` and
+ * `https://example.com` inside `https://example.com:8443/cv` are not found, while
+ * `Email:iryna@example.com` is. A phone's neighbours are looked at across its own separators: a digit or
+ * `+` continues it, and so does any other mark that is not a letter or a space and touches a digit on its
+ * far side (`0171/1234567`, `(050)123`), while `+380 50 123 45 67 (Viber)` stays whole.
  */
 function wholeAddress(
   source: string,
@@ -137,22 +149,25 @@ function wholeAddress(
 ): boolean {
   if (field === 'phone') {
     let before = start - 1;
-    while (before >= 0 && PHONE_INNER.test(source[before] ?? '')) before--;
+    while (before >= 0 && phoneInner(source[before] ?? '')) before--;
     let after = end;
-    while (after < source.length && PHONE_INNER.test(source[after] ?? '')) after++;
+    while (after < source.length && phoneInner(source[after] ?? '')) after++;
+    const joins = (char: string, far: string) =>
+      DIGIT.test(char) ||
+      (char !== '' && !LETTER.test(char) && !SPACE.test(char) && DIGIT.test(far));
     const left = source[before] ?? '';
     const right = source[after] ?? '';
-    const leftContinues =
-      DIGIT.test(left) || left === '+' || (left === ')' && DIGIT.test(source[before - 1] ?? ''));
-    const rightContinues =
-      DIGIT.test(right) || (right === '(' && DIGIT.test(source[after + 1] ?? ''));
+    const leftContinues = left === '+' || joins(left, source[before - 1] ?? '');
+    const rightContinues = joins(right, source[after + 1] ?? '');
     return !leftContinues && !rightContinues;
   }
-  const continues = CONTINUES[field];
+  const { left: continuesLeft, right: continuesRight } = CONTINUES[field];
   const left = source[start - 1];
   const right = source[end];
-  const sentenceEnd = right === '.' && !continues.test(source[end + 1] ?? ' ');
-  const leftContinues = left !== undefined && continues.test(left);
-  const rightContinues = right !== undefined && continues.test(right) && !sentenceEnd;
-  return !leftContinues && !rightContinues;
+  const sentenceEnd = right === '.' && !continuesRight.test(source[end + 1] ?? ' ');
+  // A port after a link host makes another address.
+  const port = field === 'link' && right === ':' && DIGIT.test(source[end + 1] ?? '');
+  const leftContinues = left !== undefined && continuesLeft.test(left);
+  const rightContinues = right !== undefined && continuesRight.test(right) && !sentenceEnd;
+  return !leftContinues && !rightContinues && !port;
 }

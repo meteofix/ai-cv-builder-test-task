@@ -1,5 +1,4 @@
 import { LIMITS, type CvDocument, type Locale } from '@cv/shared';
-import { checkEmail, checkLink, checkPhone } from '../../grounding/index.js';
 import {
   dateOf,
   groupSkills,
@@ -9,6 +8,7 @@ import {
   type AuthorItem,
   type AuthorOutput,
 } from './author-schema.js';
+import { draftContacts, type DraftContacts } from './draft-contacts.js';
 import type { SegmentIndex } from './verbatim.js';
 
 /** A text item between the author and the document: what it says, what it cites, whether it is the source's. */
@@ -66,15 +66,10 @@ export interface DraftSkillGroup {
 }
 
 /** The CV before the review: the author's answer with kept text filled in and contacts checked. */
-export interface Draft {
+export interface Draft extends DraftContacts {
   locale: Locale;
-  fullName: DraftItem | null;
-  location: DraftItem | null;
-  email: string;
-  phone: string;
-  links: string[];
-  /** Segments of the contacts, kept or not: they were read, so they count as placed. */
-  contactSegments: string[];
+  /** Segments the author called headings, labels or decoration, with their text: the reviewer sees them. */
+  headings: { segment: string; text: string }[];
   headline: DraftItem;
   summary: DraftItem[];
   experience: DraftJob[];
@@ -112,36 +107,17 @@ export function buildDraft(
   source: string,
   targetRole: string,
 ): Draft {
-  const contacts = (field: AuthorOutput['contacts'][number]['field']) =>
-    output.contacts.filter((contact) => contact.field === field);
-  // The name and the location are not matched against their segment: a name may be transliterated or
-  // re-cased, so the reviewer checks them as items instead.
-  const first = (field: 'fullName' | 'location'): DraftItem | null => {
-    const contact = contacts(field)[0];
-    return contact
-      ? { text: contact.value.trim(), segments: [contact.segment], kept: false }
-      : null;
-  };
-  const checked = (field: 'email' | 'phone', check: (value: string) => string | null) =>
-    contacts(field)
-      .map((contact) => check(contact.value))
-      .find((value) => value !== null) ?? '';
-  const links = [
-    ...new Set(
-      contacts('link')
-        .map((contact) => checkLink(contact.value, source))
-        .filter((link) => link !== null),
-    ),
-  ];
   const headline = draftItem(output.headline, index);
   return {
     locale: output.locale === 'uk' ? 'uk' : 'en',
-    fullName: first('fullName'),
-    location: first('location'),
-    email: checked('email', (value) => checkEmail(value, source)),
-    phone: checked('phone', (value) => checkPhone(value, source)),
-    links: links.slice(0, LIMITS.maxLinks),
-    contactSegments: output.contacts.map((contact) => contact.segment),
+    // Once each, and not a segment the author already lists as left out: the panel shows that one.
+    headings: [...new Set(output.headings)]
+      .filter((segment) => !output.notIncluded.some((entry) => entry.segments.includes(segment)))
+      .flatMap((segment) => {
+        const text = index.get(segment)?.text;
+        return text === undefined ? [] : [{ segment, text }];
+      }),
+    ...draftContacts(output, source),
     // A headline is the person's own line or the target role: one without evidence is the role.
     headline:
       headline.segments.length === 0 ? { text: targetRole, segments: [], kept: false } : headline,

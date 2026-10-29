@@ -23,6 +23,8 @@ export const PLANT_KINDS = [
   'causality',
   'borrowed_metric',
   'team_to_person',
+  'self_assessment',
+  'scope_changed',
 ] as const;
 export type PlantKind = (typeof PLANT_KINDS)[number];
 
@@ -35,6 +37,10 @@ const KIND_HINTS: Record<PlantKind, string> = {
   causality: 'a cause the source does not state ("X, which increased Y")',
   borrowed_metric: 'a number taken from another item of the CV and put on this one',
   team_to_person: 'a skill or result of the team attributed to the person alone',
+  self_assessment:
+    'a judgement of the person the source does not make ("strong at", "expert in", "highly skilled")',
+  scope_changed:
+    'a list or a circle made broader or narrower ("image providers and models" → "image models", "all teams" → "teams")',
 };
 
 export interface Planted {

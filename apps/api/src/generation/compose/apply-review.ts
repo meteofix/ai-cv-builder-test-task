@@ -62,6 +62,9 @@ function fix(draft: Draft, target: ReviewTarget, issue: ReviewIssue, targetRole:
     group.items = splitSkills(text);
     if (issue.segments.length > 0) group.segments = [...issue.segments];
     group.kept = false;
+  } else if (target.kind === 'heading') {
+    // The schema refuses a fix of a line read as a heading; nothing to change.
+    return;
   } else if (target.field === 'dates') {
     // The schema refused a fix that does not read as dates, so this always parses.
     const dates = parseDates(text);
@@ -83,7 +86,10 @@ function ask(
   const proposal = trimmed === '' ? null : trimmed;
   const push = (original: string) =>
     asked.push({ target, question: issue.question, context: proposal ?? original, original });
-  if (target.kind === 'item') {
+  if (target.kind === 'heading') {
+    // Content the author read as a heading: "Not in your CV" lists it with the reason (questions.ts).
+    push(target.text);
+  } else if (target.kind === 'item') {
     // A headline needs no evidence when it is the target role, so that is what replaces a doubtful one.
     if (target.place.section === 'headline') {
       Object.assign(target.item, { text: targetRole, segments: [], kept: false });

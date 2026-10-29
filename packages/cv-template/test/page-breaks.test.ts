@@ -57,7 +57,7 @@ describe('page breaks of the PDF (cv-template.md, behaviour 10)', () => {
     const pages = await pdfPages(
       browser,
       cv([
-        job('a', 'Fernhill Bank', 'Senior Engineer', '2022-02', null, [
+        job('a', 'Quellstone Bank', 'Senior Engineer', '2022-02', null, [
           { id: 'ga', title: null, items: bullets(4) },
         ]),
         job('b', 'Kestrel Payments', 'Lead Engineer', '2020-01', '2022-01', [
@@ -71,6 +71,21 @@ describe('page breaks of the PDF (cv-template.md, behaviour 10)', () => {
 
     expect(pages).toHaveLength(2);
     expect(pages[0]).toMatch(/Kestrel Payments.*Lead Engineer.*Settlement Item 5:/);
+    // Page 2 starts inside the Kestrel block, so it names the company first.
+    expect(pages[1]).toMatch(/^Kestrel Payments — continued /);
+  }, 60_000);
+
+  it('names the company in the CV’s language at the top of a page that starts inside its job', async () => {
+    const pages = await pdfPages(browser, {
+      ...cv([
+        job('a', 'Quellstone Bank', 'Senior Engineer', '2022-02', null, [
+          { id: 'ga', title: null, items: bullets(14) },
+        ]),
+      ]),
+      locale: 'uk',
+    });
+    expect(pages.length).toBeGreaterThan(1);
+    expect(pages[1]).toMatch(/^Quellstone Bank — продовження Item/);
   }, 60_000);
 
   // The filler shifts where the pages break, so across the cases every kind of heading comes near a
@@ -79,7 +94,7 @@ describe('page breaks of the PDF (cv-template.md, behaviour 10)', () => {
     'ends every page with a whole bullet, never a heading (filler of %i bullets)',
     async (filler) => {
       const experience = [
-        job('f', 'Fernhill Bank', 'Senior Engineer', '2022-02', null, [
+        job('f', 'Quellstone Bank', 'Senior Engineer', '2022-02', null, [
           { id: 'gf', title: null, items: bullets(1 + filler) },
         ]),
         ...[1, 2, 3, 4].flatMap((n) => [
@@ -95,6 +110,12 @@ describe('page breaks of the PDF (cv-template.md, behaviour 10)', () => {
       const pages = await pdfPages(browser, cv(experience));
 
       expect(pages.length).toBeGreaterThan(1);
+      // A page that starts inside a job says whose job it is; one that starts with a new job does not.
+      pages.slice(1).forEach((page, index) => {
+        const continued = /^(Company \d|Quellstone Bank) — continued /.exec(page);
+        const fresh = /^(Company \d|Quellstone Bank) [A-Z][a-z]{2} \d{4}/.test(page);
+        expect(Boolean(continued) || fresh, `page ${index + 2}: ${page.slice(0, 60)}`).toBe(true);
+      });
       pages.slice(0, -1).forEach((page, index) => {
         // A page that ends with a bullet ends with its full stop; any heading, company line or date ends otherwise.
         expect(page, `page ${index + 1} ends with a line of a bullet`).toMatch(/finance team\.$/);

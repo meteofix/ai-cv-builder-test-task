@@ -16,7 +16,7 @@ describe('loadConfig', () => {
       AUTHOR_MODEL: 'claude-opus-5-5',
       AUTHOR_EFFORT: 'medium',
       REVIEWER_MODEL: 'claude-opus-5-5',
-      REVIEWER_EFFORT: 'medium',
+      REVIEWER_EFFORT: 'low',
       GENERATIONS_PER_USER_PER_DAY: 30,
       WORKER_ENABLED: true,
     });

@@ -11,6 +11,10 @@ import { verbatim, type SegmentIndex } from './verbatim.js';
  */
 export const MAX_HEADING_CHARS = 60;
 
+/** Short enough to count as a heading; spaces do not count ("S U M M A R Y" is still short). */
+export const isHeadingLength = (text: string) =>
+  text.replace(/\s+/g, '').length <= MAX_HEADING_CHARS;
+
 /**
  * Share of content segments nothing cites above which the editor warns that part of the CV may be lost
  * (decision 034).
@@ -21,9 +25,10 @@ export const LOW_COVERAGE_SHARE = 0.25;
 const HAS_CONTENT = /[\p{L}\p{N}]/u;
 
 const UNCONFIRMED = 'Could not be confirmed from your CV';
+const NOT_A_LINK = 'Not a web address, so it is not among your links';
 
 /** Every segment the final draft cites, including items taken out for a question. */
-function draftCitations(draft: Draft): Set<string> {
+export function draftCitations(draft: Draft): Set<string> {
   const cited = new Set<string>(draft.contactSegments);
   const add = (ids: readonly string[]) => {
     ids.forEach((id) => cited.add(id));
@@ -93,8 +98,7 @@ export function accountSource(input: {
   });
   for (const id of author.headings) {
     const segment = index.get(id);
-    // Spaces do not count: a heading with spaced-out letters ("S U M M A R Y") is still short.
-    if (segment && segment.text.replace(/\s+/g, '').length <= MAX_HEADING_CHARS) accounted.add(id);
+    if (segment && isHeadingLength(segment.text)) accounted.add(id);
   }
   const content = segments.filter(
     (segment) => !segment.instruction && HAS_CONTENT.test(segment.text),
@@ -109,12 +113,18 @@ export function accountSource(input: {
     // "Add" puts a skill group back among the skills.
     ...(item.target.kind === 'skills' ? { section: 'skills' } : {}),
   }));
+  // A handle the source writes ("Telegram: @name") is no link, but it is the person's contact.
+  const notLinks = draft.notLinks.map((text): NotInCvItem => ({
+    text,
+    reason: 'not_included',
+    context: NOT_A_LINK,
+  }));
   const ignored = segments
     .filter((segment) => segment.instruction)
     .map((segment): NotInCvItem => ({ text: segment.text, reason: 'ignored' }));
 
   return {
-    items: [...notIncluded, ...unconfirmed, ...notPlaced, ...ignored],
+    items: [...notIncluded, ...notLinks, ...unconfirmed, ...notPlaced, ...ignored],
     coverage: {
       contentLines: content.length,
       notRecognized: notPlaced.length,

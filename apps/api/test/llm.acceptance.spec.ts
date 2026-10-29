@@ -93,7 +93,7 @@ describe('LLM client against a fake Anthropic API (docs/specs/generation.md §2)
 
   function request(overrides: Partial<LlmRequest<{ summary: string }>> = {}) {
     return {
-      role: 'writer' as LlmRole,
+      role: 'reviewer' as LlmRole,
       system: 'You write CV summaries.',
       input: '<cv_source>Iryna Kovalenko, Senior Engineer at Acme Corp</cv_source>',
       schema: summarySchema,
@@ -108,11 +108,9 @@ describe('LLM client against a fake Anthropic API (docs/specs/generation.md §2)
     server.requests.map((sent) => sent.body.messages as { role: string; content: unknown }[]);
 
   it.each([
-    ['extractor', 'claude-haiku-5-5', 'low', 16_000],
-    ['writer', 'claude-sonnet-5-5', 'medium', 16_000],
     ['judge', 'claude-opus-5-5', 'high', 16_000],
     ['author', 'claude-opus-5-5', 'medium', 32_000],
-    ['reviewer', 'claude-opus-5-5', 'medium', 16_000],
+    ['reviewer', 'claude-opus-5-5', 'low', 16_000],
   ] as const)(
     'sends a %s call to %s with effort %s, structured output and no temperature',
     async (role, model, effort, maxTokens) => {
@@ -316,11 +314,16 @@ describe('LLM client against a fake Anthropic API (docs/specs/generation.md §2)
     await app.get(LlmClient).parse(request());
     const calls = logs.filter((line) => line.msg === 'llm call');
     expect(calls).toEqual([
-      expect.objectContaining({ jobId: job.id, role: 'writer', outcome: 'transient', status: 529 }),
       expect.objectContaining({
         jobId: job.id,
-        role: 'writer',
-        model: 'claude-sonnet-5-5',
+        role: 'reviewer',
+        outcome: 'transient',
+        status: 529,
+      }),
+      expect.objectContaining({
+        jobId: job.id,
+        role: 'reviewer',
+        model: 'claude-opus-5-5',
         outcome: 'output',
         stopReason: 'end_turn',
         inputTokens: 12,

@@ -168,19 +168,6 @@ export function partIndex(source: PreparedSource, answers: readonly Segment[]): 
 const sameSet = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((id) => b.includes(id));
 
-/**
- * Whether the new items still carry an earlier item of the part, so it has not disappeared: a new item
- * cites all its segments (an item resting on an earlier answer is carried by a rewrite citing that
- * answer). The summary is one text, so its sentences together must cite them.
- */
-export function carried(old: PartItem, fresh: readonly PartItem[], part: Part): boolean {
-  if (part.kind === 'summary') {
-    const cited = new Set(fresh.flatMap((item) => item.factIds));
-    return old.factIds.every((id) => cited.has(id));
-  }
-  return fresh.some((item) => old.factIds.every((id) => item.factIds.includes(id)));
-}
-
 /** Whether an item the author kept word for word is one the part already showed (same segments). */
 export function alreadyShown(segments: readonly string[], shown: readonly PartItem[]): boolean {
   return shown.some((item) => sameSet(item.factIds, segments));

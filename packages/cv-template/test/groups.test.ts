@@ -81,7 +81,7 @@ describe('groups of bullets in a position (decision 036)', () => {
 
 describe('the period of a company block', () => {
   const header = (body: string) =>
-    /cv-entry--group"><p class="cv-entry__meta">(.*?)<\/p>/.exec(body)?.[1] ?? '';
+    /cv-entry--group"[^>]*><p class="cv-entry__meta">(.*?)<\/p>/.exec(body)?.[1] ?? '';
 
   it.each([
     [

@@ -243,13 +243,15 @@ describe('CV template', () => {
       ],
     });
     const group =
-      /<article class="cv-entry cv-entry--group">(.*?)<\/article>/.exec(shared)?.[1] ?? '';
+      /<article class="cv-entry cv-entry--group" data-continued="Acme Corp — continued">(.*?)<\/article>/.exec(
+        shared,
+      )?.[1] ?? '';
     expect(group.match(/cv-entry__org/g)).toHaveLength(1);
     expect(group).toMatch(
       /Acme Corp.*Lead Engineer.*Jan 2022 – Jun 2024.*Engineer.*Mar 2019 – Dec 2021.*<\/div><\/div><ul class="cv-entry__bullets"><li>Shipped the billing service\.<\/li><\/ul>$/,
     );
     expect(shared).toContain(
-      '<article class="cv-entry"><div class="cv-entry__head"><h3 class="cv-entry__title">Developer</h3>',
+      '<article class="cv-entry" data-continued="Globex — continued"><div class="cv-entry__head"><h3 class="cv-entry__title">Developer</h3>',
     );
     // When another position of the block has bullets, each position shows its own.
     const own = renderCvBody({
@@ -270,7 +272,7 @@ describe('CV template', () => {
         })),
       });
     const companyLine = (html: string) =>
-      /cv-entry--group"><p class="cv-entry__meta">(.*?)<\/p>/.exec(html)?.[1] ?? '';
+      /cv-entry--group"[^>]*><p class="cv-entry__meta">(.*?)<\/p>/.exec(html)?.[1] ?? '';
     expect(companyLine(located(['Kyiv', 'Kyiv']))).toContain('Kyiv');
     expect(companyLine(located(['Kyiv', undefined]))).not.toContain('Kyiv');
     expect(located(['Kyiv', 'Lviv'])).toMatch(/Title 0.*Kyiv.*Title 1.*Lviv/);

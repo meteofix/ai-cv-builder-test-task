@@ -12,3 +12,8 @@ const CSS_PX_PER_MM = 96 / 25.4;
  * about 994 px). The editor divides the preview's content height by it to show how many pages the PDF has.
  */
 export const PAGE_CONTENT_HEIGHT_PX = (A4_HEIGHT_MM - 2 * PAGE_MARGIN_MM) * CSS_PX_PER_MM;
+
+const A4_WIDTH_MM = 210;
+
+/** The width of the printable area in CSS pixels: the CV is measured at it before `paginate`. */
+export const PAGE_CONTENT_WIDTH_PX = (A4_WIDTH_MM - 2 * PAGE_MARGIN_MM) * CSS_PX_PER_MM;

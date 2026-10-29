@@ -1,5 +1,6 @@
 import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { PDF_OPTIONS } from '@cv/cv-template';
+import { placePageBreaks } from '@cv/cv-template/node';
 import { chromium, type Browser } from 'playwright';
 import type { Logger } from 'pino';
 import { ApiError } from '../common/api-error.js';
@@ -82,6 +83,7 @@ export class PdfRenderer implements OnModuleDestroy {
       const page = await context.newPage();
       await page.setContent(html, { waitUntil: 'load' });
       assertFontsLoaded(await page.evaluate<FontCheckResult>(FONT_CHECK_SCRIPT));
+      await placePageBreaks(page);
       return await page.pdf(PDF_OPTIONS);
     } finally {
       await close();

@@ -20,6 +20,43 @@ const review = (
 const run = (output: ReviewOutput) => compose(source, groupedAnswer(), output, ROLE);
 
 describe('applyReview — group titles and entries', () => {
+  it('asks for the dates of an education entry as dates, so the answer sets them', () => {
+    const answer = groupedAnswer({
+      education: [
+        {
+          institution: 'Pinecrest College',
+          degree: 'BSc',
+          start: '2010',
+          end: '2014',
+          segments: ['S1'],
+        },
+      ],
+    });
+    const { questions } = compose(source, answer, review('ask', 'edu.1.dates', null), ROLE);
+    expect(questions).toEqual([
+      expect.objectContaining({
+        target: { section: 'education', itemId: 'e1', field: 'dates' },
+        answerType: 'dates',
+      }),
+    ]);
+  });
+
+  it('keeps an untitled entry whose every line is asked about, so the answer has a place to go', () => {
+    const [section] = groupedAnswer().additional;
+    const [entry] = section!.entries;
+    const answer = groupedAnswer({
+      additional: [{ ...section!, entries: [{ ...entry!, title: '', start: '', end: '' }] }],
+    });
+    const { document, questions } = compose(
+      source,
+      answer,
+      review('ask', 'extra.1.1.1', null),
+      ROLE,
+    );
+    expect(questions[0]?.target).toMatchObject({ section: 'additional', itemId: 'a1-e1-g1' });
+    expect(document.additional[0]?.entries.map((kept) => kept.id)).toEqual(['a1-e1']);
+  });
+
   it('a fix of a group title replaces the title and keeps its bullets', () => {
     const { document, questions } = run(review('fix', 'job.1.g1', 'Shipping'));
     expect(document.experience[0]?.groups[0]).toMatchObject({

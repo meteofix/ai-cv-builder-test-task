@@ -255,8 +255,11 @@ describe('apply_answer', () => {
         ],
         ['Mentoring', ['Mentored two new engineers']],
       ]);
-      // Every earlier item is carried by a new one, so nothing joins "Not in your CV".
-      expect(await notInCvOf(cv.id)).toEqual([]);
+      // The earlier AI wording the group no longer shows word for word joins "Not in your CV".
+      expect((await notInCvOf(cv.id)).map((entry) => [entry.text, entry.context])).toEqual([
+        ['Migrated billing', 'Earlier wording, replaced when the CV was updated from your answer'],
+        ['Ran on-call', 'Earlier wording, replaced when the CV was updated from your answer'],
+      ]);
       // Everything outside the group is byte for byte what it was.
       const after = (await cvRow(cv.id)).document!;
       const same = (await cvRow(before.id)).document!;
@@ -362,7 +365,7 @@ describe('apply_answer', () => {
       ]);
       expect(await questionRow(question.id)).toMatchObject({
         applyStatus: 'partial',
-        applyNote: 'Some of the new text could not be verified and was left out.',
+        applyNote: `Some of the new text could not be verified and was left out. The earlier wording of this part is in "Not in your CV", where you can add it back.`,
       });
     });
 
@@ -398,8 +401,8 @@ describe('apply_answer', () => {
         [...full.slice(0, room), 'Wrote the onboarding guide'],
       ]);
       expect(fake.inputs('author')).toHaveLength(2);
-      // The two earlier bullets were replaced by new ones that do not carry them.
-      expect((await questionRow(question.id)).applyStatus).toBe('partial');
+      // The two earlier bullets were replaced by new wording; the answer itself is applied.
+      expect((await questionRow(question.id)).applyStatus).toBe('applied');
       expect((await notInCvOf(cv.id)).map((entry) => entry.text)).toEqual([
         'Migrated billing',
         'Ran on-call',
@@ -436,9 +439,14 @@ describe('apply_answer', () => {
         text: 'Engineer who leads migrations and mentors.',
         factIds: ['S2', 'S3', 'A1'],
       });
-      // The new summary carries the old one, so it is not offered again in "Not in your CV".
+      // The new summary says more than the old one, whose wording joins "Not in your CV".
       expect((await questionRow(own.question.id)).applyStatus).toBe('applied');
-      expect(await notInCvOf(own.cv.id)).toEqual([]);
+      expect((await notInCvOf(own.cv.id)).map((entry) => [entry.text, entry.context])).toEqual([
+        [
+          'Engineer who leads migrations.',
+          'Earlier wording, replaced when the CV was updated from your answer',
+        ],
+      ]);
 
       const written = await answeredCv(
         entityManager(app),
@@ -527,7 +535,7 @@ describe('apply_answer', () => {
       ]);
     });
 
-    it('puts an earlier AI bullet a group-wide answer did not carry into "Not in your CV"', async () => {
+    it('puts every earlier AI bullet a group-wide answer did not keep word for word into "Not in your CV"', async () => {
       healthy(['Led the billing migration for 3 teams']);
       const { cv, question } = await answered(
         { section: 'experience', itemId: GROUP_A1 },
@@ -535,15 +543,15 @@ describe('apply_answer', () => {
       );
       await runAll();
       expect(await questionRow(question.id)).toMatchObject({
-        applyStatus: 'partial',
+        applyStatus: 'applied',
         applyNote:
-          'Some earlier text of this part is no longer shown; it is in "Not in your CV", where you can add it back.',
+          'The earlier wording of this part is in "Not in your CV", where you can add it back.',
       });
       expect(await notInCvOf(cv.id)).toEqual([
         expect.objectContaining({
           text: 'Migrated billing',
           reason: 'not_included',
-          context: 'Taken out when the CV was updated from your answer',
+          context: 'Earlier wording, replaced when the CV was updated from your answer',
           section: 'experience',
           itemId: POSITION_A,
         }),

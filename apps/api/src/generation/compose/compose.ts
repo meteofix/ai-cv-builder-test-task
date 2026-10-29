@@ -10,8 +10,9 @@ import { segmentSource, type Segment } from '../../grounding/index.js';
 import type { LlmOutputMode, LlmRole } from '../../llm/llm-transport.js';
 import { accountSource } from './accounting.js';
 import { applyReview } from './apply-review.js';
-import { authorOutputSchema, authorSchema, type AuthorOutput } from './author-schema.js';
-import { buildDraft, groupItems, toDocument, type Draft } from './draft.js';
+import { authorSchema } from './author-checks.js';
+import { authorOutputSchema, type AuthorOutput } from './author-schema.js';
+import { additionalId, buildDraft, groupItems, toDocument, type Draft } from './draft.js';
 import { alignStops } from './stops.js';
 import {
   AUTHOR_SYSTEM,
@@ -154,12 +155,18 @@ export function compose(
   const view = reviewView(draft);
   const asked = applyReview(draft, review, view, targetRole);
   const { questions, unasked } = buildQuestions(draft, asked, author.gaps);
-  // An entry kept only for a question past the cap has no question to wait for.
-  for (const { target } of unasked) {
-    if (target.kind !== 'entry') continue;
-    const entry = draft.additional[target.section]?.entries[target.entry];
-    if (entry) entry.asked = false;
-  }
+  // An entry the review emptied stays while a question about it (its title, dates or a line) waits for
+  // the answer, so the answer has a place to go; one whose question fell past the cap has none.
+  draft.additional.forEach((section, i) => {
+    section.entries.forEach((entry, j) => {
+      const id = `${additionalId(i)}-e${j + 1}`;
+      entry.asked = questions.some(
+        ({ target }) =>
+          target.section === 'additional' &&
+          (target.itemId === id || target.itemId?.startsWith(`${id}-`) === true),
+      );
+    });
+  });
   const { items: notInCv, coverage } = accountSource({
     segments: source.segments,
     index: source.index,

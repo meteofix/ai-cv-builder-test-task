@@ -77,7 +77,10 @@ export function buildQuestions(
 
   // An answer cannot rewrite a list of skills (§5), so a doubtful skill group is not asked about: it goes
   // to "Not in your CV" with the reviewer's question, where "Add" puts it back.
-  const findings = asked.filter((item) => item.target.kind !== 'skills');
+  // A line read as a heading has no part to rewrite either: "Not in your CV" lists it with the reason.
+  const unanswerable = (item: Asked) =>
+    item.target.kind === 'skills' || item.target.kind === 'heading';
+  const findings = asked.filter((item) => !unanswerable(item));
   for (const item of findings) {
     const { target } = item;
     if (target.kind === 'field') {
@@ -97,6 +100,7 @@ export function buildQuestions(
         { section: 'education', itemId: educationId(target.entry), field: target.field },
         prompt,
         item.context || null,
+        target.field === 'dates' ? 'dates' : 'text',
       );
     } else if (target.kind === 'entry') {
       missing(
@@ -178,33 +182,42 @@ export function buildQuestions(
   // the findings past the cap; "Not in your CV" lists both.
   return {
     questions: questions.slice(0, MAX_QUESTIONS),
-    unasked: [
-      ...asked.filter((item) => item.target.kind === 'skills'),
-      ...findings.slice(MAX_QUESTIONS),
-    ],
+    unasked: [...asked.filter(unanswerable), ...findings.slice(MAX_QUESTIONS)],
   };
 }
 
 /**
  * Where the answer to a doubtful item lands: its group (a job's `p1-g2`, an entry's `a1-e1-g1`), so the
- * answer rewrites that group only (§5); the summary as a whole; a section otherwise.
+ * answer rewrites that group only (§5), at the item's place (V2-Q6); the summary as a whole; a section
+ * otherwise.
  */
 function findingTarget(place: Place): QuestionTarget {
   if (place.section === 'experience') {
     const owner = positionId(place.job);
+    if (place.group === undefined) return { section: 'experience', itemId: owner };
     return {
       section: 'experience',
-      itemId: place.group === undefined ? owner : `${owner}-g${place.group + 1}`,
+      itemId: `${owner}-g${place.group + 1}`,
+      ...positionIn(place),
     };
   }
   if (place.section === 'additional') {
     const section = additionalId(place.index);
     if (place.entry === undefined) return { section: 'additional', itemId: section };
     const entry = `${section}-e${place.entry + 1}`;
+    if (place.group === undefined) return { section: 'additional', itemId: entry };
     return {
       section: 'additional',
-      itemId: place.group === undefined ? entry : `${entry}-g${place.group + 1}`,
+      itemId: `${entry}-g${place.group + 1}`,
+      ...positionIn(place),
     };
   }
   return { section: place.section };
+}
+
+/** The item's index in its group as the review saw it; the answer counts the earlier ones not back yet. */
+function positionIn(place: Extract<Place, { section: 'experience' | 'additional' }>): {
+  position?: number;
+} {
+  return place.item === undefined ? {} : { position: place.item };
 }

@@ -19,13 +19,11 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: z
     .string({ error: 'ANTHROPIC_API_KEY is required' })
     .min(1, 'ANTHROPIC_API_KEY is required'),
-  EXTRACTOR_MODEL: z.string().default('claude-haiku-5-5'),
-  WRITER_MODEL: z.string().default('claude-sonnet-5-5'),
-  JUDGE_MODEL: z.string().default('claude-opus-5-5'),
   AUTHOR_MODEL: z.string().default('claude-opus-5-5'),
   AUTHOR_EFFORT: z.enum(LLM_EFFORTS).default('medium'),
   REVIEWER_MODEL: z.string().default('claude-opus-5-5'),
-  REVIEWER_EFFORT: z.enum(LLM_EFFORTS).default('medium'),
+  // The reviewer at low effort found as much as at medium and was not worse in the pairwise eval (decision 039).
+  REVIEWER_EFFORT: z.enum(LLM_EFFORTS).default('low'),
   // The author writes a whole CV in one answer; on a long CV that takes minutes, not seconds.
   LLM_TIMEOUT_MS: positiveInt.default(300_000),
   LLM_CALL_BUDGET: positiveInt.default(15),

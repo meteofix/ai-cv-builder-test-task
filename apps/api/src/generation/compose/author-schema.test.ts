@@ -1,9 +1,11 @@
 import { LIMITS } from '@cv/shared';
 import { describe, expect, it } from 'vitest';
 import { authorAnswer, SOURCE } from '../../../test/generation/compose-fixture.js';
+import { authorSchema } from './author-checks.js';
 import {
-  authorSchema,
+  authorOutputSchema,
   dateOf,
+  groupSkills,
   kept,
   type AuthorGroup,
   type AuthorOutput,
@@ -46,6 +48,22 @@ const entry = (change: Partial<AuthorOutput['additional'][number]['entries'][num
   ...change,
 });
 
+describe('authorOutputSchema — what an omitted field means', () => {
+  it('reads an omitted string as "" (none) instead of re-asking', () => {
+    const omitted = new Set(['orderReason', 'structureNotes', 'location', 'end', 'question']);
+    const answer = authorAnswer({
+      gaps: [{ kind: 'vague', job: 1, education: 0, question: 'What did you ship?' }],
+    });
+    const parsed = authorOutputSchema.parse(
+      JSON.parse(
+        JSON.stringify(answer, (key, value: unknown) => (omitted.has(key) ? undefined : value)),
+      ),
+    );
+    expect(parsed).toMatchObject({ orderReason: '', structureNotes: '', gaps: [{ question: '' }] });
+    expect(parsed.experience[0]).toMatchObject({ location: '', end: '' });
+  });
+});
+
 describe('dateOf and kept — "" means none', () => {
   it.each([
     ['', null],
@@ -62,6 +80,26 @@ describe('dateOf and kept — "" means none', () => {
   ])('treats the text %j as kept: %s', (text, expected) => {
     expect(kept({ text, segments: ['S7'] })).toBe(expected);
   });
+});
+
+describe('groupSkills — the skills of a group', () => {
+  it('leaves out a label that stands on a line of its own, as a two-column PDF prints it', () => {
+    const source = prepareSource('Daily use:\nC, C++, CSS');
+    const group = { title: 'Daily use', segments: ['S1', 'S2'], items: [] };
+    expect(groupSkills(group, source.index)).toEqual(['C', 'C++', 'CSS']);
+  });
+
+  it.each([
+    [true, ['Rust', 'Go', 'Apache Cassandra', 'Elixir']],
+    [false, ['Rust', 'Go', 'Apache', 'Cassandra', 'Elixir']],
+  ])(
+    'joins the lines of a kept group before cutting it when wrapped is %s',
+    (wrapped, expected) => {
+      const source = prepareSource('Rust, Go, Apache\nCassandra, Elixir');
+      const group = { title: '', segments: ['S1', 'S2'], items: [], wrapped };
+      expect(groupSkills(group, source.index)).toEqual(expected);
+    },
+  );
 });
 
 describe('authorSchema — the rules the grammar cannot hold', () => {

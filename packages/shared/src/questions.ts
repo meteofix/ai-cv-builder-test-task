@@ -20,6 +20,13 @@ export const questionTargetSchema = z.object({
   itemId: z.string().max(64).optional(),
   /** Field inside the item, for example `dates`, `company` or `degree`. */
   field: z.string().max(64).optional(),
+  /** Index in its group of an item the review took out, so the answer puts it back in its place. */
+  position: z
+    .number()
+    .int()
+    .min(0)
+    .max(Math.max(LIMITS.maxBulletsPerPosition, LIMITS.maxLinesPerEntry))
+    .optional(),
 });
 export type QuestionTarget = z.infer<typeof questionTargetSchema>;
 

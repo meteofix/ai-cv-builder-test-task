@@ -26,7 +26,7 @@ import { reviewOutputSchema } from '../compose/review.js';
 import type { JobHandler, JobRun } from '../job-handler.js';
 import { JobError, LeaseLostError } from '../job-errors.js';
 import type { ClaimedJob } from '../job-store.js';
-import { applyPatch, isDirectField, NOTES, type Patch } from './apply-document.js';
+import { applyPatch, isDirectField, NOTES, positionNow, type Patch } from './apply-document.js';
 import { replaceDocument } from './document-write.js';
 
 /**
@@ -144,7 +144,16 @@ export class ApplyAnswerHandler implements JobHandler {
       const cv = await tx.findOne(Cv, { id: job.cvId, user: job.userId }, { refresh: true });
       if (!cv) throw new LeaseLostError();
       const now = this.clock.now();
-      const result = cv.document && patch ? applyPatch(cv.document, target, patch) : null;
+      const siblings =
+        target.position === undefined
+          ? []
+          : await tx.find(CvQuestion, {
+              cv: job.cvId,
+              kind: 'unverified',
+              id: { $ne: questionId },
+            });
+      const placed = positionNow(target, siblings);
+      const result = cv.document && patch ? applyPatch(cv.document, placed, patch) : null;
       if (result?.kind !== 'patched') {
         const note = failure ?? (result?.kind === 'mismatch' ? NOTES.mismatch : NOTES.gone);
         if (answerText !== undefined) await keepAnswer(tx, job.cvId, answerText, []);

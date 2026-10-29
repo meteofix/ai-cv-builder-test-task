@@ -1,5 +1,6 @@
 import { dateSchema, experienceGroups, LIMITS, sharesBullets } from '@cv/shared';
 import { z } from 'zod';
+import { draftCitations, isHeadingLength } from './accounting.js';
 import type { Draft, DraftGroup, DraftItem } from './draft.js';
 import type { SegmentIndex } from './verbatim.js';
 
@@ -7,6 +8,8 @@ import type { SegmentIndex } from './verbatim.js';
 export const REVIEW_CLASSES = [
   'invented_detail',
   'inflated_scope',
+  // A list or a circle made broader or narrower ("providers and models" → "models").
+  'changed_scope',
   'wrong_time',
   'wrong_job',
   'wrong_number',
@@ -51,14 +54,19 @@ export type ReviewTarget =
   | { kind: 'field'; job: number; field: 'title' | 'company' | 'location' | 'dates' }
   | { kind: 'education'; entry: number; field: 'institution' | 'degree' | 'dates' }
   | { kind: 'entry'; section: number; entry: number; field: 'title' | 'dates' }
-  | { kind: 'skills'; group: number };
+  | { kind: 'skills'; group: number }
+  /** A segment the author read as a heading and the CV shows nowhere: the reviewer may say it is content. */
+  | { kind: 'heading'; segment: string; text: string };
 
 /** Where a text item stands, for its question. */
 export type Place =
   | { section: 'headline' | 'summary' | 'contacts' }
-  /** `group`: the index of the item's group, so a question can target that group alone. */
-  | { section: 'experience'; job: number; group?: number }
-  | { section: 'additional'; index: number; entry?: number; group?: number };
+  /**
+   * `group`: the index of the item's group, so a question can target that group alone; `item`: its
+   * index in that group, so an answer can put it back in its place.
+   */
+  | { section: 'experience'; job: number; group?: number; item?: number }
+  | { section: 'additional'; index: number; entry?: number; group?: number; item?: number };
 
 /** The draft as the reviewer reads it, and what each id it may answer by stands for. */
 export interface ReviewView {
@@ -98,8 +106,8 @@ export function reviewView(draft: Draft): ReviewView {
         targets.set(id, { kind: 'title', group });
         lines.push(`[${id}] (group title) ${JSON.stringify(group.title)}:`);
       }
-      group.items.forEach((item) => {
-        text(`${prefix}.${++n}`, item, { ...place, group: g }, max);
+      group.items.forEach((item, i) => {
+        text(`${prefix}.${++n}`, item, { ...place, group: g, item: i }, max);
       });
     });
   };
@@ -174,6 +182,20 @@ export function reviewView(draft: Draft): ReviewView {
       groups(n, entry.groups, { section: 'additional', index: i, entry: j }, LIMITS.maxTextChars);
     });
   });
+  // What the author read as a heading counts as placed, so a line of content hidden there would vanish:
+  // the reviewer sees the ones the CV shows nowhere (decision 035, revised).
+  const shown = draftCitations(draft);
+  const hidden = draft.headings.filter(
+    ({ segment, text }) => !shown.has(segment) && isHeadingLength(text),
+  );
+  if (hidden.length > 0) {
+    lines.push('Read as headings, labels or decoration (shown nowhere in the CV):');
+    for (const { segment, text } of hidden) {
+      const id = `heading.${segment}`;
+      targets.set(id, { kind: 'heading', segment, text });
+      lines.push(`[${id}] ${JSON.stringify(text)}`);
+    }
+  }
   return { targets, text: lines.join('\n') };
 }
 
@@ -209,6 +231,10 @@ export function reviewSchema(view: ReviewView, index: SegmentIndex) {
         return;
       }
       for (const id of issue.segments) if (!index.has(id)) add(`Unknown segment id ${id}`);
+      // A line read as a heading is not rewritten: it is content the CV left out, or it is fine.
+      if (issue.action === 'fix' && target.kind === 'heading') {
+        add('For a line read as a heading give an ask with the reason');
+      }
       // A name or a location has no question to ask: what the source does not support is fixed.
       if (issue.action === 'ask' && target.kind === 'item' && target.place.section === 'contacts') {
         add('For the name or the location give a fix, not an ask');

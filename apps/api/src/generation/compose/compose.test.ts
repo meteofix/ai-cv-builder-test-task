@@ -218,13 +218,55 @@ describe('compose — the review', () => {
     expect(bulletsOf(document.experience[0]!).map((bullet) => bullet.text)).toEqual([
       'Mentored two junior developers',
     ]);
-    // The answer will rewrite the group the bullet stood in (docs/specs/generation.md §5).
+    // The answer will rewrite the group the bullet stood in (docs/specs/generation.md §5), at its place.
     expect(questions[0]).toEqual({
       kind: 'unverified',
-      target: { section: 'experience', itemId: 'p1-g1' },
+      target: { section: 'experience', itemId: 'p1-g1', position: 0 },
       prompt: 'Was it 6 minutes for every report?',
       context: 'Cut report generation from 40 to 6 minutes',
       answerType: 'text',
+    });
+  });
+
+  it.each([
+    ['the second bullet', ['job.1.2'], [1]],
+    // Each keeps its own index; the answer counts the earlier ones that are not back yet.
+    ['both bullets', ['job.1.1', 'job.1.2'], [0, 1]],
+  ])('stores where %s stood in its group as the review saw it', (_, items, positions) => {
+    const review: ReviewOutput = {
+      issues: items.map((item) => ({
+        item,
+        action: 'ask' as const,
+        class: 'wrong_number' as const,
+        text: null,
+        segments: [],
+        question: 'Is this right?',
+      })),
+    };
+    const { questions } = compose(source, authorAnswer(), review, ROLE);
+    expect(questions.map((question) => question.target.position)).toEqual(positions);
+  });
+
+  it('lists a line read as a heading that the reviewer calls content in "Not in your CV", without a question', () => {
+    const review: ReviewOutput = {
+      issues: [
+        {
+          item: 'heading.S15',
+          action: 'ask',
+          class: 'other',
+          text: null,
+          segments: [],
+          question: 'A hobby of the person, not a heading',
+        },
+      ],
+    };
+    const answer = authorAnswer({ headings: ['S4', 'S13', 'S15'] });
+    const { questions, analysis } = compose(source, answer, review, ROLE);
+    expect(questions).toEqual([]);
+    expect(analysis.notInCv).toContainEqual({
+      text: 'Hobbies: sourdough',
+      reason: 'not_included',
+      context: 'A hobby of the person, not a heading',
     });
   });
 

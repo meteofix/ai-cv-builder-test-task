@@ -2,7 +2,7 @@ import type { CvDocument } from '@cv/shared';
 import type { Browser } from 'playwright';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { PDF_OPTIONS, renderCvHtml } from '../src/index.js';
-import { loadEmbeddedFonts } from '../src/node.js';
+import { loadEmbeddedFonts, placePageBreaks } from '../src/node.js';
 
 /** Prints a page exactly as the PDF endpoint does. */
 export async function printPdf(browser: Browser, html: string): Promise<Uint8Array> {
@@ -11,6 +11,7 @@ export async function printPdf(browser: Browser, html: string): Promise<Uint8Arr
     await page.setContent(html);
     // An expression string: it runs in the page, and a string needs no types for the page's globals.
     await page.evaluate('document.fonts.ready.then(() => undefined)');
+    await placePageBreaks(page);
     return new Uint8Array(await page.pdf(PDF_OPTIONS));
   } finally {
     await page.close();

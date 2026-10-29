@@ -41,7 +41,7 @@ describe('LLM client: answers that cannot be stored', () => {
 
   const parse = () =>
     app.get(LlmClient).parse({
-      role: 'writer',
+      role: 'reviewer',
       system: 'You write.',
       input: '<cv_source>x</cv_source>',
       schema: z.object({ summary: z.string() }),

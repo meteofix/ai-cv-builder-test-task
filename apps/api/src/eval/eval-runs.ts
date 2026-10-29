@@ -39,7 +39,7 @@ export async function runPairwise(
 ): Promise<string> {
   const judges = Object.entries(PAIRWISE_JUDGES).map(([name, model]) => ({
     name,
-    ...evalClient({ ...config, JUDGE_MODEL: model }),
+    ...evalClient(config, model),
   }));
   const documentIn = async (dir: string, file: EvalInput) =>
     cvDocumentSchema.parse(
@@ -114,7 +114,7 @@ export async function runReviewerTest(
   first: string,
 ): Promise<string> {
   const reviewer = evalClient(config);
-  const planter = evalClient({ ...config, JUDGE_MODEL: PLANTER_MODEL });
+  const planter = evalClient(config, PLANTER_MODEL);
   const job = { id: 'eval', lockedBy: 'eval' };
   const signal = new AbortController().signal;
   const rows: string[] = [];

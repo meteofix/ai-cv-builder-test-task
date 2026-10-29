@@ -321,34 +321,53 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
       start: '2021-03',
       current: true,
     });
-    expect(fake.inputs('writer')).toHaveLength(0);
+    expect(fake.inputs('author')).toHaveLength(1);
   });
 
-  it('a content answer on a CV the author wrote fails once, without retries, until V2-Z3 (§5)', async () => {
-    healthy().on('author', {
-      output: sampleAuthorAnswer({
-        gaps: [{ kind: 'vague', job: 1, education: 0, question: 'What changed?' }],
-      }),
-    });
+  it('a question from a generation, answered through the API, updates only its part (§5)', async () => {
+    healthy().on(
+      'author',
+      {
+        output: sampleAuthorAnswer({
+          gaps: [{ kind: 'vague', job: 1, education: 0, question: 'What changed?' }],
+        }),
+      },
+      {
+        output: {
+          items: [
+            { text: 'Moved billing to TypeScript, halving its run time', segments: ['S5', 'A1'] },
+          ],
+        },
+      },
+    );
     const { cv } = await queued();
     await engine.processNext();
+    const before = await documentOf(cv.id);
     const [question] = await questions(cv);
+    expect(question).toMatchObject({
+      kind: 'vague',
+      target: { section: 'experience', itemId: 'p1' },
+    });
     const res = await inject(app, {
       method: 'POST',
       url: routePath(ROUTES.answerQuestion.path, { id: cv.id, qid: question!.id }),
       headers: { ...owner.headers, 'content-type': 'application/json' },
-      payload: JSON.stringify({ answer: { type: 'text', text: 'Billing got faster.' } }),
+      payload: JSON.stringify({
+        answer: { type: 'text', text: 'The billing run took half the time.' },
+      }),
     });
     const job = jobSchema.parse(res.json<{ job: unknown }>().job);
     await engine.processNext();
-    expect(await jobRow(job.id)).toMatchObject({
-      status: 'failed',
-      errorCode: 'INTERNAL',
-      attempts: 1,
-    });
+    expect(await jobRow(job.id)).toMatchObject({ status: 'succeeded' });
     expect(await entityManager(app).findOneOrFail(CvQuestion, question!.id)).toMatchObject({
-      applyStatus: 'failed',
+      applyStatus: 'applied',
     });
+    const after = await documentOf(cv.id);
+    // The bullet it replaced ended with a full stop, so the new one does too.
+    expect(bulletsOf(after.experience[0]!).map((bullet) => bullet.text)).toEqual([
+      'Moved billing to TypeScript, halving its run time.',
+    ]);
+    expect({ ...after, experience: [] }).toEqual({ ...before, experience: [] });
   });
 
   it('GEN-13 — a dead worker’s job resumes without repeating calls', async () => {
@@ -457,6 +476,19 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
     await engine.processNext();
     expect(await jobRow(job.id)).toMatchObject({ status: 'failed', errorCode: code, attempts: 1 });
     expect(fake.inputs('author')).toHaveLength(1);
+  });
+
+  it('writes again when the stored author answer has an earlier shape (a deploy between steps)', async () => {
+    healthy();
+    const { cv, job } = await queued();
+    await entityManager(app).nativeUpdate(GenerationJob, job.id, {
+      step: 'judge',
+      state: { write: { bullets: ['an answer of the Z1 shape'] } },
+    });
+    await engine.processNext();
+    expect(await jobRow(job.id)).toMatchObject({ status: 'succeeded', step: 'finalize' });
+    expect(fake.inputs('author')).toHaveLength(1);
+    expect((await documentOf(cv.id)).contacts.fullName).toBe('Iryna Kovalenko');
   });
 
   it('GEN-18 — retry continues the same job', async () => {
@@ -664,11 +696,19 @@ describe('generation acceptance — apply_answer (docs/specs/generation.md §5)'
       });
     expect(rest(after)).toBe(rest(before));
     expect((await cvRow(cv.id)).version).toBe(2);
-    expect((await questionRow(question.id)).applyStatus).toBe('applied');
+    expect(await questionRow(question.id)).toMatchObject({
+      applyStatus: 'applied',
+      applyNote:
+        'The earlier wording of this part is in "Not in your CV", where you can add it back.',
+    });
     const facts = (await entityManager(app).findOneOrFail(CvSource, { cv: cv.id })).facts as {
-      notInCv: unknown[];
+      notInCv: { text: string; context?: string }[];
     };
-    expect(facts.notInCv).toEqual([]);
+    // The earlier AI wording the group no longer shows word for word (owner's decision, 2026-10-29).
+    expect(facts.notInCv.map((item) => [item.text, item.context])).toEqual([
+      ['Migrated billing', 'Earlier wording, replaced when the CV was updated from your answer'],
+      ['Ran on-call', 'Earlier wording, replaced when the CV was updated from your answer'],
+    ]);
 
     // The author sees the whole source and the answers, and as the CV only the group it rewrites.
     const [authorInput] = fake.inputs('author');
@@ -700,20 +740,17 @@ describe('generation acceptance — apply_answer (docs/specs/generation.md §5)'
       NEW_BULLETS[0],
       'Wrote the onboarding guide',
     ]);
-    // The bullet the left-out one replaced is not lost: it joins "Not in your CV".
+    // The earlier bullets are not lost: their wording joins "Not in your CV".
     expect(await questionRow(question.id)).toMatchObject({
       applyStatus: 'partial',
-      applyNote:
-        'Some of the new text could not be verified and was left out. Some earlier text of this part is no longer shown; it is in "Not in your CV", where you can add it back.',
+      applyNote: `Some of the new text could not be verified and was left out. The earlier wording of this part is in "Not in your CV", where you can add it back.`,
     });
     const facts = (await entityManager(app).findOneOrFail(CvSource, { cv: cv.id })).facts as {
       notInCv: { text: string; context?: string }[];
     };
-    expect(facts.notInCv).toEqual([
-      expect.objectContaining({
-        text: 'Ran on-call',
-        context: 'Taken out when the CV was updated from your answer',
-      }),
+    expect(facts.notInCv.map((item) => [item.text, item.context])).toEqual([
+      ['Migrated billing', 'Earlier wording, replaced when the CV was updated from your answer'],
+      ['Ran on-call', 'Earlier wording, replaced when the CV was updated from your answer'],
     ]);
     expect(await entityManager(app).count(CvQuestion, { cv: cv.id })).toBe(questionsBefore);
   });

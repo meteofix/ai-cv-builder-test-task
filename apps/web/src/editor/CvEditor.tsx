@@ -203,7 +203,8 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
               <PageCount pages={pages} />
               <span className="badge">A4</span>
             </div>
-            <div className="preview__frame">
+            {/* It scrolls on its own; Safari does not focus a scroller, so the keyboard needs the tab stop. */}
+            <div className="preview__frame" tabIndex={0} role="region" aria-label="CV preview">
               <CvPreview document={preview} onPages={setPages} />
             </div>
           </aside>

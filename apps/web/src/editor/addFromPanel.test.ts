@@ -73,7 +73,7 @@ describe('addFromPanel', () => {
     ]);
   });
 
-  it('adds a bullet to the last group of its position, or a new untitled group when it has none', () => {
+  it('adds a bullet to the last untitled group of its position, never under a title', () => {
     const doc = editorDocument();
     const [first, second] = doc.experience;
     const grouped: CvDocument = {
@@ -89,9 +89,24 @@ describe('addFromPanel', () => {
         { ...second!, groups: [] },
       ],
     };
-    const toLast = added(grouped, item({ section: 'experience', itemId: 'pos-1' }));
-    expect(toLast.experience[0]?.groups[1]?.items.at(-1)?.text).toBe('Ran the hiring loop.');
-    expect(toLast.experience[0]?.groups[0]?.items).toHaveLength(1);
+    // Both groups have a title: the bullet starts a plain group after them.
+    const titled = added(grouped, item({ section: 'experience', itemId: 'pos-1' }));
+    expect(titled.experience[0]?.groups.map((group) => [group.title, group.items.length])).toEqual([
+      ['Platform', 1],
+      ['Team', 1],
+      [null, 1],
+    ]);
+    const withPlain: CvDocument = {
+      ...grouped,
+      experience: grouped.experience.map((position, i) =>
+        i === 0
+          ? { ...position, groups: [{ ...position.groups[0]!, title: null }, position.groups[1]!] }
+          : position,
+      ),
+    };
+    const toPlain = added(withPlain, item({ section: 'experience', itemId: 'pos-1' }));
+    expect(toPlain.experience[0]?.groups[0]?.items.at(-1)?.text).toBe('Ran the hiring loop.');
+    expect(toPlain.experience[0]?.groups[1]?.items).toHaveLength(1);
 
     const toNew = added(grouped, item({ section: 'experience', itemId: 'pos-2' }));
     expect(toNew.experience[1]?.groups).toMatchObject([
@@ -112,10 +127,13 @@ describe('addFromPanel', () => {
     ]);
   });
 
-  it('adds a line to the last group of its entry, or a new entry after a titled one', () => {
+  it('adds a line to the untitled group of its entry, or a new entry after a titled one', () => {
     const doc = withProject();
     const inEntry = added(doc, item({ section: 'additional', itemId: 'add-2-e1', text: 'Swift' }));
-    expect(inEntry.additional[1]?.entries[0]?.groups[1]?.items.at(-1)?.text).toBe('Swift');
+    const groups = inEntry.additional[1]?.entries[0]?.groups;
+    expect(groups?.[0]?.items.at(-1)?.text).toBe('Swift');
+    // Not under the "Stack" title, which was checked for its own lines.
+    expect(groups?.[1]?.items.map((line) => line.text)).not.toContain('Swift');
 
     const inSection = added(doc, item({ section: 'additional', itemId: 'add-2', text: 'Talk' }));
     expect(inSection.additional[1]?.entries).toHaveLength(2);

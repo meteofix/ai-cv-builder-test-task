@@ -69,11 +69,15 @@ interface Group<T> {
   items: T[];
 }
 
-/** The groups with the item at the end of the last one, or of a new untitled group when there is none. */
-function appendToLast<T>(groups: Group<T>[], item: T): Group<T>[] {
-  const last = groups.at(-1);
-  if (!last) return [{ id: newId(), title: null, items: [item] }];
-  return groups.with(-1, { ...last, items: [...last.items, item] });
+/**
+ * The groups with the item at the end of the last untitled one, or of a new untitled group at the end: a
+ * group title is a claim checked for its own items, so text added later does not go under it.
+ */
+function appendToPlain<T>(groups: Group<T>[], item: T): Group<T>[] {
+  const index = groups.findLastIndex((group) => group.title === null);
+  const plain = groups[index];
+  if (!plain) return [...groups, { id: newId(), title: null, items: [item] }];
+  return groups.with(index, { ...plain, items: [...plain.items, item] });
 }
 
 const newLine = (text: string) => ({ id: newId(), text, factIds: [] });
@@ -85,7 +89,7 @@ const newLine = (text: string) => ({ id: newId(), text, factIds: [] });
 function withLine(section: CvAdditionalSection, text: string): CvAdditionalSection {
   const last = section.entries.at(-1);
   if (last && !last.title.trim() && !last.start && !last.end) {
-    const entry = { ...last, groups: appendToLast(last.groups, newLine(text)) };
+    const entry = { ...last, groups: appendToPlain(last.groups, newLine(text)) };
     return { ...section, entries: section.entries.with(-1, entry) };
   }
   const entry = {
@@ -93,7 +97,7 @@ function withLine(section: CvAdditionalSection, text: string): CvAdditionalSecti
     title: '',
     start: null,
     end: null,
-    groups: appendToLast([], newLine(text)),
+    groups: appendToPlain([], newLine(text)),
   };
   return { ...section, entries: [...section.entries, entry] };
 }
@@ -125,7 +129,7 @@ function inAdditional(document: CvDocument, itemId: string | undefined, text: st
     const entryAt = owner.entries.findIndex((entry) => entry.id === itemId);
     const entry = owner.entries[entryAt];
     if (!entry) continue;
-    const groups = appendToLast(entry.groups, newLine(text));
+    const groups = appendToPlain(entry.groups, newLine(text));
     const next = { ...owner, entries: owner.entries.with(entryAt, { ...entry, groups }) };
     return { ...document, additional: document.additional.with(at, next) };
   }
@@ -137,7 +141,7 @@ function inPlace(document: CvDocument, item: NotInCvItem, text: string): CvDocum
     const index = bulletOwner(document, item.itemId);
     const position = document.experience[index];
     if (!position) return null;
-    const groups = appendToLast(position.groups, { id: newId(), text, factIds: [] });
+    const groups = appendToPlain(position.groups, { id: newId(), text, factIds: [] });
     return { ...document, experience: document.experience.with(index, { ...position, groups }) };
   }
   if (item.section === 'summary') {
@@ -163,7 +167,7 @@ function inFallback(document: CvDocument, text: string): CvDocument {
 
 /**
  * The document with the item's text added word for word where it belongs (decision 035): a bullet in the
- * last group of its position (of a company block's first position when the block shares its bullets), a
+ * last untitled group of its position (of a company block's first position when the block shares its bullets), a
  * sentence of the summary, the names of its skill group (or a new group), a line of its extra entry or
  * section — or, without a place of its own or room there, a line of an extra section. Null when no place can take it within the document's limits: the panel then says
  * so instead of saving a document the server would refuse. Text that looked like an instruction is never

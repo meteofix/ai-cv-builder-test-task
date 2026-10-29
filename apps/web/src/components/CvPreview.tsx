@@ -43,7 +43,9 @@ export function CvPreview({ document: cv, onPages }: CvPreviewProps) {
     const box = sheet.current;
     if (!frame.current || !body || !box) return;
     const scale = Math.min(1, box.clientWidth / SHEET_WIDTH);
-    const height = body.offsetHeight;
+    // Rounded up, not down as `offsetHeight` does: a frame a fraction of a pixel short of its content can
+    // scroll by that fraction, and a trackpad swipe over the preview latches onto it instead of the column.
+    const height = Math.ceil(body.getBoundingClientRect().height);
     frame.current.style.height = `${height}px`;
     frame.current.style.transform = `scale(${scale})`;
     box.style.height = `${height * scale}px`;

@@ -32,7 +32,9 @@ ul{list-style:none}
 .cv-contacts li:not(:empty):has(~li:not(:empty))::after,
 .cv-skills li:not(:empty):has(~li:not(:empty))::after{content:"·";margin:0 .55em;color:var(--faint)}
 .cv-skill-group .cv-skills{display:inline}
+.cv-skill-group{text-align:left}
 .cv-skill-group .cv-skills li{display:inline-block;max-width:100%}
+.cv-skill-group .cv-skills li:not(:empty):has(~li:not(:empty))::after{margin:0 .4em}
 .cv-skill-group+.cv-skill-group{margin-top:.8mm}
 .cv-skill-group__title{font-weight:500}
 .cv-entry__meta>:not(:empty)~:not(:empty)::before{content:"·";margin:0 .5em;color:var(--faint)}
@@ -47,6 +49,7 @@ ul{list-style:none}
 .cv-entry__head{display:flex;justify-content:space-between;align-items:baseline;gap:4mm;break-after:avoid;page-break-after:avoid}
 .cv-entry__title{font-size:10.5pt;font-weight:600;line-height:1.35}
 .cv-entry__dates{flex:none;font-size:9.25pt;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cv-entry__continued{margin-bottom:1.2mm;font-size:9.5pt;color:var(--muted)}
 .cv-entry__meta{color:var(--muted);break-after:avoid;page-break-after:avoid}
 .cv-entry__org{font-weight:500;color:var(--ink)}
 .cv-entry--group>.cv-entry__meta .cv-entry__org{font-size:10.5pt;font-weight:600}

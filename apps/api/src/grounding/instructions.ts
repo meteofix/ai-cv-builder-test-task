@@ -1,8 +1,8 @@
-import { findQuote, indexText, normalizeText } from './find-quote.js';
-import { overlaps, type Span } from './span.js';
+import { normalizeText } from './normalize.js';
+import type { Span } from './span.js';
 
 /**
- * The whole list of instruction patterns (docs/specs/grounding.md, §3). Each one needs an explicit
+ * The whole list of instruction patterns (docs/specs/grounding.md, §1). Each one needs an explicit
  * injection marker next to its verb, so ordinary developer language ("override default rules", "wrote
  * system prompts") does not match.
  */
@@ -44,26 +44,4 @@ export function sourceLines(source: string): SourceLine[] {
   }
   lines.push({ span: [start, source.length], text: source.slice(start) });
   return lines;
-}
-
-/**
- * Spans of the source lines that look like instructions to the model: lines matching a pattern (after
- * level-1 normalization, so full-width or typographic look-alikes match too) and lines holding a quote
- * from the extractor's `ignoredInstructions`.
- */
-export function instructionFragments(
-  source: string,
-  ignoredInstructions: readonly string[],
-): Span[] {
-  const index = indexText(source);
-  const ignored = ignoredInstructions
-    .map((quote) => findQuote(index, quote))
-    .filter((span) => span !== null);
-  return sourceLines(source)
-    .filter(
-      ({ span, text }) =>
-        span[0] < span[1] &&
-        (isInstruction(text) || ignored.some((quote) => overlaps(span, quote))),
-    )
-    .map(({ span }) => span);
 }

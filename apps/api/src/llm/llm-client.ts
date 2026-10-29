@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Logger } from 'pino';
 import type { z } from 'zod';
 import type { AppConfig } from '../config/env.js';
@@ -52,14 +52,16 @@ const MAX_RETRY_AFTER_MS = 30_000;
 const SCHEMA_REASKS = 1;
 // The author writes the whole document after thinking about it; the other roles answer much less.
 const MAX_TOKENS: Record<LlmRole, number> = {
-  extractor: 16_000,
-  writer: 16_000,
   judge: 16_000,
   author: 32_000,
   reviewer: 16_000,
 };
 
 const UNUSABLE_ANSWER = 'The AI returned an answer we could not use.';
+
+/** The judge works only in the eval, which names each judge's model; no deployment sets it. */
+export const LLM_JUDGE_MODEL = Symbol('LLM_JUDGE_MODEL');
+const DEFAULT_JUDGE_MODEL = 'claude-opus-5-5';
 
 /**
  * Structured calls to the model with every retry in one place: transport retries honouring
@@ -78,17 +80,14 @@ export class LlmClient {
     @Inject(LLM_SLEEP) private readonly sleep: LlmSleep,
     @Inject(APP_CONFIG) config: AppConfig,
     @Inject(ROOT_LOGGER) logger: Logger,
+    @Optional() @Inject(LLM_JUDGE_MODEL) judgeModel: string = DEFAULT_JUDGE_MODEL,
   ) {
     this.models = {
-      extractor: config.EXTRACTOR_MODEL,
-      writer: config.WRITER_MODEL,
-      judge: config.JUDGE_MODEL,
+      judge: judgeModel,
       author: config.AUTHOR_MODEL,
       reviewer: config.REVIEWER_MODEL,
     };
     this.effort = {
-      extractor: 'low',
-      writer: 'medium',
       judge: 'high',
       author: config.AUTHOR_EFFORT,
       reviewer: config.REVIEWER_EFFORT,

@@ -75,14 +75,17 @@
   color: var(--color-muted);
 }
 
-/* Preview (desktop column) */
+/* Preview (desktop column). It stays in the viewport and scrolls on its own: a CV taller than the window
+   would otherwise show its end only once the form has been scrolled to the bottom. */
 .preview {
   position: sticky;
   top: calc(var(--header-h) + var(--space-6));
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-3);
   min-width: 0;
+  max-height: calc(100dvh - var(--header-h) - 2 * var(--space-6));
 }
 .preview__head {
   display: flex;
@@ -99,6 +102,10 @@
 }
 .preview__frame {
   min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The scrollbar appearing must not narrow the sheet and re-scale the page. */
+  scrollbar-gutter: stable;
   padding: var(--space-4);
   background: var(--color-canvas);
   border-radius: var(--radius-lg);

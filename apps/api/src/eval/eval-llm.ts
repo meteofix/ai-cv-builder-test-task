@@ -75,7 +75,7 @@ class UnmeteredBudget extends LlmCallBudget {
  * The real `LlmClient` (retries and re-asks as in production) on the real Anthropic transport, for the
  * eval. Logs stay silent: the report records each call instead.
  */
-export function evalClient(config: AppConfig) {
+export function evalClient(config: AppConfig, judgeModel?: string) {
   const transport = new RecordingTransport(new AnthropicTransport(createAnthropicSdk(config)));
   const client = new LlmClient(
     transport,
@@ -83,6 +83,7 @@ export function evalClient(config: AppConfig) {
     (ms, signal) => sleep(ms, undefined, { signal }),
     config,
     pino({ level: 'silent' }),
+    judgeModel,
   );
   return { client, calls: transport.calls };
 }

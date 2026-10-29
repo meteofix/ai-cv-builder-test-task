@@ -12,6 +12,8 @@ export interface EntryProps {
   compact?: boolean;
   /** Only the groups that have lines left (`visibleGroups`). */
   groups?: readonly LineGroup[];
+  /** The line a PDF page that starts inside this job begins with (`paginate`); jobs only. */
+  continued?: string | undefined;
 }
 
 /** An entry with none of these is not rendered at all. */
@@ -29,9 +31,20 @@ function Head({ title, dates }: { title: string; dates: string }) {
 }
 
 /** A position, an education entry or an extra entry: title with dates, the meta line, then its groups. */
-export function Entry({ title, dates, org, location, compact = false, groups = [] }: EntryProps) {
+export function Entry({
+  title,
+  dates,
+  org,
+  location,
+  compact = false,
+  groups = [],
+  continued,
+}: EntryProps) {
   return (
-    <article className={compact ? 'cv-entry cv-entry--compact' : 'cv-entry'}>
+    <article
+      className={compact ? 'cv-entry cv-entry--compact' : 'cv-entry'}
+      data-continued={continued}
+    >
       <Head title={title} dates={dates} />
       {filled(org) || filled(location) ? (
         <p className="cv-entry__meta">
@@ -73,7 +86,7 @@ function GroupEntry({
   const common = locations.length === 1 && filled(locations[0]) ? locations[0] : null;
   const period = periodOf(roles, labels);
   return (
-    <article className="cv-entry cv-entry--group">
+    <article className="cv-entry cv-entry--group" data-continued={continuedLine(company, labels)}>
       <p className="cv-entry__meta">
         <span className="cv-entry__org">{company}</span>
         {common ? <span className="cv-entry__location">{common}</span> : null}
@@ -98,6 +111,10 @@ function GroupEntry({
   );
 }
 
+/** "Acme Corp — continued": the company, or the title of a job without one. */
+const continuedLine = (name: string, labels: Labels) =>
+  filled(name) ? `${name.trim()} ${labels.continued}` : undefined;
+
 /** The entries of the experience section, one block per company; none when nothing has content. */
 export function experienceEntries(experience: readonly CvPosition[], labels: Labels) {
   const roles: Role[] = experience
@@ -118,7 +135,13 @@ export function experienceEntries(experience: readonly CvPosition[], labels: Lab
     const [first] = group;
     if (!first) return [];
     return group.length === 1
-      ? [<Entry key={first.id} {...first} />]
+      ? [
+          <Entry
+            key={first.id}
+            {...first}
+            continued={continuedLine(first.company || first.title, labels)}
+          />,
+        ]
       : [<GroupEntry key={first.id} company={first.company} roles={group} labels={labels} />];
   });
 }

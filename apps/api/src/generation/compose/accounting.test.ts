@@ -18,6 +18,59 @@ describe('"Not in your CV" — nothing disappears silently', () => {
     });
   });
 
+  it('lists a handle the source writes that is no web address, instead of dropping it', () => {
+    const source = `${SOURCE}\nSignal: @ann_k`;
+    const segment = prepareSource(source).segments.at(-1)!.id;
+    const answer = authorAnswer({
+      contacts: [
+        ...authorAnswer().contacts,
+        { field: 'link', value: 'Signal: @ann_k', segment },
+        // Not in the source: an invented contact is dropped, never listed.
+        { field: 'link', value: 'Signal: @someone_else', segment },
+      ],
+    });
+    const { document, analysis } = compose(prepareSource(source), answer, NO_ISSUES, ROLE);
+    expect(document.contacts.links.join(' ')).not.toContain('ann_k');
+    expect(analysis.notInCv.filter((item) => item.text.startsWith('Signal'))).toEqual([
+      {
+        text: 'Signal: @ann_k',
+        reason: 'not_included',
+        context: 'Not a web address, so it is not among your links',
+      },
+    ]);
+  });
+
+  it('shows the line of a contact the author miscopied as not placed, never as placed', () => {
+    const source = `${SOURCE}\nlinkedin.com/in/ann-lee-77`;
+    const segment = prepareSource(source).segments.at(-1)!.id;
+    const answer = authorAnswer({
+      contacts: [
+        ...authorAnswer().contacts,
+        { field: 'link', value: 'linkedin.com/in/ann', segment },
+      ],
+    });
+    const { document, analysis } = compose(prepareSource(source), answer, NO_ISSUES, ROLE);
+    expect(document.contacts.links.join(' ')).not.toContain('ann');
+    expect(analysis.notInCv).toContainEqual({
+      text: 'linkedin.com/in/ann-lee-77',
+      reason: 'not_placed',
+    });
+  });
+
+  it('puts a handle the source labels as Telegram among the links, not into the panel', () => {
+    const source = `${SOURCE}\nTelegram: @ann_k77`;
+    const segment = prepareSource(source).segments.at(-1)!.id;
+    const answer = authorAnswer({
+      contacts: [
+        ...authorAnswer().contacts,
+        { field: 'link', value: 'Telegram: @ann_k77', segment },
+      ],
+    });
+    const { document, analysis } = compose(prepareSource(source), answer, NO_ISSUES, ROLE);
+    expect(document.contacts.links).toContain('https://t.me/ann_k77');
+    expect(analysis.notInCv.some((item) => item.text.includes('ann_k77'))).toBe(false);
+  });
+
   it('names no job for an experience item the author tied to no job', () => {
     const answer = authorAnswer({
       notIncluded: [{ segments: ['S12'], section: 'experience', job: 0, reason: 'Unclear job' }],

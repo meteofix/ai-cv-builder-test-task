@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 
-export const LLM_ROLES = ['extractor', 'writer', 'judge', 'author', 'reviewer'] as const;
+/** `judge` is the eval's (pairwise judges, planted inventions); a generation uses the other two. */
+export const LLM_ROLES = ['author', 'reviewer', 'judge'] as const;
 export type LlmRole = (typeof LLM_ROLES)[number];
 export const LLM_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type LlmEffort = (typeof LLM_EFFORTS)[number];

@@ -6,6 +6,8 @@ export interface Labels {
   education: string;
   skills: string;
   present: string;
+  /** After the company on a PDF page that starts inside its job. */
+  continued: string;
   /** Month abbreviations, January first. */
   months: readonly string[];
 }
@@ -17,6 +19,7 @@ export const LABELS: Record<Locale, Labels> = {
     education: 'Education',
     skills: 'Skills',
     present: 'Present',
+    continued: '— continued',
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   },
   uk: {
@@ -25,6 +28,7 @@ export const LABELS: Record<Locale, Labels> = {
     education: 'Освіта',
     skills: 'Навички',
     present: 'дотепер',
+    continued: '— продовження',
     // CLDR abbreviations without the trailing dot.
     months: [
       'січ',

@@ -1,21 +1,5 @@
 /** Mechanical checks against the source (docs/specs/grounding.md). Pure functions: no Nest, database or SDK. */
-export * from './facts.js';
-export { findQuote, indexText, normalizeText, type QuoteIndex } from './find-quote.js';
-export {
-  instructionFragments,
-  isInstruction,
-  sourceLines,
-  type SourceLine,
-} from './instructions.js';
-export {
-  checkNumbers,
-  checkReferences,
-  numberTokens,
-  selectSkills,
-  type NumberCheck,
-} from './prose.js';
-export { contentLines, uncoveredLines } from './uncovered.js';
-export { overlaps } from './span.js';
-export { verifyFacts, type VerifiedFacts } from './verify-facts.js';
-export { checkEmail, checkLink, checkPhone } from './contacts.js';
-export { MAX_LINE_CHARS, segmentSource, type Segment } from './segments.js';
+export { isInstruction } from './instructions.js';
+export { contentLines } from './uncovered.js';
+export { checkEmail, checkLink, checkPhone, inSource, telegramLink } from './contacts.js';
+export { segmentSource, type Segment } from './segments.js';

@@ -78,3 +78,54 @@ describe('reviewView — groups and entries', () => {
     expect(problems(item, text, segments).join('\n')).toContain(problem);
   });
 });
+
+describe('reviewView — lines read as headings (decision 035, revised)', () => {
+  it('lists the headings the CV shows nowhere, for the reviewer to say one is content', () => {
+    // S14 (the skills line) is cited by a skill group, so it is shown; S4, S13 and S15 are not.
+    const answer = groupedAnswer({ headings: ['S4', 'S13', 'S14', 'S15'] });
+    const { text, targets } = reviewView(buildDraft(answer, source.index, source.text, ROLE));
+    expect(text).toContain('[heading.S15] "Hobbies: sourdough"');
+    expect(text).toContain('[heading.S4] "EXPERIENCE"');
+    expect(text).not.toContain('heading.S14');
+    expect(targets.get('heading.S15')).toEqual({
+      kind: 'heading',
+      segment: 'S15',
+      text: 'Hobbies: sourdough',
+    });
+  });
+
+  it('lists a heading once, and not one the author left out with a reason or one too long to be a heading', () => {
+    const long =
+      'A line far too long to be a heading of any section of this curriculum vitae, by a wide margin';
+    const withLong = prepareSource(`${SOURCE_WITH_PROJECTS}\n${long}`);
+    const longId = withLong.segments.at(-1)!.id;
+    const answer = groupedAnswer({
+      headings: ['S4', 'S4', 'S13', 'S15', longId],
+      notIncluded: [{ segments: ['S15'], section: 'additional', job: 0, reason: 'A hobby' }],
+    });
+    const { text } = reviewView(buildDraft(answer, withLong.index, withLong.text, ROLE));
+    expect(text.match(/\[heading\.S4\]/g)).toHaveLength(1);
+    expect(text).not.toContain('heading.S15');
+    expect(text).not.toContain(`heading.${longId}`);
+  });
+
+  it('takes an ask on a line read as a heading, and refuses a fix', () => {
+    const answer = groupedAnswer({ headings: ['S4', 'S13', 'S15'] });
+    const current = reviewView(buildDraft(answer, source.index, source.text, ROLE));
+    const schema = reviewSchema(current, source.index);
+    const issue = (action: 'fix' | 'ask') => ({
+      issues: [
+        {
+          item: 'heading.S15',
+          action,
+          class: 'other' as const,
+          text: 'x',
+          segments: [],
+          question: 'A hobby',
+        },
+      ],
+    });
+    expect(schema.safeParse(issue('ask')).success).toBe(true);
+    expect(schema.safeParse(issue('fix')).success).toBe(false);
+  });
+});

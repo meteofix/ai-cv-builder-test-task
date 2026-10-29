@@ -104,4 +104,26 @@ describe('pdf', () => {
     });
     expect(text).toContain('Олег Савчук');
   });
+
+  it('starts a page inside a job with the company and "continued" (docs/specs/cv-template.md §10)', async () => {
+    const document = sampleDocument();
+    const [job] = document.experience;
+    // One job long enough to run over the first page.
+    const items = Array.from({ length: 20 }, (_, i) => ({
+      id: `b${i}`,
+      text: `Delivered the reporting change number ${i + 1} for the finance team, with tests, a migration plan and a rollback runbook that operations signed off`,
+      factIds: [],
+    }));
+    const cv = await newCv({
+      ...document,
+      experience: [{ ...job!, groups: [{ id: 'g1', title: null, items }] }],
+    });
+    const res = await download(cv.id);
+    expect(res.statusCode).toBe(200);
+    const { text } = await extractText(await getDocumentProxy(new Uint8Array(res.rawPayload)), {
+      mergePages: false,
+    });
+    expect(text.length).toBeGreaterThan(1);
+    expect(text[1]).toMatch(/^Acme Corp — continued/);
+  });
 });

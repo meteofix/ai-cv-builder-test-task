@@ -51,7 +51,9 @@ export class GenerateHandler implements JobHandler {
     if (!cv || !stored) throw new LeaseLostError();
     const source = prepareSource(stored.text);
 
-    if (job.step === 'write') await this.write(run, cv, source);
+    // An answer stored in an earlier shape (a deploy between the steps) cannot be read: write it again.
+    const stale = job.step !== 'write' && !authorOutputSchema.safeParse(job.state.write).success;
+    if (job.step === 'write' || stale) await this.write(run, cv, source);
     if (job.step === 'judge') await this.review(run, cv, source);
     if (job.step === 'finalize') await this.finalize(run, source);
   }

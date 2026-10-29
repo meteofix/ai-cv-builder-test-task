@@ -161,3 +161,26 @@ describe('achievements of a position that was not kept', () => {
     ).toEqual({ reattached: 0, owners: ['Taught chess at a school → none'] });
   });
 });
+
+describe('the same duty written under two jobs', () => {
+  it('keeps each copy, at the occurrence under its own position', () => {
+    const source = [
+      'Lead 2022 – 2024',
+      'Ran the on-call rotation',
+      'Engineer 2019 – 2022',
+      'Ran the on-call rotation',
+    ].join('\n');
+    const { facts, dropped } = verifyFacts(source, [
+      job('lead', 'Lead 2022 – 2024', 'Acme Corp'),
+      job('eng', 'Engineer 2019 – 2022', 'Acme Corp'),
+      bullet('a', 'Ran the on-call rotation', 'lead'),
+      bullet('b', 'Ran the on-call rotation', 'eng'),
+    ]);
+    expect(dropped).toEqual([]);
+    const spans = facts.flatMap((fact) => (fact.kind === 'achievement' ? [fact.span[0]] : []));
+    expect(spans).toEqual([
+      source.indexOf('Ran the on-call'),
+      source.lastIndexOf('Ran the on-call'),
+    ]);
+  });
+});

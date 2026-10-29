@@ -1,7 +1,9 @@
 import type { ExtractedFact } from './facts.js';
-import { findQuote, matchQuote, type QuoteIndex } from './find-quote.js';
+import { findQuote, matchQuote, normalizeText, type QuoteIndex } from './find-quote.js';
+import { sourceLines } from './instructions.js';
 import { overlaps, type Span } from './span.js';
 
+const LETTER = /\p{L}/u;
 const LINE_BREAKS = /\r\n|[\n\r\f\v\u2028\u2029]/g;
 const LINE_BREAK = /[\n\r\f\v\u2028\u2029]/;
 /** A company name may wrap once or twice in a narrow column; a longer passage is not a company line. */
@@ -31,6 +33,7 @@ export function groupHeaders(
   index: QuoteIndex,
   found: readonly Located[],
   instructionSpans: readonly Span[],
+  sectionHeadings: readonly string[] = [],
 ): Map<ExtractedFact, Span> {
   const others = found.filter(({ fact }) => fact.kind !== 'position').map(({ span }) => span);
   const lines = (span: Span) =>
@@ -55,6 +58,35 @@ export function groupHeaders(
     // Where the position's company starts in the source: its header line, or the position itself.
     return [{ fact, span, header, anchor: (header ?? span)[0] }];
   });
+  // The text line right above the position must belong to the block (a position or a bullet under that
+  // header), be the first line after the header (a duration or a place) or a heading. Anything else —
+  // another employer nobody extracted, a line another fact quotes — may be a boundary, so the company is
+  // checked in the position's own quote instead.
+  const headingSet = new Set(
+    sectionHeadings.map((heading) => normalizeText(heading).toLowerCase()),
+  );
+  const allLines = sourceLines(source);
+  const unexplainedBetween = (header: Span, position: Span): boolean => {
+    const block = new Set(
+      positions.filter((other) => other.header?.[0] === header[0]).map((other) => other.fact.id),
+    );
+    const own = found
+      .filter(
+        ({ fact }) =>
+          block.has(fact.id) ||
+          (fact.kind === 'achievement' && block.has(fact.achievement.positionId ?? '')),
+      )
+      .map(({ span }) => span);
+    const between = allLines.filter(
+      ({ span, text }) => span[0] >= header[1] && span[1] <= position[0] && LETTER.test(text),
+    );
+    // Only the text line right above the position decides: a job nobody extracted stands right above
+    // its title, while a location or a dropped bullet of an earlier title of the block does not.
+    const above = between.at(-1);
+    if (!above || above === between[0]) return false;
+    if (headingSet.has(normalizeText(above.text).toLowerCase())) return false;
+    return !own.some((covering) => overlaps(covering, above.span));
+  };
   const headers = new Map<ExtractedFact, Span>();
   for (const position of positions) {
     const { header } = position;
@@ -65,7 +97,9 @@ export function groupHeaders(
         other.anchor > header[0] &&
         other.anchor < position.span[0],
     );
-    if (!foreignBetween) headers.set(position.fact, header);
+    if (!foreignBetween && !unexplainedBetween(header, position.span)) {
+      headers.set(position.fact, header);
+    }
   }
   return headers;
 }

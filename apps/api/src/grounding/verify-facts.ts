@@ -1,5 +1,5 @@
 import type { DroppedFact, DropReason, ExtractedFact, Fact } from './facts.js';
-import { findQuote, indexText, normalizeText } from './find-quote.js';
+import { findQuote, indexText, matchQuote, normalizeText } from './find-quote.js';
 import { sourceLines } from './instructions.js';
 import { groupHeaders } from './group-headers.js';
 import { checkValues } from './fact-values.js';
@@ -32,10 +32,30 @@ export function verifyFacts(
   const drop = (fact: ExtractedFact, reason: DropReason) =>
     dropped.push({ id: fact.id, kind: fact.kind, reason });
 
+  // The same duty may be written under two jobs: an achievement takes the first occurrence at or after
+  // the position it names, so each copy keeps its own place.
+  const positionStart = new Map<string, number>();
+  for (const fact of extracted) {
+    if (fact.kind !== 'position' || positionStart.has(fact.id)) continue;
+    const span = findQuote(index, fact.quote);
+    if (span) positionStart.set(fact.id, span[0]);
+  }
+  const locate = (fact: ExtractedFact): Span | null => {
+    const after =
+      fact.kind === 'achievement'
+        ? positionStart.get(fact.achievement.positionId ?? '')
+        : undefined;
+    const later =
+      after === undefined
+        ? null
+        : (matchQuote(index, fact.quote, (span) => (span[0] >= after ? span : null))?.span ?? null);
+    return later ?? findQuote(index, fact.quote);
+  };
+
   const seen = new Set<string>();
   const found: { fact: ExtractedFact; span: Span }[] = [];
   for (const fact of extracted) {
-    const span = findQuote(index, fact.quote);
+    const span = locate(fact);
     if (!span) {
       drop(fact, 'quote_not_found');
       continue;
@@ -53,7 +73,7 @@ export function verifyFacts(
     found.push({ fact, span });
   }
 
-  const companySpans = groupHeaders(source, index, found, instructionSpans);
+  const companySpans = groupHeaders(source, index, found, instructionSpans, sectionHeadings);
   const located: Fact[] = [];
   const seenFacts = new Set<string>();
   for (const { fact, span } of found) {

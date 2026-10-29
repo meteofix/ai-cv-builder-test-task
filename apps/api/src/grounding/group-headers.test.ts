@@ -183,4 +183,58 @@ describe('a company written above its positions (grounding.md §2)', () => {
       'Lead: ',
     ]);
   });
+
+  it('does not reach over a line of another employer that nobody extracted', () => {
+    const source = ['Acme Corp', 'Lead 2022 – 2024', 'Globex', 'Engineer 2019 – 2022'].join('\n');
+    expect(
+      companies(source, [
+        titled('a', 'Lead', 'Lead 2022 – 2024', 'Acme Corp', 'Acme Corp'),
+        titled('b', 'Engineer', 'Engineer 2019 – 2022', 'Acme Corp', 'Acme Corp'),
+      ]),
+    ).toEqual(['Lead: Acme Corp', 'Engineer: ']);
+  });
+
+  it('still reaches over the lines of its own block: a duration under the header and a bullet of an earlier title', () => {
+    const source = [
+      'Acme Corp',
+      '4 years 2 months',
+      'Lead 2022 – 2024',
+      'Shipped billing',
+      'Engineer 2019 – 2022',
+    ].join('\n');
+    const extracted: ExtractedFact[] = [
+      titled('a', 'Lead', 'Lead 2022 – 2024', 'Acme Corp', 'Acme Corp'),
+      { id: 'x', kind: 'achievement', quote: 'Shipped billing', achievement: { positionId: 'a' } },
+      titled('b', 'Engineer', 'Engineer 2019 – 2022', 'Acme Corp', 'Acme Corp'),
+    ];
+    expect(companies(source, extracted)).toEqual(['Lead: Acme Corp', 'Engineer: Acme Corp']);
+  });
+
+  test.each([
+    [
+      'a location line under the first title',
+      [
+        'Acme Corp',
+        '4 years',
+        'Lead 2022 – 2024',
+        'Kyiv, Ukraine',
+        'Shipped billing',
+        'Engineer 2019 – 2022',
+      ],
+    ],
+    [
+      'a blank line after the header',
+      ['Acme Corp', '', '4 years', 'Lead 2022 – 2024', 'Shipped billing', 'Engineer 2019 – 2022'],
+    ],
+  ])('keeps the company over %s', (_name, lines) => {
+    const extracted: ExtractedFact[] = [
+      titled('a', 'Lead', 'Lead 2022 – 2024', 'Acme Corp', 'Acme Corp'),
+      { id: 'x', kind: 'achievement', quote: 'Shipped billing', achievement: { positionId: 'a' } },
+      titled('b', 'Engineer', 'Engineer 2019 – 2022', 'Acme Corp', 'Acme Corp'),
+    ];
+    expect(companies(lines.join('\n'), extracted)).toEqual([
+      'Lead: Acme Corp',
+      'Engineer: Acme Corp',
+    ]);
+  });
 });

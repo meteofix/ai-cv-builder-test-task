@@ -88,6 +88,7 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 - Send the PDF to Claude directly — better with multi-column layouts, but the model and the validator would see different texts.
 
 **Decision.** `worker_threads` with a 10 s timeout and a memory cap; empty, scanned, encrypted or broken files get a clear 422. Only the extracted text is stored, never the binary. Known limitation: text order in multi-column PDFs.
+**Revision.** The text order now follows the page layout (decision 029).
 
 ## 006. Two-step generation from verified facts
 
@@ -239,3 +240,9 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 
 **Context.** An achievement whose position was dropped (its quote not found) used to be dropped too, so one mis-copied title line silently removed a job and all its bullets.
 **Decision.** Such an achievement goes to the first kept position of its group, else to the nearest kept position above it in the source (never across a section heading), else it stays without a position and is listed under "Not used". The judge still checks the placement (`moved_between_jobs`): the dropped position's line reaches it among the unrecognized lines. Until the judge knows company groups (decision 032), a bullet placed in its group under a position that is not the nearest one above it is usually rejected and becomes a question: it fails closed. Owner's decision, 2026-10-29 (task R0-NO-CASCADE).
+
+## 029. PDF text follows the page layout
+
+**Context.** PDF.js returns text in content-stream order. Two-column CVs came out with the sidebar and the main column interleaved by the generator's paint order, page 2 sub-headings far from their bullets, a header band at the end, and a right-hand column of dates after the bullets it belongs to; the extractor then quoted lines that do not belong together, and dates fell out of their position's quote.
+**Options.** Keep the stream order · a one-gutter split of the whole page (failed on a full-width header and on a date column) · bands and gutters with a side-column rule · an external layout engine (a new dependency, larger attack surface in the worker).
+**Decision.** Rows by baseline; a gutter is an empty vertical strip crossed by the fewest rows (never more than a tenth); rows that cross it cut the page into bands; a band is a short table or a marker list, a narrow side column in short blocks attached to its entry lines, or two columns read one after the other. A page without a gutter, or one too large for a CV, keeps the stream order, so simple PDFs read as before. Chosen by its effect on the whole dev corpus (no CV got worse); tables, scans and more than two columns are out of scope. Owner's task R0-PDF, 2026-10-29.

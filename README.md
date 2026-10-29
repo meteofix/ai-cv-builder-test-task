@@ -101,19 +101,20 @@ What the tests prove and what they do not: they prove that the checks and the ha
 
 Nothing in the task's scope was cut. Not built: one constrained rewrite of an unsupported bullet before asking, showing the source quote of each bullet in the editor, and an eval script over a labelled set.
 
-| Simplification                                                                  | Why                                                         | Next                                                                 |
-| ------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------- |
-| Job queue in Postgres, worker in the API process                                | No new infrastructure; transactional with the data          | A separate worker process (same table), or a queue service at scale  |
-| Polling instead of SSE/WebSocket                                                | Simple and survives reloads                                 | SSE to stream sections as they are written                           |
-| Text-layer PDFs only, no OCR                                                    | OCR is a project of its own                                 | OCR for scans; for now a clear "paste the text" message              |
-| Questions are created once per generation; an answer rewrites only its own part | Predictable and cheap                                       | A conversational clarification mode                                  |
-| One template for screen and PDF                                                 | Several templates are out of scope                          | More templates                                                       |
-| Version column, a conflict reloads                                              | Two devices cannot silently overwrite each other            | Field-level merge                                                    |
-| A simple daily generation limit                                                 | Protects the API budget                                     | Per-plan limits, cost accounting                                     |
-| Judge accuracy checked on samples, not measured                                 | No labelled set within the time                             | An eval set; a deterministic tech-keyword lexicon if it shows misses |
-| No error tracker                                                                | Structured logs with request and job ids are enough locally | Sentry or similar                                                    |
-| CI builds the images from scratch                                               | Simpler workflow                                            | Docker layer cache in CI                                             |
-| Chromium sandbox disabled in the container                                      | The API runs as a non-root user in its own container        | A dedicated rendering service                                        |
+| Simplification                                                                   | Why                                                         | Next                                                                  |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| Job queue in Postgres, worker in the API process                                 | No new infrastructure; transactional with the data          | A separate worker process (same table), or a queue service at scale   |
+| Polling instead of SSE/WebSocket                                                 | Simple and survives reloads                                 | SSE to stream sections as they are written                            |
+| Text-layer PDFs only, no OCR                                                     | OCR is a project of its own                                 | OCR for scans; for now a clear "paste the text" message               |
+| PDF layout: up to two columns, a header band, a narrow date column; short tables | Covers the common CV layouts, measured on a corpus          | Long tables, three columns and rotated text are not laid out well yet |
+| Questions are created once per generation; an answer rewrites only its own part  | Predictable and cheap                                       | A conversational clarification mode                                   |
+| One template for screen and PDF                                                  | Several templates are out of scope                          | More templates                                                        |
+| Version column, a conflict reloads                                               | Two devices cannot silently overwrite each other            | Field-level merge                                                     |
+| A simple daily generation limit                                                  | Protects the API budget                                     | Per-plan limits, cost accounting                                      |
+| Judge accuracy checked on samples, not measured                                  | No labelled set within the time                             | An eval set; a deterministic tech-keyword lexicon if it shows misses  |
+| No error tracker                                                                 | Structured logs with request and job ids are enough locally | Sentry or similar                                                     |
+| CI builds the images from scratch                                                | Simpler workflow                                            | Docker layer cache in CI                                              |
+| Chromium sandbox disabled in the container                                       | The API runs as a non-root user in its own container        | A dedicated rendering service                                         |
 
 ## How requirements are verified
 

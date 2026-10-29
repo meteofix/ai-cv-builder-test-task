@@ -46,6 +46,7 @@ describe('buildQuestions', () => {
         [{ id: 'e1', institution: '' }],
       ),
       facts: [vague],
+      notCurrent: new Set(),
       removed: [
         {
           itemId: 's1',
@@ -78,6 +79,7 @@ describe('buildQuestions', () => {
       document: document([job('p1', dates)]),
       facts: [],
       removed: [],
+      notCurrent: new Set(),
     });
     expect(questions.some((q) => q.target.field === 'dates')).toBe(asked);
   });
@@ -90,7 +92,13 @@ describe('buildQuestions', () => {
       class: 'unsupported_claim' as const,
     }));
     expect(
-      buildQuestions({ source: '', document: document([job('p1')]), facts: [], removed }),
+      buildQuestions({
+        source: '',
+        document: document([job('p1')]),
+        facts: [],
+        removed,
+        notCurrent: new Set(),
+      }),
     ).toHaveLength(10);
   });
 

@@ -39,7 +39,7 @@ export function buildQuestions(input: {
   facts: readonly Fact[];
   removed: readonly RemovedItem[];
   /** Positions the judge did not confirm as current: their dates question comes first, past the cap. */
-  notCurrent?: ReadonlySet<string>;
+  notCurrent: ReadonlySet<string>;
 }): NewQuestion[] {
   const { document } = input;
   const questions: NewQuestion[] = [];
@@ -49,7 +49,7 @@ export function buildQuestions(input: {
     ...(field ? { field } : {}),
   });
 
-  const notCurrent = input.notCurrent ?? new Set<string>();
+  const { notCurrent } = input;
   const datesIncomplete = (job: CvPosition) =>
     job.start === null || (job.end === null && !job.current);
   // The CV no longer says "present" for these jobs: the user must see why, whatever else is asked.

@@ -202,4 +202,49 @@ describe('judgeEvidence', () => {
       },
     ]);
   });
+
+  it('keeps a missed heading that opens a long gap of unrecognized lines', () => {
+    const gap = [
+      'Engineer, Globex',
+      'Jan 2019 – Dec 2020',
+      'Kyiv',
+      'Team of eight',
+      'Fintech',
+      'Remote',
+      'Responsibilities:',
+    ];
+    const long = `Senior Engineer, Acme\n${gap.join('\n')}\n- Built search.`;
+    const at = (text: string): [number, number] => [
+      long.indexOf(text),
+      long.indexOf(text) + text.length,
+    ];
+    const longFacts: Fact[] = [
+      {
+        id: 'f1',
+        kind: 'position',
+        quote: 'Senior Engineer, Acme',
+        span: at('Senior Engineer, Acme'),
+        position: {
+          company: 'Acme',
+          title: 'Senior Engineer',
+          location: null,
+          start: null,
+          end: null,
+          current: false,
+        },
+      },
+      {
+        id: 'f2',
+        kind: 'achievement',
+        quote: 'Built search.',
+        span: at('Built search.'),
+        achievement: { positionId: 'f1' },
+      },
+    ];
+    const { evidence } = judgeEvidence(longFacts, long, long.length, gap);
+    const [item] = evidence(['f2']);
+    expect(item?.unrecognizedBefore?.[0]).toBe('Engineer, Globex');
+    expect(item?.unrecognizedBefore?.at(-1)).toBe('Responsibilities:');
+    expect(item?.unrecognizedBefore).toHaveLength(6);
+  });
 });

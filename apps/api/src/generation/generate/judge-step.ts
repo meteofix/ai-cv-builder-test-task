@@ -51,11 +51,16 @@ export function judgeEvidence(
         ({ span, text: line }) =>
           span[0] >= before.span[1] && span[1] <= fact.span[0] && uncovered.has(line.trim()),
       )
-      .map(({ text: line }) => line.trim().slice(0, MAX_LINE_CHARS))
-      .slice(-MAX_LINES_BETWEEN);
+      .map(({ text: line }) => line.trim().slice(0, MAX_LINE_CHARS));
+    // A missed heading tends to open the gap (followed by its dates and location), a sub-heading to close
+    // it: when there are too many lines, both ends are kept.
+    const kept =
+      between.length > MAX_LINES_BETWEEN * 2
+        ? [...between.slice(0, MAX_LINES_BETWEEN), ...between.slice(-MAX_LINES_BETWEEN)]
+        : between;
     return {
       appearsUnder: positionDescription(before),
-      ...(between.length > 0 ? { unrecognizedBefore: between } : {}),
+      ...(kept.length > 0 ? { unrecognizedBefore: kept } : {}),
     };
   };
   return {

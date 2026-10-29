@@ -19,7 +19,8 @@ export const SOURCE = [
   'Hobbies: sourdough', // S15
 ].join('\n');
 
-const item = (text: string | null, ...segments: string[]) => ({ text, segments });
+/** An author item; `""` keeps the cited segments word for word. */
+const item = (text: string, ...segments: string[]) => ({ text, segments });
 
 /** A complete author answer for `SOURCE`; tests change the part they are about. */
 export function authorAnswer(overrides: Partial<AuthorOutput> = {}): AuthorOutput {
@@ -40,10 +41,10 @@ export function authorAnswer(overrides: Partial<AuthorOutput> = {}): AuthorOutpu
         company: 'Pinecrest Analytics',
         location: '',
         start: '2021',
-        end: null,
+        end: '',
         current: true,
         segments: ['S5'],
-        bullets: [item(null, 'S6'), item(null, 'S7')],
+        groups: [{ title: '', items: [item('', 'S6'), item('', 'S7')] }],
       },
       {
         title: 'Backend Engineer',
@@ -53,8 +54,17 @@ export function authorAnswer(overrides: Partial<AuthorOutput> = {}): AuthorOutpu
         end: '2021',
         current: false,
         segments: ['S8'],
-        bullets: [
-          item('Kept PostgreSQL fast; the team’s go-to person for database questions', 'S9', 'S10'),
+        groups: [
+          {
+            title: '',
+            items: [
+              item(
+                'Kept PostgreSQL fast; the team’s go-to person for database questions',
+                'S9',
+                'S10',
+              ),
+            ],
+          },
         ],
       },
       {
@@ -65,7 +75,7 @@ export function authorAnswer(overrides: Partial<AuthorOutput> = {}): AuthorOutpu
         end: '2019',
         current: false,
         segments: ['S11'],
-        bullets: [],
+        groups: [],
       },
     ],
     education: [],
@@ -77,6 +87,51 @@ export function authorAnswer(overrides: Partial<AuthorOutput> = {}): AuthorOutpu
     headings: ['S4', 'S13'],
     gaps: [],
     orderReason: '',
+    structureNotes: '',
     ...overrides,
   };
+}
+
+/** `SOURCE` with a projects section: S16 its heading, S17 the project line, S18 its bullet. */
+export const SOURCE_WITH_PROJECTS = [
+  SOURCE,
+  'PROJECTS',
+  'Proofing Timer, 2022 – 2023',
+  '• Reminds a baker when to feed the starter',
+].join('\n');
+
+/**
+ * `authorAnswer` for `SOURCE_WITH_PROJECTS` with groups: the first job's bullets in a titled group and a
+ * plain one, and one project entry with a titled group of one line.
+ */
+export function groupedAnswer(overrides: Partial<AuthorOutput> = {}): AuthorOutput {
+  const [first, ...rest] = authorAnswer().experience;
+  return authorAnswer({
+    experience: [
+      {
+        ...first!,
+        groups: [
+          { title: 'Delivery:', items: [item('', 'S6')] },
+          { title: '', items: [item('', 'S7')] },
+        ],
+      },
+      ...rest,
+    ],
+    additional: [
+      {
+        title: 'Projects',
+        entries: [
+          {
+            title: 'Proofing Timer',
+            start: '2022',
+            end: '2023',
+            segments: ['S17'],
+            groups: [{ title: 'What it does', items: [item('', 'S18')] }],
+          },
+        ],
+      },
+    ],
+    headings: ['S4', 'S13', 'S16'],
+    ...overrides,
+  });
 }

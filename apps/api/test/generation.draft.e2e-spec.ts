@@ -54,6 +54,36 @@ describe('draft and not-in-cv endpoints', () => {
     });
   });
 
+  it("serves the author's reason for an older job first, and nothing when the order is newest first", async () => {
+    const em = entityManager(app);
+    const cv = await createCv(em, { user: owner.user });
+    await createJob(em, { cv });
+    const reason = 'The design work fits the role better than the later sales job.';
+    fake
+      .on('author', { output: sampleAuthorAnswer({ orderReason: reason }) })
+      .on('reviewer', { output: NO_ISSUES });
+    await app.get(JobEngine).processNext();
+    expect((await get('getNotInCv', cv.id)).json()).toMatchObject({ orderReason: reason });
+
+    const plain = await createCv(em, { user: owner.user });
+    await createJob(em, { cv: plain });
+    fake.on('author', { output: sampleAuthorAnswer() });
+    await app.get(JobEngine).processNext();
+    expect((await get('getNotInCv', plain.id)).json()).not.toHaveProperty('orderReason');
+  });
+
+  it("never serves the author's structure notes: they are for evals, not for the person", async () => {
+    const em = entityManager(app);
+    const cv = await createCv(em, { user: owner.user });
+    await createJob(em, { cv });
+    const notes = 'Merged a subsection repeated after a page break into its first part.';
+    fake
+      .on('author', { output: sampleAuthorAnswer({ structureNotes: notes }) })
+      .on('reviewer', { output: NO_ISSUES });
+    await app.get(JobEngine).processNext();
+    expect((await get('getNotInCv', cv.id)).body).not.toContain('page break');
+  });
+
   it('says when most of the source was not recognized (R0-SIGNAL)', async () => {
     const em = entityManager(app);
     const unread = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} nobody cited`).join('\n');

@@ -1,4 +1,4 @@
-import type { CvDocument, CvEducation, CvPosition } from '@cv/shared';
+import { bulletsOf, type CvDocument, type CvEducation, type CvPosition } from '@cv/shared';
 
 function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {
   return new Map(items.map((item) => [item.id, item]));
@@ -53,7 +53,7 @@ function carryFactIds<T extends { id: string; text: string }>(
 export function withServerProvenance(stored: CvDocument, edited: CvDocument): CvDocument {
   const storedPositions = byId(stored.experience);
   const storedEducation = byId(stored.education);
-  const storedSkills = byId(stored.skills);
+  const storedSkills = byId(stored.skills.flatMap((group) => group.items));
   const storedSections = byId(stored.additional);
 
   return {
@@ -64,14 +64,18 @@ export function withServerProvenance(stored: CvDocument, edited: CvDocument): Cv
     },
     experience: edited.experience.map((position) => {
       const before = storedPositions.get(position.id);
-      const storedBullets = byId(before?.bullets ?? []);
+      const storedBullets = byId(before ? bulletsOf(before) : []);
       return {
         ...withoutFactId(position),
         ...(before?.factId && positionUnchanged(before, position) ? { factId: before.factId } : {}),
-        // A bullet is looked up inside its own position: a fact of another job must not follow it.
-        bullets: position.bullets.map((bullet) => ({
-          ...bullet,
-          factIds: carryFactIds(storedBullets.get(bullet.id), bullet, (b) => b.factIds),
+        // A bullet is looked up inside its own position, in any of its groups: a fact of another job
+        // must not follow it.
+        groups: position.groups.map((group) => ({
+          ...group,
+          items: group.items.map((bullet) => ({
+            ...bullet,
+            factIds: carryFactIds(storedBullets.get(bullet.id), bullet, (b) => b.factIds),
+          })),
         })),
       };
     }),
@@ -82,21 +86,33 @@ export function withServerProvenance(stored: CvDocument, edited: CvDocument): Cv
         ...(before?.factId && educationUnchanged(before, entry) ? { factId: before.factId } : {}),
       };
     }),
-    skills: edited.skills.map((skill) => {
-      const before = storedSkills.get(skill.id);
-      return {
-        ...withoutFactId(skill),
-        ...(before?.factId && before.name === skill.name ? { factId: before.factId } : {}),
-      };
-    }),
+    skills: edited.skills.map((group) => ({
+      ...group,
+      items: group.items.map((skill) => {
+        const before = storedSkills.get(skill.id);
+        return {
+          ...withoutFactId(skill),
+          ...(before?.factId && before.name === skill.name ? { factId: before.factId } : {}),
+        };
+      }),
+    })),
     additional: edited.additional.map((section) => {
-      const storedItems = byId(storedSections.get(section.id)?.items ?? []);
+      const storedEntries = byId(storedSections.get(section.id)?.entries ?? []);
       return {
         ...section,
-        items: section.items.map((item) => ({
-          ...item,
-          factIds: carryFactIds(storedItems.get(item.id), item, (i) => i.factIds),
-        })),
+        entries: section.entries.map((entry) => {
+          const storedLines = byId(bulletsOf(storedEntries.get(entry.id) ?? { groups: [] }));
+          return {
+            ...entry,
+            groups: entry.groups.map((group) => ({
+              ...group,
+              items: group.items.map((line) => ({
+                ...line,
+                factIds: carryFactIds(storedLines.get(line.id), line, (i) => i.factIds),
+              })),
+            })),
+          };
+        }),
       };
     }),
   };

@@ -11,7 +11,16 @@ function withBullets(texts: string[]): CvDocument {
   return {
     ...enSample,
     experience: [
-      { ...first, bullets: texts.map((text, index) => ({ id: `b${index}`, text, factIds: [] })) },
+      {
+        ...first,
+        groups: [
+          {
+            id: 'g',
+            title: null,
+            items: texts.map((text, index) => ({ id: `b${index}`, text, factIds: [] })),
+          },
+        ],
+      },
     ],
   };
 }
@@ -63,14 +72,46 @@ describe('renderCvBody', () => {
           start: null,
           end: null,
           current: false,
-          bullets: [{ id: 'xb', text: ' ', factIds: [] }],
+          groups: [{ id: 'xg', title: 'Platform', items: [{ id: 'xb', text: ' ', factIds: [] }] }],
         },
       ],
       education: [{ id: 'y', institution: '', degree: ' ', start: null, end: null }],
-      skills: [{ id: 's', name: '  ' }],
+      skills: [{ id: 'g', title: 'Tools', items: [{ id: 's', name: '  ' }] }],
       additional: [
-        { id: 'a', title: 'Languages', items: [{ id: 'ai', text: ' ', factIds: [] }] },
-        { id: 'b', title: '  ', items: [{ id: 'bi', text: 'Ukrainian — native', factIds: [] }] },
+        {
+          id: 'a',
+          title: 'Languages',
+          entries: [
+            {
+              id: 'ae',
+              title: ' ',
+              start: null,
+              end: null,
+              groups: [
+                { id: 'ag', title: 'Spoken', items: [{ id: 'ai', text: ' ', factIds: [] }] },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'b',
+          title: '  ',
+          entries: [
+            {
+              id: 'be',
+              title: '',
+              start: null,
+              end: null,
+              groups: [
+                {
+                  id: 'bg',
+                  title: null,
+                  items: [{ id: 'bi', text: 'Ukrainian — native', factIds: [] }],
+                },
+              ],
+            },
+          ],
+        },
       ],
     };
 

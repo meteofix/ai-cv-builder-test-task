@@ -1,4 +1,4 @@
-import type { CvDocument, Job, UpdateDocumentRequest } from '@cv/shared';
+import { bulletsOf, type CvDocument, type Job, type UpdateDocumentRequest } from '@cv/shared';
 import { act, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { editorDocument } from './test/fixtures';
@@ -328,9 +328,8 @@ describe('editor', () => {
     await vi.waitFor(() => {
       expect(puts).toHaveLength(1);
     });
-    expect(puts[0]?.document.additional[0]?.items.map((item) => item.text)).toEqual([
-      'English — C1',
-    ]);
+    const lines = puts[0]?.document.additional[0]?.entries[0];
+    expect(lines && bulletsOf(lines).map((line) => line.text)).toEqual(['English — C1']);
 
     await user.click(section().getByRole('button', { name: 'Remove section' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }));
@@ -510,10 +509,10 @@ describe('editor', () => {
     });
     const [first, second] = puts[0]?.document.experience ?? [];
     expect(first?.id).toBe('pos-2');
-    expect(first?.bullets.map((bullet) => bullet.text)).toEqual([
+    expect(first && bulletsOf(first).map((bullet) => bullet.text)).toEqual([
       'Developed REST APIs in NestJS. Extended.',
     ]);
-    expect(second?.bullets).toHaveLength(2);
+    expect(second && bulletsOf(second)).toHaveLength(2);
     expect(within(card('Northwind Learning')).getByLabelText('Bullet 2')).toHaveValue(
       'Designed a PostgreSQL-backed job queue.',
     );

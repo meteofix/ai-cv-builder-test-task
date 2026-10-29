@@ -200,10 +200,6 @@
   margin-top: var(--space-2);
 }
 
-.tag-input__tags {
-  display: contents;
-}
-
 /* "Show in CV" flash: the target of a question is highlighted for a moment (set by showInCv). */
 [data-flash] {
   background-color: var(--color-highlight);

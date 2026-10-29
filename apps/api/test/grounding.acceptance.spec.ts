@@ -1,3 +1,4 @@
+import { splitSkills } from '@cv/shared';
 import { describe, expect, it } from 'vitest';
 import {
   checkEmail,
@@ -8,7 +9,6 @@ import {
   findQuote,
   instructionFragments,
   segmentSource,
-  splitSkills,
   uncoveredLines,
   verifyFacts,
   type ExtractedFact,

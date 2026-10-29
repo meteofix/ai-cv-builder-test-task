@@ -1,5 +1,6 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
+  bulletsOf,
   createCvResponseSchema,
   cvDetailSchema,
   cvListResponseSchema,
@@ -186,9 +187,19 @@ describe('cvs acceptance (docs/specs/cvs.md)', () => {
             start: '2021',
             end: null,
             current: true,
-            bullets: [
-              { id: 'b1', text: 'Led the migration of billing to TypeScript.', factIds: ['f3'] },
-              { id: 'b2', text: 'Cut the build time in half.', factIds: ['f4'] },
+            groups: [
+              {
+                id: 'p1-g1',
+                title: null,
+                items: [
+                  {
+                    id: 'b1',
+                    text: 'Led the migration of billing to TypeScript.',
+                    factIds: ['f3'],
+                  },
+                  { id: 'b2', text: 'Cut the build time in half.', factIds: ['f4'] },
+                ],
+              },
             ],
           },
         ],
@@ -206,14 +217,20 @@ describe('cvs acceptance (docs/specs/cvs.md)', () => {
           {
             ...position,
             company: 'Acme Corporation',
-            bullets: [
+            groups: [
               {
-                id: 'b1',
-                text: 'Led the migration of billing to TypeScript, on time.',
-                factIds: ['f3'],
+                id: 'p1-g1',
+                title: null,
+                items: [
+                  {
+                    id: 'b1',
+                    text: 'Led the migration of billing to TypeScript, on time.',
+                    factIds: ['f3'],
+                  },
+                  { id: 'b2', text: 'Cut the build time in half.', factIds: [] },
+                  { id: 'b3', text: 'Mentored two engineers.', factIds: ['f9'] },
+                ],
               },
-              { id: 'b2', text: 'Cut the build time in half.', factIds: [] },
-              { id: 'b3', text: 'Mentored two engineers.', factIds: ['f9'] },
             ],
           },
         ],
@@ -224,7 +241,7 @@ describe('cvs acceptance (docs/specs/cvs.md)', () => {
       const { document: result } = updateDocumentResponseSchema.parse(res.json());
       const [p1] = result.experience;
       expect(p1).not.toHaveProperty('factId');
-      expect(p1?.bullets.map(({ id, factIds }) => [id, factIds])).toEqual([
+      expect(bulletsOf(p1!).map(({ id, factIds }) => [id, factIds])).toEqual([
         ['b1', []],
         ['b2', ['f4']],
         ['b3', []],

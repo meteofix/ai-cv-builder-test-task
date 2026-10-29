@@ -1,41 +1,16 @@
-import {
-  experienceGroups,
-  linkSchema,
-  sharesBullets,
-  type CvDocument,
-  type Locale,
-} from '@cv/shared';
+import { linkSchema, type CvDocument, type Locale } from '@cv/shared';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { additionalEntries } from './additional.js';
+import { Entry, experienceEntries, hasContent } from './entries.js';
 import { fontFaceCss, type FontSource } from './fonts.js';
-import { LABELS, type Labels } from './labels.js';
+import { LABELS } from './labels.js';
 import { CV_CSS } from './styles.js';
+import { SkillGroups, visibleSkillGroups } from './skills.js';
+import { dateRange, filled } from './text.js';
 
 export interface RenderCvHtmlOptions {
   fonts: FontSource;
-}
-
-/** Text counts as present only when it has something other than spaces (the editor can leave " " behind). */
-const filled = (value: string | null | undefined): value is string => !!value?.trim();
-
-/** `2021-03` → `Mar 2021`, `2021` → `2021`; anything else prints nothing. */
-function formatDate(value: string | null | undefined, labels: Labels): string {
-  if (!value) return '';
-  const [year = '', month] = value.split('-');
-  const name = month ? labels.months[Number(month) - 1] : undefined;
-  return [name, year].filter(Boolean).join(' ');
-}
-
-/** `Mar 2023 – Present`; one known side prints alone, nothing known prints nothing. */
-function dateRange(
-  start: string | null | undefined,
-  end: string | null | undefined,
-  current: boolean,
-  labels: Labels,
-): string {
-  return [formatDate(start, labels), current ? labels.present : formatDate(end, labels)]
-    .filter(Boolean)
-    .join(' – ');
 }
 
 /** The address of a link without its scheme and trailing slash: `https://github.com/x/` → `github.com/x`. */
@@ -84,122 +59,11 @@ function Section({ kind, title, children }: { kind: string; title: string; child
   );
 }
 
-interface EntryProps {
-  id: string;
-  title: string;
-  dates: string;
-  org?: string;
-  location?: string | undefined;
-  compact?: boolean;
-  bullets?: readonly { id: string; text: string }[];
-}
-
-/** The lines of an entry that have text; an entry with none of them is not rendered at all. */
-const bulletLines = (entry: EntryProps) =>
-  (entry.bullets ?? []).filter((bullet) => filled(bullet.text));
-const hasContent = (entry: EntryProps): boolean =>
-  [entry.title, entry.dates, entry.org, entry.location].some(filled) ||
-  bulletLines(entry).length > 0;
-
-function Entry({ title, dates, org, location, compact = false, ...rest }: EntryProps) {
-  const lines = bulletLines({ title, dates, ...rest });
-  return (
-    <article className={compact ? 'cv-entry cv-entry--compact' : 'cv-entry'}>
-      {filled(title) || filled(dates) ? (
-        <div className="cv-entry__head">
-          {filled(title) ? <h3 className="cv-entry__title">{title}</h3> : null}
-          {filled(dates) ? <span className="cv-entry__dates">{dates}</span> : null}
-        </div>
-      ) : null}
-      {filled(org) || filled(location) ? (
-        <p className="cv-entry__meta">
-          {filled(org) ? <span className="cv-entry__org">{org}</span> : null}
-          {filled(location) ? <span className="cv-entry__location">{location}</span> : null}
-        </p>
-      ) : null}
-      {lines.length > 0 ? (
-        <ul className="cv-entry__bullets">
-          {lines.map((bullet) => (
-            <li key={bullet.id}>{bullet.text}</li>
-          ))}
-        </ul>
-      ) : null}
-    </article>
-  );
-}
-
-interface Role {
-  id: string;
-  title: string;
-  dates: string;
-  location?: string | undefined;
-  bullets: readonly { id: string; text: string }[];
-}
-
-function Bullets({ lines }: { lines: readonly { id: string; text: string }[] }) {
-  return lines.length > 0 ? (
-    <ul className="cv-entry__bullets">
-      {lines.map((bullet) => (
-        <li key={bullet.id}>{bullet.text}</li>
-      ))}
-    </ul>
-  ) : null;
-}
-
-/**
- * Consecutive positions at one company (docs/specs/cv-template.md, behaviour 5a): the company once, then
- * each title with its dates. Bullets of a position follow it; when only the first position has bullets,
- * they are the company's shared bullets and follow the last title. The text order is company, titles
- * with dates, bullets.
- */
-function GroupEntry({ company, roles }: { company: string; roles: readonly Role[] }) {
-  const lines = roles.map((role) => role.bullets.filter((bullet) => filled(bullet.text)));
-  const shared = sharesBullets(roles);
-  // One location for the company only when every position gives that same one.
-  const locations = [...new Set(roles.map((role) => role.location ?? ''))];
-  const common = locations.length === 1 && filled(locations[0]) ? locations[0] : null;
-  return (
-    <article className="cv-entry cv-entry--group">
-      <p className="cv-entry__meta">
-        <span className="cv-entry__org">{company}</span>
-        {common ? <span className="cv-entry__location">{common}</span> : null}
-      </p>
-      {roles.map((role, i) => (
-        <div className="cv-entry__role" key={role.id}>
-          {filled(role.title) || filled(role.dates) ? (
-            <div className="cv-entry__head">
-              {filled(role.title) ? <h3 className="cv-entry__title">{role.title}</h3> : null}
-              {filled(role.dates) ? <span className="cv-entry__dates">{role.dates}</span> : null}
-            </div>
-          ) : null}
-          {common === null && filled(role.location) ? (
-            <p className="cv-entry__meta">
-              <span className="cv-entry__location">{role.location}</span>
-            </p>
-          ) : null}
-          {shared ? null : <Bullets lines={lines[i] ?? []} />}
-        </div>
-      ))}
-      {shared ? <Bullets lines={lines[0] ?? []} /> : null}
-    </article>
-  );
-}
-
 function CvBody({ document }: { document: CvDocument }) {
   const labels = LABELS[document.locale];
   const { contacts, headline, summary } = document;
   const contactList = contactItems(contacts);
-  const positions = document.experience
-    .map((position) => ({
-      id: position.id,
-      title: position.title,
-      dates: dateRange(position.start, position.end, position.current, labels),
-      org: position.company,
-      company: position.company,
-      location: position.location,
-      bullets: position.bullets,
-    }))
-    .filter(hasContent);
+  const positions = experienceEntries(document.experience, labels);
   const schools = document.education
     .map((entry) => ({
       id: entry.id,
@@ -210,7 +74,7 @@ function CvBody({ document }: { document: CvDocument }) {
       org: filled(entry.degree) ? entry.institution : '',
     }))
     .filter(hasContent);
-  const skills = document.skills.filter((skill) => filled(skill.name));
+  const skillGroups = visibleSkillGroups(document.skills);
 
   return (
     <main className="cv">
@@ -234,15 +98,7 @@ function CvBody({ document }: { document: CvDocument }) {
       ) : null}
       {positions.length > 0 ? (
         <Section kind="experience" title={labels.experience}>
-          {experienceGroups(positions).map((group) => {
-            const first = group[0];
-            if (!first) return null;
-            return group.length === 1 ? (
-              <Entry key={first.id} {...first} />
-            ) : (
-              <GroupEntry key={first.id} company={first.org} roles={group} />
-            );
-          })}
+          {positions}
         </Section>
       ) : null}
       {schools.length > 0 ? (
@@ -252,24 +108,16 @@ function CvBody({ document }: { document: CvDocument }) {
           ))}
         </Section>
       ) : null}
-      {skills.length > 0 ? (
+      {skillGroups.length > 0 ? (
         <Section kind="skills" title={labels.skills}>
-          <ul className="cv-skills">
-            {skills.map((skill) => (
-              <li key={skill.id}>{skill.name}</li>
-            ))}
-          </ul>
+          <SkillGroups groups={skillGroups} />
         </Section>
       ) : null}
       {document.additional.map((section) => {
-        const items = section.items.filter((item) => filled(item.text));
-        return items.length > 0 ? (
+        const entries = additionalEntries(section, labels);
+        return entries.length > 0 ? (
           <Section kind="extra" title={section.title} key={section.id}>
-            <ul className="cv-list">
-              {items.map((item) => (
-                <li key={item.id}>{item.text}</li>
-              ))}
-            </ul>
+            {entries}
           </Section>
         ) : null;
       })}

@@ -1,6 +1,7 @@
 import { renderCvBody, renderCvShell } from '@cv/cv-template';
 import type { CvDocument } from '@cv/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { previewPages } from '../editor/pages';
 
 /** A4 at 96 dpi: the page is laid out at this width and scaled down to the column. */
 const SHEET_WIDTH = 794;
@@ -12,14 +13,21 @@ function writeBody(frame: HTMLIFrameElement | null, html: string): void {
 
 interface CvPreviewProps {
   document: CvDocument;
+  /** The estimated number of printed pages, each time the laid-out page changes. */
+  onPages?: (pages: number) => void;
 }
 
 /**
  * The CV as the PDF will print it, in an iframe without scripts. The page (fonts and styles) is written once;
  * every change replaces only the body, so there is no reload and the scroll position stays.
  */
-export function CvPreview({ document: cv }: CvPreviewProps) {
+export function CvPreview({ document: cv, onPages }: CvPreviewProps) {
   const frame = useRef<HTMLIFrameElement>(null);
+  // The latest callback, read by `fit`, which the resize observer keeps for the life of the page.
+  const pagesCallback = useRef(onPages);
+  useEffect(() => {
+    pagesCallback.current = onPages;
+  });
   const sheet = useRef<HTMLDivElement>(null);
   // Set once, from the first document: later edits never touch the page, only its body.
   const [shell] = useState(() =>
@@ -39,6 +47,8 @@ export function CvPreview({ document: cv }: CvPreviewProps) {
     frame.current.style.height = `${height}px`;
     frame.current.style.transform = `scale(${scale})`;
     box.style.height = `${height * scale}px`;
+    const pages = previewPages(body.ownerDocument);
+    if (pages !== null) pagesCallback.current?.(pages);
   }, []);
 
   useEffect(() => {

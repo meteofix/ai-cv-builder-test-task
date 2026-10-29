@@ -1,7 +1,8 @@
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { describe, expect, it } from 'vitest';
 import { authorOutputSchema } from '../generation/compose/author-schema.js';
-import { retryAfterMs, statusError } from './anthropic-transport.js';
+import { reviewOutputSchema } from '../generation/compose/review.js';
+import { retryAfterMs, statusError, toolSchema } from './anthropic-transport.js';
 
 describe('retryAfterMs', () => {
   const now = Date.parse('2026-10-29T10:00:00Z');
@@ -42,42 +43,32 @@ describe('statusError', () => {
   });
 });
 
+describe('toolSchema', () => {
+  it("is the author's whole schema as plain JSON Schema: one object, no grammar features", () => {
+    const schema = toolSchema(authorOutputSchema);
+    expect(schema.type).toBe('object');
+    expect(Object.keys(schema.properties ?? {})).toEqual(Object.keys(authorOutputSchema.shape));
+  });
+});
+
 describe('zodOutputFormat', () => {
-  it("turns the author's output schema into a JSON schema the SDK accepts and parses back", () => {
-    const format = zodOutputFormat(authorOutputSchema);
+  it("turns the reviewer's output schema into a JSON schema the SDK accepts and parses back", () => {
+    const format = zodOutputFormat(reviewOutputSchema);
     expect(format.type).toBe('json_schema');
     const answer = {
-      locale: 'en',
-      contacts: [{ field: 'email', value: 'a@example.com', segment: 'S2' }],
-      headline: { text: null, segments: ['S1'] },
-      summary: [],
-      experience: [
+      issues: [
         {
-          title: 'Lead',
-          company: 'Acme',
-          location: '',
-          start: '2022',
-          end: null,
-          current: true,
-          segments: ['S3'],
-          bullets: [{ text: 'Shipped', segments: ['S4'] }],
+          item: 'job.1.2',
+          action: 'fix',
+          class: 'inflated_scope',
+          text: 'Helped ship it',
+          segments: ['S4'],
+          question: null,
         },
       ],
-      education: [],
-      skills: [],
-      additional: [],
-      notIncluded: [],
-      headings: [],
-      gaps: [],
-      orderReason: '',
     };
     expect(format.parse(JSON.stringify(answer))).toEqual(answer);
-    const noTitle = {
-      ...answer,
-      experience: [{ ...answer.experience[0], title: undefined }],
-    };
-    expect(() => format.parse(JSON.stringify(noTitle))).toThrow(
-      /Failed to parse structured output/,
-    );
+    const noItem = { issues: [{ ...answer.issues[0], item: undefined }] };
+    expect(() => format.parse(JSON.stringify(noItem))).toThrow(/Failed to parse structured output/);
   });
 });

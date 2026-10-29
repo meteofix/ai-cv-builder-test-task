@@ -1,6 +1,6 @@
 import { dateSchema, experienceGroups, LIMITS, sharesBullets } from '@cv/shared';
 import { z } from 'zod';
-import type { Draft, DraftItem } from './draft.js';
+import type { Draft, DraftGroup, DraftItem } from './draft.js';
 import type { SegmentIndex } from './verbatim.js';
 
 /** Classes of a finding; only for logs and evals (the code treats every class the same). */
@@ -41,11 +41,16 @@ export const reviewOutputSchema = z.object({
 export type ReviewOutput = z.infer<typeof reviewOutputSchema>;
 export type ReviewIssue = ReviewOutput['issues'][number];
 
-/** What one id of the review stands for: a text item, a field of a job or school, or a skill group. */
+/**
+ * What one id of the review stands for: a text item, the title of a group of items, a field of a job,
+ * a school or an extra entry, or a skill group.
+ */
 export type ReviewTarget =
   | { kind: 'item'; item: DraftItem; place: Place; max: number }
+  | { kind: 'title'; group: { title: string | null } }
   | { kind: 'field'; job: number; field: 'title' | 'company' | 'location' | 'dates' }
   | { kind: 'education'; entry: number; field: 'institution' | 'degree' | 'dates' }
+  | { kind: 'entry'; section: number; entry: number; field: 'title' | 'dates' }
   | { kind: 'skills'; group: number };
 
 /** Where a text item stands, for its question. */
@@ -78,6 +83,20 @@ export function reviewView(draft: Draft): ReviewView {
         : `[${id}] (rewritten, evidence ${cited(item.segments)}) ${JSON.stringify(item.text)}`,
     );
   };
+  // Items are numbered across the groups of one list; a titled group prints its title's id above them.
+  const groups = (prefix: string, list: readonly DraftGroup[], place: Place, max: number) => {
+    let n = 0;
+    list.forEach((group, g) => {
+      if (group.title !== null) {
+        const id = `${prefix}.g${g + 1}`;
+        targets.set(id, { kind: 'title', group });
+        lines.push(`[${id}] (group title) ${JSON.stringify(group.title)}:`);
+      }
+      group.items.forEach((item) => {
+        text(`${prefix}.${++n}`, item, place, max);
+      });
+    });
+  };
   text('name', draft.fullName, { section: 'contacts' }, LIMITS.maxFieldChars);
   text('location', draft.location, { section: 'contacts' }, LIMITS.maxFieldChars);
   text('headline', draft.headline, { section: 'headline' }, LIMITS.maxFieldChars);
@@ -105,14 +124,12 @@ export function reviewView(draft: Draft): ReviewView {
       if (shared) {
         lines.push(`Bullets of the company, shared by jobs ${owner.i + 1}–${job.i + 1}:`);
       }
-      owner.bullets.forEach((item, j) => {
-        text(
-          `job.${owner.i + 1}.${j + 1}`,
-          item,
-          { section: 'experience', job: owner.i },
-          LIMITS.maxBulletChars,
-        );
-      });
+      groups(
+        `job.${owner.i + 1}`,
+        owner.groups,
+        { section: 'experience', job: owner.i },
+        LIMITS.maxBulletChars,
+      );
     }
   }
   draft.education.forEach((entry, i) => {
@@ -130,18 +147,25 @@ export function reviewView(draft: Draft): ReviewView {
     const id = `skills.${i + 1}`;
     targets.set(id, { kind: 'skills', group: i });
     const how = group.kept ? 'unchanged, from' : 'regrouped, evidence';
-    const title = group.title ? `${group.title}: ` : '';
-    lines.push(`[${id}] (${how} ${cited(group.segments)}) ${title}${group.items.join(', ')}`);
+    // The title is a claim of its own, as in a group of bullets (decision 036).
+    if (group.title !== null) {
+      targets.set(`${id}.title`, { kind: 'title', group });
+      lines.push(`[${id}.title] (group title) ${JSON.stringify(group.title)}:`);
+    }
+    lines.push(`[${id}] (${how} ${cited(group.segments)}) ${group.items.join(', ')}`);
   });
   draft.additional.forEach((section, i) => {
     lines.push(`Section ${JSON.stringify(section.title)}:`);
-    section.items.forEach((item, j) => {
-      text(
-        `extra.${i + 1}.${j + 1}`,
-        item,
-        { section: 'additional', index: i },
-        LIMITS.maxTextChars,
+    section.entries.forEach((entry, j) => {
+      const n = `extra.${i + 1}.${j + 1}`;
+      for (const field of ['title', 'dates'] as const) {
+        targets.set(`${n}.${field}`, { kind: 'entry', section: i, entry: j, field });
+      }
+      lines.push(
+        `Entry ${i + 1}.${j + 1} (from ${cited(entry.segments)}): [${n}.title] ` +
+          `${JSON.stringify(entry.title)} · [${n}.dates] ${dateRange(entry.start, entry.end, false)}`,
       );
+      groups(n, entry.groups, { section: 'additional', index: i }, LIMITS.maxTextChars);
     });
   });
   return { targets, text: lines.join('\n') };
@@ -191,8 +215,10 @@ export function reviewSchema(view: ReviewView, index: SegmentIndex) {
       if (target.kind === 'item' && issue.text.length > target.max) {
         add(`Longer than ${target.max} characters`);
       }
-      const headline = target.kind === 'item' && target.place.section === 'headline';
-      if (!headline && issue.segments.length === 0) add('A fix must cite its evidence');
+      // A headline without evidence is the target role; a group title names the items under it.
+      const free =
+        (target.kind === 'item' && target.place.section === 'headline') || target.kind === 'title';
+      if (!free && issue.segments.length === 0) add('A fix must cite its evidence');
       if (
         target.kind !== 'item' &&
         target.kind !== 'skills' &&
@@ -200,7 +226,7 @@ export function reviewSchema(view: ReviewView, index: SegmentIndex) {
       ) {
         add(`Longer than ${LIMITS.maxFieldChars} characters`);
       }
-      const dates = target.kind !== 'skills' && target.kind !== 'item' && target.field === 'dates';
+      const dates = 'field' in target && target.field === 'dates';
       if (dates && !parseDates(issue.text)) add('Write dates as YYYY-MM – YYYY-MM, or present');
     });
   });

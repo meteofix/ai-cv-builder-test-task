@@ -39,6 +39,25 @@ describe('"Not in your CV" — nothing disappears silently', () => {
     expect(analysis.coverage).toEqual({ contentLines: 15, notRecognized: 1, low: false });
   });
 
+  it.each([
+    ['the title and dates of an entry', { segments: ['S15'], groups: [] }],
+    [
+      'a line of an entry',
+      { segments: [], groups: [{ title: 'Baking', items: [{ text: '', segments: ['S15'] }] }] },
+    ],
+  ])('counts a segment cited by %s as placed', (_case, cited) => {
+    const answer = authorAnswer({
+      additional: [
+        {
+          title: 'Interests',
+          entries: [{ title: 'Sourdough', start: '', end: '', ...cited }],
+        },
+      ],
+    });
+    const { analysis } = compose(prepareSource(SOURCE), answer, NO_ISSUES, ROLE);
+    expect(analysis.notInCv.filter((item) => item.reason === 'not_placed')).toEqual([]);
+  });
+
   it('does not accept a long segment as a heading: content cannot hide there', () => {
     const long =
       'Rebuilt the billing exports so finance could close each month without manual fixes';
@@ -196,7 +215,7 @@ describe('questions', () => {
   it('asks for dates and a company the author did not ask about (the safety net)', () => {
     const [first, second, third] = authorAnswer().experience;
     const answer = authorAnswer({
-      experience: [first!, second!, { ...third!, company: '', start: null, end: null }],
+      experience: [first!, second!, { ...third!, company: '', start: '', end: '' }],
       notIncluded: [],
     });
     const { questions } = compose(prepareSource(SOURCE), answer, NO_ISSUES, ROLE);

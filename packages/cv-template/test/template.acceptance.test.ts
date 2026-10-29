@@ -35,7 +35,7 @@ function withPosition(
     ...enSample,
     locale,
     education: [],
-    experience: [{ id: 'p', company: 'Acme', title: 'Engineer', start, end, current, bullets: [] }],
+    experience: [{ id: 'p', company: 'Acme', title: 'Engineer', start, end, current, groups: [] }],
   };
 }
 
@@ -99,7 +99,7 @@ describe('CV template', () => {
           start: null,
           end: null,
           current: false,
-          bullets: [],
+          groups: [],
         },
       ],
       education: [],
@@ -168,7 +168,16 @@ describe('CV template', () => {
     const hostile: CvDocument = {
       ...doc,
       experience: [
-        { ...first, bullets: [{ id: 'b', text: '<script>alert(1)</script>', factIds: [] }] },
+        {
+          ...first,
+          groups: [
+            {
+              id: 'g',
+              title: null,
+              items: [{ id: 'b', text: '<script>alert(1)</script>', factIds: [] }],
+            },
+          ],
+        },
       ],
     };
 
@@ -187,7 +196,13 @@ describe('CV template', () => {
           start: null,
           end: null,
           current: false,
-          bullets: [{ id: 'b', text: "Saved $$ on hosting: a $& b $` c $' d", factIds: [] }],
+          groups: [
+            {
+              id: 'g',
+              title: null,
+              items: [{ id: 'b', text: "Saved $$ on hosting: a $& b $` c $' d", factIds: [] }],
+            },
+          ],
         },
       ],
     };
@@ -207,7 +222,13 @@ describe('CV template', () => {
       start,
       end,
       current: false,
-      bullets: texts.map((text, i) => ({ id: `${id}-${i}`, text, factIds: [] })),
+      groups: [
+        {
+          id: `${id}-g`,
+          title: null,
+          items: texts.map((text, i) => ({ id: `${id}-${i}`, text, factIds: [] })),
+        },
+      ],
     });
     const globex = {
       ...job('c', 'Developer', '2017-01', '2019-02', ['Built the shop.']),
@@ -256,5 +277,24 @@ describe('CV template', () => {
     expect(own).toMatch(
       /Lead Engineer.*Led the team\..*<\/div><div class="cv-entry__role">.*Engineer.*Wrote the API\./,
     );
+  });
+
+  it('TPL-10 — skill groups', () => {
+    const en = renderCvBody(enSample);
+    const groups = [...en.matchAll(/<div class="cv-skill-group">(.*?)<\/div>/g)].map((match) =>
+      (match[1] ?? '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    );
+    expect(groups).toEqual([
+      'Languages: TypeScript JavaScript',
+      'Frontend: React Next.js',
+      'Backend: Node.js NestJS PostgreSQL Redis',
+      'Tooling: Docker Playwright Vitest AWS GitHub Actions Figma',
+    ]);
+    const uk = renderCvBody(ukSample);
+    expect(uk).not.toContain('cv-skill-group');
+    expect(uk.match(/class="cv-skills"/g)).toHaveLength(1);
   });
 });

@@ -28,6 +28,9 @@ ul{list-style:none}
 .cv-contacts li,.cv-skills li{min-width:0}
 .cv-contacts li:not(:empty):has(~li:not(:empty))::after,
 .cv-skills li:not(:empty):has(~li:not(:empty))::after{content:"·";margin:0 .55em;color:var(--faint)}
+.cv-skill-group .cv-skills{display:inline-flex}
+.cv-skill-group+.cv-skill-group{margin-top:.8mm}
+.cv-skill-group__title{font-weight:500}
 .cv-entry__meta>:not(:empty)~:not(:empty)::before{content:"·";margin:0 .5em;color:var(--faint)}
 
 .cv-section{margin-top:6mm}
@@ -155,7 +158,10 @@ ul{list-style:none}
     </section>
     <section class="cv-section cv-section--skills">
       <h2 class="cv-section__title">Skills</h2>
-      <ul class="cv-skills"><li>TypeScript</li><li>JavaScript</li><li>React</li><li>Next.js</li><li>Node.js</li><li>NestJS</li><li>PostgreSQL</li><li>Redis</li><li>Docker</li><li>Playwright</li><li>Vitest</li><li>AWS</li><li>GitHub Actions</li><li>Figma</li></ul>
+      <div class="cv-skill-group"><span class="cv-skill-group__title">Languages:</span> <ul class="cv-skills"><li>TypeScript</li><li>JavaScript</li></ul></div>
+      <div class="cv-skill-group"><span class="cv-skill-group__title">Frontend:</span> <ul class="cv-skills"><li>React</li><li>Next.js</li></ul></div>
+      <div class="cv-skill-group"><span class="cv-skill-group__title">Backend:</span> <ul class="cv-skills"><li>Node.js</li><li>NestJS</li><li>PostgreSQL</li><li>Redis</li></ul></div>
+      <div class="cv-skill-group"><span class="cv-skill-group__title">Tooling:</span> <ul class="cv-skills"><li>Docker</li><li>Playwright</li><li>Vitest</li><li>AWS</li><li>GitHub Actions</li><li>Figma</li></ul></div>
     </section>
     <section class="cv-section cv-section--extra">
       <h2 class="cv-section__title">Certifications</h2>

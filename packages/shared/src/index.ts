@@ -8,3 +8,4 @@ export * from './limits.js';
 export * from './locale.js';
 export * from './questions.js';
 export * from './routes.js';
+export * from './skills.js';

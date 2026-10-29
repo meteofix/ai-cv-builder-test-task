@@ -1,3 +1,4 @@
+import { bulletsOf } from '@cv/shared';
 import { performance } from 'node:perf_hooks';
 import type { AppConfig } from '../config/env.js';
 import {
@@ -109,14 +110,15 @@ export function composeRow(name: string, run: ComposeRun, expected: Expected | n
     start: job.start,
     end: job.end,
     current: job.current,
-    bullets: job.bullets.length,
+    bullets: bulletsOf(job).length,
   }));
   const matches = expected ? matchPositions(expected.positions, found) : [];
   const complete = matches.filter(
     (match) => match.companyOk && match.titleOk && match.datesOk,
   ).length;
-  const bullets = document.experience.reduce((sum, job) => sum + job.bullets.length, 0);
-  const extra = document.additional.reduce((sum, section) => sum + section.items.length, 0);
+  const bullets = document.experience.reduce((sum, job) => sum + bulletsOf(job).length, 0);
+  const skills = document.skills.reduce((sum, group) => sum + group.items.length, 0);
+  const extra = document.additional.reduce((sum, section) => sum + section.entries.length, 0);
   const reasons = (reason: string) =>
     analysis.notInCv.filter((item) => item.reason === reason).length;
   const kinds: Record<string, number> = {};
@@ -133,7 +135,7 @@ export function composeRow(name: string, run: ComposeRun, expected: Expected | n
     name,
     expected ? `${complete}/${expected.positions.length}` : `${document.experience.length}`,
     expected ? `${bullets}/${expectedBullets(expected)}` : `${bullets}`,
-    expected ? `${document.skills.length}/${expected.skills}` : `${document.skills.length}`,
+    expected ? `${skills}/${expected.skills}` : `${skills}`,
     expected
       ? `${document.education.length}/${expected.education}`
       : `${document.education.length}`,

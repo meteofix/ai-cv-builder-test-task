@@ -10,9 +10,14 @@ export const LIMITS = {
   maxSummaryChars: 1000,
   maxEducation: 6,
   maxSkills: 120,
+  maxSkillGroups: 20,
+  /** Groups in one list: the bullets of a position, the lines of an extra entry. */
+  maxGroupsPerList: 10,
   maxLinks: 5,
   maxAdditionalSections: 20,
   maxAdditionalItems: 40,
+  /** Lines of one extra entry, across its groups (as bullets of a position). */
+  maxLinesPerEntry: 20,
   maxFieldChars: 200,
   /** Segments one item of the document may cite. */
   maxFactIds: 60,

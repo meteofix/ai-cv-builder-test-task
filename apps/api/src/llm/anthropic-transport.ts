@@ -1,6 +1,7 @@
 import Anthropic, { APIConnectionError, APIError, APIUserAbortError } from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { Inject, Injectable } from '@nestjs/common';
+import { z } from 'zod';
 import type { AppConfig } from '../config/env.js';
 import {
   LlmTransport,
@@ -32,6 +33,15 @@ export class AnthropicTransport extends LlmTransport {
   }
 
   async send<T>(request: TransportRequest<T>, signal: AbortSignal): Promise<TransportResult<T>> {
+    return request.output === 'tool'
+      ? this.sendAsTool(request, signal)
+      : this.sendWithGrammar(request, signal);
+  }
+
+  private async sendWithGrammar<T>(
+    request: TransportRequest<T>,
+    signal: AbortSignal,
+  ): Promise<TransportResult<T>> {
     const base = zodOutputFormat(request.schema);
     // The SDK parses every text block before we see `stop_reason`; a parse that throws would hide a
     // refusal or a cut-off answer, so the schema error is kept and judged after the stop reason.
@@ -48,54 +58,137 @@ export class AnthropicTransport extends LlmTransport {
         }
       },
     };
-    let message;
-    try {
-      message = await this.sdk.messages.parse(
+    const message = await this.call(() =>
+      this.sdk.messages.parse(
         {
-          model: request.model,
-          max_tokens: request.maxTokens,
-          system: request.system,
-          messages: request.messages.map((message) => ({
-            role: message.role,
-            content:
-              typeof message.content === 'string'
-                ? message.content
-                : message.content.map((block) => ({
-                    type: 'text' as const,
-                    text: block.text,
-                    ...(block.cached ? { cache_control: { type: 'ephemeral' as const } } : {}),
-                  })),
-          })),
+          ...this.params(request),
           output_config: { effort: request.effort, format },
         },
         { signal },
-      );
-    } catch (error) {
-      throw toTransportError(error) ?? error;
-    }
-    const usage = {
-      input: message.usage.input_tokens,
-      output: message.usage.output_tokens,
-      cacheRead: message.usage.cache_read_input_tokens ?? 0,
-      cacheWrite: message.usage.cache_creation_input_tokens ?? 0,
-    };
-    const stopReason = message.stop_reason;
-    if (stopReason === 'refusal') return { kind: 'refusal', stopReason, usage };
-    if (stopReason === 'max_tokens') {
-      return {
-        kind: 'invalid',
-        error: 'The answer was cut off at the token limit; answer more briefly.',
-        stopReason,
-        usage,
-      };
-    }
+      ),
+    );
+    const early = stopped<T>(message);
+    if (early) return early;
     const output = message.parsed_output;
     if (output === null) {
       const error = captured.error ?? 'The answer had no structured output.';
-      return { kind: 'invalid', error, stopReason, usage };
+      return { kind: 'invalid', error, stopReason: message.stop_reason, usage: usageOf(message) };
     }
-    return { kind: 'output', output, stopReason, usage };
+    return { kind: 'output', output, stopReason: message.stop_reason, usage: usageOf(message) };
   }
+
+  /**
+   * The answer as the input of one tool call. Opus 5.5 refuses a forced `tool_choice`, so the choice is
+   * `auto` and the system prompt asks for the call; an answer without it is invalid and asked again.
+   */
+  private async sendAsTool<T>(
+    request: TransportRequest<T>,
+    signal: AbortSignal,
+  ): Promise<TransportResult<T>> {
+    const message = await this.call(() =>
+      this.sdk.messages.create(
+        {
+          ...this.params(request),
+          system: `${request.system}\n\nGive your whole answer as one call of the ${ANSWER_TOOL} tool, with no other text.`,
+          tools: [
+            {
+              name: ANSWER_TOOL,
+              description: 'The answer, in the required schema.',
+              input_schema: toolSchema(request.schema),
+            },
+          ],
+          tool_choice: { type: 'auto', disable_parallel_tool_use: true },
+          output_config: { effort: request.effort },
+        },
+        { signal },
+      ),
+    );
+    const early = stopped<T>(message);
+    if (early) return early;
+    const usage = usageOf(message);
+    const call = message.content.find(
+      (block): block is Anthropic.ToolUseBlock =>
+        block.type === 'tool_use' && block.name === ANSWER_TOOL,
+    );
+    if (!call) {
+      return {
+        kind: 'invalid',
+        error: `The answer was not a call of the ${ANSWER_TOOL} tool.`,
+        stopReason: message.stop_reason,
+        usage,
+      };
+    }
+    const parsed = request.schema.safeParse(call.input);
+    return parsed.success
+      ? { kind: 'output', output: parsed.data, stopReason: message.stop_reason, usage }
+      : {
+          kind: 'invalid',
+          error: z.prettifyError(parsed.error),
+          stopReason: message.stop_reason,
+          usage,
+        };
+  }
+
+  private params(request: TransportRequest<unknown>) {
+    return {
+      model: request.model,
+      max_tokens: request.maxTokens,
+      system: request.system,
+      messages: request.messages.map((message) => ({
+        role: message.role,
+        content:
+          typeof message.content === 'string'
+            ? message.content
+            : message.content.map((block) => ({
+                type: 'text' as const,
+                text: block.text,
+                ...(block.cached ? { cache_control: { type: 'ephemeral' as const } } : {}),
+              })),
+      })),
+    };
+  }
+
+  private async call<M>(send: () => Promise<M>): Promise<M> {
+    try {
+      return await send();
+    } catch (error) {
+      throw toTransportError(error) ?? error;
+    }
+  }
+}
+
+export const ANSWER_TOOL = 'answer';
+
+/** The tool's input schema: plain JSON Schema of the zod schema, which the service does not compile. */
+export function toolSchema(schema: z.ZodType): Anthropic.Tool.InputSchema {
+  const json = z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any' });
+  return { ...json, type: 'object' };
+}
+
+function usageOf(message: Anthropic.Message) {
+  return {
+    input: message.usage.input_tokens,
+    output: message.usage.output_tokens,
+    cacheRead: message.usage.cache_read_input_tokens ?? 0,
+    cacheWrite: message.usage.cache_creation_input_tokens ?? 0,
+  };
+}
+
+/** A refusal or a cut-off answer, which no parse can rescue; null when the answer ended normally. */
+function stopped<T>(message: Anthropic.Message): TransportResult<T> | null {
+  const usage = usageOf(message);
+  if (message.stop_reason === 'refusal') {
+    return { kind: 'refusal', stopReason: message.stop_reason, usage };
+  }
+  if (message.stop_reason === 'max_tokens') {
+    return {
+      kind: 'invalid',
+      error: 'The answer was cut off at the token limit; answer more briefly.',
+      stopReason: message.stop_reason,
+      usage,
+    };
+  }
+  return null;
 }
 
 /** Maps SDK failures; returns null for errors that are not about the service (abort, our own bugs). */

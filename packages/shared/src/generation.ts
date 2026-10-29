@@ -39,5 +39,7 @@ export type SourceCoverage = z.infer<typeof sourceCoverageSchema>;
 export const notInCvResponseSchema = z.object({
   items: z.array(notInCvItemSchema),
   sourceCoverage: sourceCoverageSchema.optional(),
+  /** Why the author put an older job before a newer one; absent when the experience is newest first. */
+  orderReason: z.string().optional(),
 });
 export type NotInCvResponse = z.infer<typeof notInCvResponseSchema>;

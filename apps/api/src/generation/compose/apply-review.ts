@@ -1,5 +1,5 @@
-import { splitSkills } from '../../grounding/index.js';
-import type { Draft } from './draft.js';
+import { splitSkills } from '@cv/shared';
+import { groupTitle, type Draft } from './draft.js';
 import {
   parseDates,
   type ReviewIssue,
@@ -18,7 +18,7 @@ export interface Asked {
   original: string;
 }
 
-type FieldTarget = Extract<ReviewTarget, { kind: 'field' | 'education' }>;
+type FieldTarget = Extract<ReviewTarget, { kind: 'field' | 'education' | 'entry' }>;
 
 /**
  * Applies the reviewer's findings to the draft in place (the view's targets point into it): a fix
@@ -54,6 +54,8 @@ function fix(draft: Draft, target: ReviewTarget, issue: ReviewIssue, targetRole:
     Object.assign(target.item, { text: targetRole, segments: [], kept: false });
   } else if (target.kind === 'item') {
     Object.assign(target.item, { text, segments: [...issue.segments], kept: false });
+  } else if (target.kind === 'title') {
+    target.group.title = groupTitle(text);
   } else if (target.kind === 'skills') {
     const group = draft.skills[target.group];
     if (!group) return;
@@ -89,22 +91,41 @@ function ask(
     }
     target.item.removed = true;
     push(target.item.text);
+  } else if (target.kind === 'title') {
+    // A doubtful group title goes and its items stay as a plain list: nothing to ask about.
+    target.group.title = null;
   } else if (target.kind === 'skills') {
     const group = draft.skills[target.group];
     if (!group) return;
     group.removed = true;
     push(group.items.join(', '));
-  } else if (target.field === 'dates') {
-    const before = datesText(draft, target);
-    setDates(draft, target, { start: null, end: null, current: false });
-    push(before);
   } else {
-    push(setField(draft, target, ''));
+    if (target.kind === 'entry') {
+      const entry = entryOf(draft, target);
+      if (entry) entry.asked = true;
+    }
+    if (target.field === 'dates') {
+      const before = datesText(draft, target);
+      setDates(draft, target, { start: null, end: null, current: false });
+      push(before);
+    } else {
+      push(setField(draft, target, ''));
+    }
   }
 }
 
-/** Sets a named field of a job or a school and returns what it held. */
+const entryOf = (draft: Draft, target: Extract<ReviewTarget, { kind: 'entry' }>) =>
+  draft.additional[target.section]?.entries[target.entry];
+
+/** Sets a named field of a job, a school or an extra entry and returns what it held. */
 function setField(draft: Draft, target: FieldTarget, value: string): string {
+  if (target.kind === 'entry') {
+    const entry = entryOf(draft, target);
+    if (!entry || target.field === 'dates') return '';
+    const before = entry.title;
+    entry.title = value;
+    return before;
+  }
   if (target.kind === 'field') {
     const job = draft.experience[target.job];
     if (!job || target.field === 'dates') return '';
@@ -129,12 +150,16 @@ function setDates(
     if (job) Object.assign(job, { start, end: current ? null : end, current });
     return;
   }
-  const entry = draft.education[target.entry];
+  const entry = target.kind === 'entry' ? entryOf(draft, target) : draft.education[target.entry];
   if (entry) Object.assign(entry, { start, end });
 }
 
 function datesText(draft: Draft, target: FieldTarget): string {
   const entry =
-    target.kind === 'field' ? draft.experience[target.job] : draft.education[target.entry];
+    target.kind === 'field'
+      ? draft.experience[target.job]
+      : target.kind === 'entry'
+        ? entryOf(draft, target)
+        : draft.education[target.entry];
   return entry ? [entry.start, entry.end].filter(Boolean).join(' – ') : '';
 }

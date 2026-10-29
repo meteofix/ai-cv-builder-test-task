@@ -65,6 +65,15 @@
   line-height: var(--leading-xs);
   color: var(--color-muted);
 }
+.not-in-cv__add {
+  justify-self: start;
+  margin-top: var(--space-1);
+}
+.order-note {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--color-muted);
+}
 
 /* Preview (desktop column) */
 .preview {

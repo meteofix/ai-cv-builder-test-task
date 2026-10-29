@@ -1,6 +1,14 @@
 import { LIMITS, type CvDocument, type Locale } from '@cv/shared';
 import { checkEmail, checkLink, checkPhone } from '../../grounding/index.js';
-import { groupSkills, itemText, type AuthorItem, type AuthorOutput } from './author-schema.js';
+import {
+  dateOf,
+  groupSkills,
+  itemText,
+  kept,
+  type AuthorGroup,
+  type AuthorItem,
+  type AuthorOutput,
+} from './author-schema.js';
 import type { SegmentIndex } from './verbatim.js';
 
 /** A text item between the author and the document: what it says, what it cites, whether it is the source's. */
@@ -13,6 +21,12 @@ export interface DraftItem {
   removed?: boolean;
 }
 
+/** A titled or plain group of items (decision 036); the reviewer checks a title like any claim. */
+export interface DraftGroup {
+  title: string | null;
+  items: DraftItem[];
+}
+
 export interface DraftJob {
   title: string;
   company: string;
@@ -21,7 +35,18 @@ export interface DraftJob {
   end: string | null;
   current: boolean;
   segments: string[];
-  bullets: DraftItem[];
+  groups: DraftGroup[];
+}
+
+/** One record of an extra section: a project, a course, a certificate. */
+export interface DraftEntry {
+  title: string;
+  start: string | null;
+  end: string | null;
+  segments: string[];
+  groups: DraftGroup[];
+  /** The review asked for its title or dates: it stays even when empty, so the answer has a place. */
+  asked?: boolean;
 }
 
 export interface DraftEducation {
@@ -55,12 +80,26 @@ export interface Draft {
   experience: DraftJob[];
   education: DraftEducation[];
   skills: DraftSkillGroup[];
-  additional: { title: string; items: DraftItem[] }[];
+  additional: { title: string; entries: DraftEntry[] }[];
 }
 
 function draftItem(item: AuthorItem, index: SegmentIndex): DraftItem {
-  return { text: itemText(item, index), segments: [...item.segments], kept: item.text === null };
+  return { text: itemText(item, index), segments: [...item.segments], kept: kept(item) };
 }
+
+// A skill group's title gets its colon from the template ("Cloud:" would print as "Cloud::"), and a
+// title of bullets is a heading that needs none.
+export const groupTitle = (title: string) => title.trim().replace(/:+$/, '').trim() || null;
+
+function draftGroups(groups: readonly AuthorGroup[], index: SegmentIndex): DraftGroup[] {
+  return groups.map((group) => ({
+    title: groupTitle(group.title),
+    items: group.items.map((item) => draftItem(item, index)),
+  }));
+}
+
+/** Every item of a list of groups, group after group. */
+export const groupItems = (groups: readonly DraftGroup[]) => groups.flatMap((group) => group.items);
 
 /**
  * The author's answer as a draft. The only judgements here are mechanical: kept text is the source's,
@@ -111,28 +150,34 @@ export function buildDraft(
       title: job.title.trim(),
       company: job.company.trim(),
       location: job.location.trim(),
-      start: job.start,
-      end: job.current ? null : job.end,
+      start: dateOf(job.start),
+      end: job.current ? null : dateOf(job.end),
       current: job.current,
       segments: [...job.segments],
-      bullets: job.bullets.map((item) => draftItem(item, index)),
+      groups: draftGroups(job.groups, index),
     })),
     education: output.education.map((entry) => ({
       institution: entry.institution.trim(),
       degree: entry.degree.trim(),
-      start: entry.start,
-      end: entry.end,
+      start: dateOf(entry.start),
+      end: dateOf(entry.end),
       segments: [...entry.segments],
     })),
     skills: output.skills.map((group) => ({
-      title: group.title.trim() || null,
+      title: groupTitle(group.title),
       items: groupSkills(group, index),
       segments: [...group.segments],
       kept: group.items.length === 0,
     })),
     additional: output.additional.map((section) => ({
       title: section.title.trim(),
-      items: section.items.map((item) => draftItem(item, index)),
+      entries: section.entries.map((entry) => ({
+        title: entry.title.trim(),
+        start: dateOf(entry.start),
+        end: dateOf(entry.end),
+        segments: [...entry.segments],
+        groups: draftGroups(entry.groups, index),
+      })),
     })),
   };
 }
@@ -143,6 +188,25 @@ export const additionalId = (section: number) => `a${section + 1}`;
 
 const live = <T extends { removed?: boolean }>(items: readonly T[]) =>
   items.filter((item) => !item.removed);
+
+/**
+ * Groups as the document stores them. Item ids run across the groups of one list, so an item keeps its
+ * id when it moves to another group; a group left empty by the review is dropped.
+ */
+function documentGroups(groups: readonly DraftGroup[], prefix: string, letter: string) {
+  let n = 0;
+  return groups
+    .map((group, g) => ({
+      id: `${prefix}-g${g + 1}`,
+      title: group.title,
+      items: live(group.items).map((item) => ({
+        id: `${prefix}-${letter}${++n}`,
+        text: item.text,
+        factIds: item.segments.slice(0, LIMITS.maxFactIds),
+      })),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 function citations(items: readonly { segments: readonly string[] }[]): string[] {
   // The summary is one text in the document; its provenance is the union, capped like any item's.
@@ -172,11 +236,7 @@ export function toDocument(draft: Draft): CvDocument {
       start: job.start,
       end: job.current ? null : job.end,
       current: job.current,
-      bullets: live(job.bullets).map((bullet, j) => ({
-        id: `${positionId(i)}-b${j + 1}`,
-        text: bullet.text,
-        factIds: bullet.segments.slice(0, LIMITS.maxFactIds),
-      })),
+      groups: documentGroups(job.groups, positionId(i), 'b'),
     })),
     education: draft.education.map((entry, i) => ({
       id: educationId(i),
@@ -186,23 +246,30 @@ export function toDocument(draft: Draft): CvDocument {
       start: entry.start,
       end: entry.end,
     })),
-    skills: live(draft.skills).flatMap((group, i) =>
-      group.items.map((name, j) => ({
-        id: `k${i + 1}-${j + 1}`,
-        name,
-        ...(group.segments[0] ? { factId: group.segments[0] } : {}),
-      })),
-    ),
+    skills: live(draft.skills)
+      .map((group, i) => ({
+        id: `k${i + 1}`,
+        title: group.title,
+        items: group.items.map((name, j) => ({
+          id: `k${i + 1}-${j + 1}`,
+          name,
+          ...(group.segments[0] ? { factId: group.segments[0] } : {}),
+        })),
+      }))
+      .filter((group) => group.items.length > 0),
     additional: draft.additional
       .map((section, i) => ({
         id: additionalId(i),
         title: section.title,
-        items: live(section.items).map((item, j) => ({
-          id: `${additionalId(i)}-i${j + 1}`,
-          text: item.text,
-          factIds: item.segments.slice(0, LIMITS.maxFactIds),
-        })),
+        entries: section.entries.flatMap((entry, j) => {
+          const id = `${additionalId(i)}-e${j + 1}`;
+          const groups = documentGroups(entry.groups, id, 'i');
+          // An entry with a title is a record on its own (a course, a certificate); one with nothing
+          // left is dropped, unless a question about it is waiting for the answer.
+          if (entry.title === '' && groups.length === 0 && !entry.asked) return [];
+          return [{ id, title: entry.title, start: entry.start, end: entry.end, groups }];
+        }),
       }))
-      .filter((section) => section.items.length > 0),
+      .filter((section) => section.entries.length > 0),
   };
 }

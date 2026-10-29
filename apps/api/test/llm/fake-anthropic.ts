@@ -37,6 +37,28 @@ export function answer(
   };
 }
 
+/** A Messages API answer that calls the answer tool with `input` (the `tool` output mode). */
+export function toolCall(input: unknown, name = 'answer', stopReason = 'tool_use'): Reply {
+  return {
+    status: 200,
+    body: {
+      id: 'msg_test',
+      type: 'message',
+      role: 'assistant',
+      model: 'claude-test',
+      content: [{ type: 'tool_use', id: 'toolu_test', name, input }],
+      stop_reason: stopReason,
+      stop_sequence: null,
+      usage: {
+        input_tokens: 12,
+        output_tokens: 7,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+      },
+    },
+  };
+}
+
 export function failure(status: number, headers: Record<string, string> = {}): Reply {
   return {
     status,

@@ -11,6 +11,7 @@ import {
   TransportError,
   type LlmEffort,
   type LlmMessage,
+  type LlmOutputMode,
   type LlmRole,
   type TransportResult,
 } from './llm-transport.js';
@@ -26,6 +27,8 @@ export interface LlmRequest<T> {
    */
   cached?: string;
   schema: z.ZodType<T>;
+  /** `grammar` unless the schema is too large for the service's grammar (see `LlmOutputMode`). */
+  output?: LlmOutputMode;
   /**
    * What the schema sent to the service cannot say (ids that must exist, sizes after kept text is filled
    * in): the problems, or null. A problem is asked again like a schema error. Kept out of the schema
@@ -113,6 +116,7 @@ export class LlmClient {
             system: request.system,
             messages,
             schema: request.schema,
+            output: request.output ?? 'grammar',
           },
           request.signal,
         );

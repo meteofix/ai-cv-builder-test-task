@@ -1,4 +1,4 @@
-import { LIMITS, type Answer, type CvDocument, type QuestionTarget } from '@cv/shared';
+import { bulletsOf, LIMITS, type Answer, type CvDocument, type QuestionTarget } from '@cv/shared';
 import type { ProseItem } from './schemas.js';
 import { summary } from './skeleton.js';
 
@@ -72,6 +72,8 @@ export function applyPatch(
     return { kind: 'mismatch' };
   }
 
+  if (target.section === 'additional') return applyToEntry(document, target, patch);
+
   if (target.section !== 'experience') return { kind: 'mismatch' };
   const index = document.experience.findIndex((item) => item.id === target.itemId);
   const job = document.experience[index];
@@ -92,7 +94,7 @@ export function applyPatch(
     case 'bullets': {
       if (patch.bullets.length === 0) return patched(document, NOTES.nothing);
       // Bullets the user wrote or edited (no factIds) always stay, after the regenerated ones.
-      const own = job.bullets.filter((bullet) => bullet.factIds.length === 0);
+      const own = bulletsOf(job).filter((bullet) => bullet.factIds.length === 0);
       const room = Math.max(0, LIMITS.maxBulletsPerPosition - own.length);
       const fresh = patch.bullets.slice(0, room).map(({ id, text, factIds }) => ({
         id,
@@ -100,9 +102,37 @@ export function applyPatch(
         factIds: [...factIds],
       }));
       const note = fresh.length < patch.bullets.length ? NOTES.partial : null;
-      return replace({ ...job, bullets: [...fresh, ...own] }, note);
+      // The old answer flow knows no groups; it goes until the new one replaces it (V2-Z3).
+      const groups = [{ id: `${job.id}-g1`, title: null, items: [...fresh, ...own] }];
+      return replace({ ...job, groups }, note);
     }
     case 'summary':
       return { kind: 'mismatch' };
   }
+}
+
+/** The dates or the title of an extra entry; an answer about a whole section has no field to set. */
+function applyToEntry(document: CvDocument, target: QuestionTarget, patch: Patch): PatchResult {
+  for (const [at, section] of document.additional.entries()) {
+    const index = section.entries.findIndex((entry) => entry.id === target.itemId);
+    const entry = section.entries[index];
+    if (!entry) continue;
+    let next: typeof entry;
+    if (patch.kind === 'dates') {
+      next = {
+        ...entry,
+        start: patch.answer.start,
+        end: patch.answer.current ? null : patch.answer.end,
+      };
+    } else if (patch.kind === 'field' && patch.field === 'title') {
+      next = { ...entry, title: patch.value };
+    } else {
+      return { kind: 'mismatch' };
+    }
+    const owner = { ...section, entries: section.entries.with(index, next) };
+    return patched({ ...document, additional: document.additional.with(at, owner) });
+  }
+  return document.additional.some((section) => section.id === target.itemId)
+    ? { kind: 'mismatch' }
+    : { kind: 'gone' };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitSkills } from './split-skills.js';
+import { splitList, splitSkills } from './skills.js';
 
 describe('splitSkills', () => {
   it.each([
@@ -12,5 +12,14 @@ describe('splitSkills', () => {
     ['Мови: Python, Go', ['Python', 'Go']],
   ])('%j → %j', (line, skills) => {
     expect(splitSkills(line)).toEqual(skills);
+  });
+});
+
+describe('splitList', () => {
+  it('keeps a label the person typed: only a kept line of a CV loses it', () => {
+    expect(splitList('Cloud: AWS, Python (pandas, NumPy)')).toEqual([
+      'Cloud: AWS',
+      'Python (pandas, NumPy)',
+    ]);
   });
 });

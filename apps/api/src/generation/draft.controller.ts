@@ -34,6 +34,11 @@ export class DraftController {
     // Nothing before the first generation ends; a CV generated before v2 kept no analysis to show.
     const analysis = sourceAnalysisSchema.safeParse(source?.facts);
     if (!analysis.success) return { items: [] };
-    return { items: analysis.data.notInCv, sourceCoverage: analysis.data.coverage };
+    const { notInCv, coverage, orderReason } = analysis.data;
+    return {
+      items: notInCv,
+      sourceCoverage: coverage,
+      ...(orderReason ? { orderReason } : {}),
+    };
   }
 }

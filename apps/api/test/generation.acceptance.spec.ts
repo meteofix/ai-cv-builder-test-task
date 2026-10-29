@@ -1,5 +1,6 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
+  bulletsOf,
   draftResponseSchema,
   jobSchema,
   notInCvResponseSchema,
@@ -102,11 +103,20 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
       company: 'Acme Corp',
       title: 'Senior Engineer',
       current: true,
-      bullets: [
-        { text: 'Led the migration of the billing service to TypeScript.', factIds: ['S5'] },
+      groups: [
+        {
+          title: null,
+          items: [
+            { text: 'Led the migration of the billing service to TypeScript.', factIds: ['S5'] },
+          ],
+        },
       ],
     });
-    expect(doc.skills.map((skill) => skill.name)).toEqual(['TypeScript', 'PostgreSQL', 'React']);
+    expect(doc.skills.flatMap((group) => group.items.map((skill) => skill.name))).toEqual([
+      'TypeScript',
+      'PostgreSQL',
+      'React',
+    ]);
     expect(await questions(cv)).toEqual([]);
     expect(await notInCv(cv.id)).toEqual({
       items: [],
@@ -182,7 +192,7 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
     });
     const { cv } = await queued();
     await engine.processNext();
-    expect((await documentOf(cv.id)).experience[0]?.bullets).toEqual([
+    expect(bulletsOf((await documentOf(cv.id)).experience[0]!)).toEqual([
       expect.objectContaining({ text: fixed, factIds: ['S5'] }),
     ]);
     expect(await questions(cv)).toEqual([]);
@@ -237,7 +247,10 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
 
   it('GEN-10 — an answer over a limit is asked again, not cut', async () => {
     const [job] = sampleAuthorAnswer().experience;
-    const long = { ...job!, bullets: [{ text: 'x'.repeat(401), segments: ['S5'] }] };
+    const long = {
+      ...job!,
+      groups: [{ title: '', items: [{ text: 'x'.repeat(401), segments: ['S5'] }] }],
+    };
     healthy().on(
       'author',
       { output: sampleAuthorAnswer({ experience: [long] }) },
@@ -245,7 +258,7 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
     );
     const { cv } = await queued();
     await engine.processNext();
-    expect((await documentOf(cv.id)).experience[0]?.bullets[0]?.text).toBe(
+    expect(bulletsOf((await documentOf(cv.id)).experience[0]!)[0]?.text).toBe(
       'Led the migration of the billing service to TypeScript.',
     );
     expect(fake.inputs('author')[1]).toContain('Longer than 400 characters');
@@ -284,7 +297,7 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
     const [job] = sampleAuthorAnswer().experience;
     healthy().on('author', {
       output: sampleAuthorAnswer({
-        experience: [{ ...job!, company: '', start: null, end: null, current: false }],
+        experience: [{ ...job!, company: '', start: '', end: '', current: false }],
       }),
     });
     const { cv } = await queued();
@@ -551,12 +564,12 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
   });
 
   it.each([
-    ['a job without dates is asked about', { start: null, current: false }, true],
+    ['a job without dates is asked about', { start: '', current: false }, true],
     ['a current job with a start is not', { start: '2021', current: true }, false],
   ])('GEN-24 — %s', async (_case, dates, asked) => {
     const [job] = sampleAuthorAnswer().experience;
     healthy().on('author', {
-      output: sampleAuthorAnswer({ experience: [{ ...job!, ...dates, end: null }] }),
+      output: sampleAuthorAnswer({ experience: [{ ...job!, ...dates, end: '' }] }),
     });
     const { cv } = await queued();
     await engine.processNext();
@@ -633,7 +646,7 @@ describe('generation acceptance — apply_answer (docs/specs/generation.md §5)'
     });
     const after = (await cvRow(cv.id)).document!;
     const positionA = after.experience.find((item) => item.id === POSITION_A)!;
-    expect(positionA.bullets.map((bullet) => bullet.text)).toEqual([
+    expect(bulletsOf(positionA).map((bullet) => bullet.text)).toEqual([
       ...NEW_BULLETS,
       'Wrote the onboarding guide.',
     ]);
@@ -649,8 +662,8 @@ describe('generation acceptance — apply_answer (docs/specs/generation.md §5)'
         experience: before.experience.filter((item) => item.id !== POSITION_A),
       }),
     );
-    expect(JSON.stringify({ ...positionA, bullets: [] })).toBe(
-      JSON.stringify({ ...before.experience.find((item) => item.id === POSITION_A)!, bullets: [] }),
+    expect(JSON.stringify({ ...positionA, groups: [] })).toBe(
+      JSON.stringify({ ...before.experience.find((item) => item.id === POSITION_A)!, groups: [] }),
     );
     expect((await cvRow(cv.id)).version).toBe(2);
     expect((await questionRow(question.id)).applyStatus).toBe('applied');
@@ -678,7 +691,7 @@ describe('generation acceptance — apply_answer (docs/specs/generation.md §5)'
     const positionA = (await cvRow(cv.id)).document!.experience.find(
       (item) => item.id === POSITION_A,
     )!;
-    expect(positionA.bullets.map((bullet) => bullet.text)).toEqual([
+    expect(bulletsOf(positionA).map((bullet) => bullet.text)).toEqual([
       NEW_BULLETS[0],
       'Wrote the onboarding guide.',
     ]);

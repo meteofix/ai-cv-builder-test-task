@@ -7,6 +7,7 @@ import { DateField } from './DateField';
 import { formatRange } from './dates';
 import { AddButton, IconButton, UpdatingLabel } from './fields';
 import { newId } from './prepare';
+import { TextGroups } from './TextGroups';
 import { useIsDesktop } from './useIsDesktop';
 
 interface PositionCardProps {
@@ -30,7 +31,6 @@ function PositionCard({
   onRemove,
 }: PositionCardProps) {
   const { register, setValue, control } = useFormContext<CvDocument>();
-  const bullets = useFieldArray({ control, name: `experience.${index}.bullets`, keyName: 'key' });
   const [title, company, start, end, current] = useWatch({
     control,
     name: [
@@ -130,34 +130,7 @@ function PositionCard({
           <span className="field__label" aria-hidden="true">
             Bullets
           </span>
-          <ul className="bullet-list">
-            {bullets.fields.map((bullet, bulletIndex) => (
-              <li className="bullet-row" key={bullet.key}>
-                <textarea
-                  className="textarea textarea--bullet"
-                  rows={2}
-                  aria-label={`Bullet ${bulletIndex + 1}`}
-                  maxLength={LIMITS.maxBulletChars}
-                  {...register(`experience.${index}.bullets.${bulletIndex}.text`)}
-                />
-                <IconButton
-                  label="Remove bullet"
-                  icon="close"
-                  onClick={() => {
-                    bullets.remove(bulletIndex);
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
-          <AddButton
-            disabled={bullets.fields.length >= LIMITS.maxBulletsPerPosition}
-            onClick={() => {
-              bullets.append({ id: newId(), text: '', factIds: [] });
-            }}
-          >
-            Add bullet
-          </AddButton>
+          <TextGroups name={`experience.${index}.groups`} kind="bullet" />
         </div>
       </div>
     </details>
@@ -212,7 +185,7 @@ export function ExperienceSection({ target }: { target?: JobTarget | undefined }
             start: null,
             end: null,
             current: false,
-            bullets: [],
+            groups: [{ id: newId(), title: null, items: [] }],
           });
           setAdded(id);
         }}

@@ -216,16 +216,21 @@ describe('cvs', () => {
     it.each([
       ['an unsupported locale', (d: CvDocument) => ({ ...d, locale: 'fr' })],
       [
-        'more bullets in a position than the limit',
+        'more bullets in a position than the limit, counted across its groups',
         (d: CvDocument) => ({
           ...d,
           experience: [
             {
               ...d.experience[0]!,
-              bullets: Array.from({ length: LIMITS.maxBulletsPerPosition + 1 }, (_, i) => ({
-                id: `b${i}`,
-                text: 'x',
-                factIds: [],
+              // Each group is under the limit; together they are one bullet over it.
+              groups: [0, 1].map((g) => ({
+                id: `g${g}`,
+                title: null,
+                items: Array.from({ length: LIMITS.maxBulletsPerPosition / 2 + g }, (_, i) => ({
+                  id: `b${g}-${i}`,
+                  text: 'x',
+                  factIds: [],
+                })),
               })),
             },
           ],

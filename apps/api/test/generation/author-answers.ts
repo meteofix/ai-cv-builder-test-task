@@ -27,10 +27,10 @@ export function sampleAuthorAnswer(overrides: Partial<AuthorOutput> = {}): Autho
         company: 'Acme Corp',
         location: '',
         start: '2021',
-        end: null,
+        end: '',
         current: true,
         segments: ['S4'],
-        bullets: [{ text: null, segments: ['S5'] }],
+        groups: [{ title: '', items: [{ text: '', segments: ['S5'] }] }],
       },
     ],
     education: [
@@ -48,6 +48,7 @@ export function sampleAuthorAnswer(overrides: Partial<AuthorOutput> = {}): Autho
     headings: ['S3', 'S6', 'S8'],
     gaps: [],
     orderReason: '',
+    structureNotes: '',
     ...overrides,
   };
 }

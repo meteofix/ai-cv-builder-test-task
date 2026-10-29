@@ -1,4 +1,4 @@
-import { cvDocumentSchema } from '@cv/shared';
+import { bulletsOf, cvDocumentSchema } from '@cv/shared';
 import { describe, expect, it } from 'vitest';
 import { authorAnswer, SOURCE } from '../../../test/generation/compose-fixture.js';
 import { compose, prepareSource, reviewRequest } from './compose.js';
@@ -14,16 +14,56 @@ describe('compose — kept text and structure', () => {
       source,
       authorAnswer({
         experience: [
-          { ...authorAnswer().experience[1]!, bullets: [{ text: null, segments: ['S9', 'S10'] }] },
+          {
+            ...authorAnswer().experience[1]!,
+            groups: [{ title: '', items: [{ text: '', segments: ['S9', 'S10'] }] }],
+          },
         ],
       }),
       NO_ISSUES,
       ROLE,
     );
-    expect(document.experience[0]?.bullets[0]).toMatchObject({
+    expect(bulletsOf(document.experience[0]!)[0]).toMatchObject({
       text: 'I was the person who kept our PostgreSQL fast and answered everyone’s database questions',
       factIds: ['S9', 'S10'],
     });
+  });
+
+  it('gives the bullets of all jobs the ending most of them have, kept ones included', () => {
+    const [first, second, third] = authorAnswer().experience;
+    const answer = authorAnswer({
+      experience: [
+        {
+          ...first!,
+          groups: [
+            {
+              title: '',
+              items: [
+                { text: 'Cut report generation from 40 to 6 minutes.', segments: ['S6'] },
+                { text: '', segments: ['S7'] },
+              ],
+            },
+          ],
+        },
+        {
+          ...second!,
+          groups: [{ title: '', items: [{ text: 'Kept PostgreSQL fast.', segments: ['S9'] }] }],
+        },
+        {
+          ...third!,
+          groups: [
+            { title: '', items: [{ text: 'Ran a morning shift of five.', segments: ['S12'] }] },
+          ],
+        },
+      ],
+    });
+    const { document } = compose(source, answer, NO_ISSUES, ROLE);
+    expect(document.experience.flatMap((job) => bulletsOf(job).map((b) => b.text))).toEqual([
+      'Cut report generation from 40 to 6 minutes.',
+      'Mentored two junior developers.',
+      'Kept PostgreSQL fast.',
+      'Ran a morning shift of five.',
+    ]);
   });
 
   it.each(['• ', '▪ ', '- ', '* ', '– ', '1. '])(
@@ -31,16 +71,16 @@ describe('compose — kept text and structure', () => {
     (marker) => {
       const marked = prepareSource(SOURCE.replace('• Mentored', `${marker}Mentored`));
       const { document } = compose(marked, authorAnswer(), NO_ISSUES, ROLE);
-      expect(document.experience[0]?.bullets[1]?.text).toBe('Mentored two junior developers');
+      expect(bulletsOf(document.experience[0]!)[1]?.text).toBe('Mentored two junior developers');
     },
   );
 
   it('keeps a rewritten item as written, citing its evidence', () => {
     const { document } = compose(source, authorAnswer(), NO_ISSUES, ROLE);
-    expect(document.experience[1]?.bullets[0]?.text).toBe(
+    expect(bulletsOf(document.experience[1]!)[0]?.text).toBe(
       'Kept PostgreSQL fast; the team’s go-to person for database questions',
     );
-    expect(document.experience[0]?.bullets.map((bullet) => bullet.text)).toEqual([
+    expect(bulletsOf(document.experience[0]!).map((bullet) => bullet.text)).toEqual([
       'Cut report generation from 40 to 6 minutes by moving jobs to a queue',
       'Mentored two junior developers',
     ]);
@@ -48,10 +88,26 @@ describe('compose — kept text and structure', () => {
 
   it('cuts a kept skill group into skills without breaking brackets', () => {
     const { document } = compose(source, authorAnswer(), NO_ISSUES, ROLE);
-    expect(document.skills.map((skill) => skill.name)).toEqual([
+    expect(document.skills.flatMap((group) => group.items.map((skill) => skill.name))).toEqual([
       'Go',
       'PostgreSQL (tuning, replication)',
       'Kafka',
+    ]);
+  });
+
+  it('keeps skill groups with their titles, in the order the author gives', () => {
+    const answer = authorAnswer({
+      skills: [
+        { title: 'Data', segments: ['S14'], items: ['PostgreSQL', 'Kafka'] },
+        { title: '', segments: ['S14'], items: ['Go'] },
+      ],
+    });
+    const { document } = compose(source, answer, NO_ISSUES, ROLE);
+    expect(
+      document.skills.map((group) => [group.title, group.items.map((skill) => skill.name)]),
+    ).toEqual([
+      ['Data', ['PostgreSQL', 'Kafka']],
+      [null, ['Go']],
     ]);
   });
 
@@ -59,7 +115,7 @@ describe('compose — kept text and structure', () => {
     const labelled = prepareSource(`${SOURCE}\nLanguages: English, Polish\nTools: Git, Docker`);
     const answer = authorAnswer({ skills: [{ title: '', segments: ['S16', 'S17'], items: [] }] });
     const { document } = compose(labelled, answer, NO_ISSUES, ROLE);
-    expect(document.skills.map((skill) => skill.name)).toEqual([
+    expect(document.skills.flatMap((group) => group.items.map((skill) => skill.name))).toEqual([
       'English',
       'Polish',
       'Git',
@@ -115,7 +171,7 @@ describe('compose — the review', () => {
       ],
     };
     const { document, questions } = compose(source, authorAnswer(), review, ROLE);
-    expect(document.experience[1]?.bullets[0]?.text).toBe(
+    expect(bulletsOf(document.experience[1]!)[0]?.text).toBe(
       'Kept PostgreSQL fast and answered database questions',
     );
     expect(questions).toEqual([]);
@@ -135,7 +191,7 @@ describe('compose — the review', () => {
       ],
     };
     const { document, questions } = compose(source, authorAnswer(), review, ROLE);
-    expect(document.experience[0]?.bullets.map((bullet) => bullet.text)).toEqual([
+    expect(bulletsOf(document.experience[0]!).map((bullet) => bullet.text)).toEqual([
       'Mentored two junior developers',
     ]);
     expect(questions[0]).toEqual({
@@ -189,7 +245,7 @@ describe('compose — the review', () => {
         },
       ],
     };
-    const own = authorAnswer({ headline: { text: null, segments: ['S5'] } });
+    const own = authorAnswer({ headline: { text: '', segments: ['S5'] } });
     expect(compose(source, own, review, ROLE).document.headline).toBe(ROLE);
   });
 
@@ -220,8 +276,8 @@ describe('compose — the review', () => {
     const [first, second, third] = authorAnswer().experience;
     const answer = authorAnswer({
       experience: [
-        { ...first!, bullets: [{ text: null, segments: ['S6'] }] },
-        { ...second!, bullets: [] },
+        { ...first!, groups: [{ title: '', items: [{ text: '', segments: ['S6'] }] }] },
+        { ...second!, groups: [] },
         third!,
       ],
     });

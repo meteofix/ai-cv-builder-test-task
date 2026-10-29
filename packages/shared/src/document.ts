@@ -29,6 +29,17 @@ const bulletSchema = z.object({
   factIds,
 });
 
+/**
+ * The one building block of the document's lists (decision 036): a group of items with an optional title
+ * ("Platform & backend", "Cloud"). One group without a title is a plain list. One level only: a group
+ * holds items, never groups.
+ */
+function groupOf<T extends z.ZodType>(item: T) {
+  return z.object({ id, title: field.nullable(), items: z.array(item) });
+}
+
+const bulletGroupSchema = groupOf(bulletSchema);
+
 const positionSchema = z
   .object({
     id,
@@ -39,11 +50,15 @@ const positionSchema = z
     start: dateSchema,
     end: dateSchema,
     current: z.boolean(),
-    bullets: z.array(bulletSchema).max(LIMITS.maxBulletsPerPosition),
+    groups: z.array(bulletGroupSchema).max(LIMITS.maxGroupsPerList),
   })
   .refine((position) => !(position.current && position.end !== null), {
     message: 'A current position has no end date',
     path: ['end'],
+  })
+  .refine((position) => bulletsOf(position).length <= LIMITS.maxBulletsPerPosition, {
+    message: `At most ${LIMITS.maxBulletsPerPosition} bullets in a position`,
+    path: ['groups'],
   });
 
 const educationSchema = z.object({
@@ -57,12 +72,29 @@ const educationSchema = z.object({
 
 const skillSchema = z.object({ id, name: field, factId: id.optional() });
 
+/** A group of skills as the CV shows it ("Cloud: AWS, GCP"); `title: null` is a list without a label. */
+const skillGroupSchema = groupOf(skillSchema);
+
+const lineSchema = z.object({ id, text: z.string().max(LIMITS.maxTextChars), factIds });
+
+/** One record of an extra section: a project, a course, a certificate — a title, dates and groups of lines. */
+const entrySchema = z
+  .object({
+    id,
+    title: field,
+    start: dateSchema,
+    end: dateSchema,
+    groups: z.array(groupOf(lineSchema)).max(LIMITS.maxGroupsPerList),
+  })
+  .refine((entry) => bulletsOf(entry).length <= LIMITS.maxLinesPerEntry, {
+    message: `At most ${LIMITS.maxLinesPerEntry} lines in an entry`,
+    path: ['groups'],
+  });
+
 const additionalSectionSchema = z.object({
   id,
   title: field,
-  items: z
-    .array(z.object({ id, text: z.string().max(LIMITS.maxTextChars), factIds }))
-    .max(LIMITS.maxAdditionalItems),
+  entries: z.array(entrySchema).max(LIMITS.maxAdditionalItems),
 });
 
 export const cvDocumentSchema = z
@@ -79,10 +111,46 @@ export const cvDocumentSchema = z
     summary: z.object({ text: z.string().max(LIMITS.maxSummaryChars), factIds }),
     experience: z.array(positionSchema).max(LIMITS.maxExperience),
     education: z.array(educationSchema).max(LIMITS.maxEducation),
-    skills: z.array(skillSchema).max(LIMITS.maxSkills),
+    skills: z.array(skillGroupSchema).max(LIMITS.maxSkillGroups),
     additional: z.array(additionalSectionSchema).max(LIMITS.maxAdditionalSections),
   })
   .superRefine((document, context) => {
+    const skills = document.skills.reduce((sum, group) => sum + group.items.length, 0);
+    // Items keep their provenance by id when they move between the groups of one list.
+    const unique = (
+      path: (string | number)[],
+      groups: readonly { items: readonly { id: string }[] }[],
+    ) => {
+      const seen = new Set<string>();
+      groups.forEach((group, i) => {
+        group.items.forEach((item, j) => {
+          if (seen.has(item.id)) {
+            context.addIssue({
+              code: 'custom',
+              message: 'Duplicate id',
+              path: [...path, i, 'items', j, 'id'],
+            });
+          }
+          seen.add(item.id);
+        });
+      });
+    };
+    document.experience.forEach((position, i) => {
+      unique(['experience', i, 'groups'], position.groups);
+    });
+    document.additional.forEach((section, i) => {
+      section.entries.forEach((entry, j) => {
+        unique(['additional', i, 'entries', j, 'groups'], entry.groups);
+      });
+    });
+    unique(['skills'], document.skills);
+    if (skills > LIMITS.maxSkills) {
+      context.addIssue({
+        code: 'custom',
+        message: `At most ${LIMITS.maxSkills} skills`,
+        path: ['skills'],
+      });
+    }
     // Provenance carry-over, question targets, reordering and React keys all address items by id.
     type IdList = [path: (string | number)[], items: { id: string }[]];
     const lists: IdList[] = [
@@ -91,12 +159,12 @@ export const cvDocumentSchema = z
       [['skills'], document.skills],
       [['additional'], document.additional],
       ...document.experience.map((position, i): IdList => [
-        ['experience', i, 'bullets'],
-        position.bullets,
+        ['experience', i, 'groups'],
+        position.groups,
       ]),
       ...document.additional.map((section, i): IdList => [
-        ['additional', i, 'items'],
-        section.items,
+        ['additional', i, 'entries'],
+        section.entries,
       ]),
     ];
     for (const [path, items] of lists) {
@@ -118,6 +186,10 @@ export type CvDocument = z.infer<typeof cvDocumentSchema>;
 export type CvPosition = z.infer<typeof positionSchema>;
 export type CvEducation = z.infer<typeof educationSchema>;
 export type CvSkill = z.infer<typeof skillSchema>;
+export type CvSkillGroup = z.infer<typeof skillGroupSchema>;
+export type CvBullet = z.infer<typeof bulletSchema>;
+export type CvBulletGroup = z.infer<typeof bulletGroupSchema>;
+export type CvEntry = z.infer<typeof entrySchema>;
 export type CvAdditionalSection = z.infer<typeof additionalSectionSchema>;
 
 /**
@@ -145,14 +217,21 @@ export function experienceGroups<T extends { company: string }>(experience: read
   return groups;
 }
 
+/** Every bullet of a position, group after group. */
+export function bulletsOf<T>(position: { groups: readonly { items: readonly T[] }[] }): T[] {
+  return position.groups.flatMap((group) => group.items);
+}
+
 /**
  * Whether a block of positions shows its bullets for the whole company: only its first position has
  * bullets (the server puts bullets the positions share there). The template and the questions use this
  * one rule; a block where another position has bullets shows each position's own.
  */
-export function sharesBullets(group: readonly { bullets: readonly { text: string }[] }[]): boolean {
-  const filled = (position: { bullets: readonly { text: string }[] }) =>
-    position.bullets.some((bullet) => bullet.text.trim() !== '');
+export function sharesBullets(
+  group: readonly { groups: readonly { items: readonly { text: string }[] }[] }[],
+): boolean {
+  const filled = (position: { groups: readonly { items: readonly { text: string }[] }[] }) =>
+    bulletsOf(position).some((bullet) => bullet.text.trim() !== '');
   const [first, ...rest] = group;
   return first !== undefined && rest.length > 0 && filled(first) && !rest.some(filled);
 }

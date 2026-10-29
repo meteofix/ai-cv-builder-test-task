@@ -25,7 +25,15 @@ export interface TransportRequest<T> {
   system: string;
   messages: LlmMessage[];
   schema: z.ZodType<T>;
+  output: LlmOutputMode;
 }
+
+/**
+ * How the answer comes back: `grammar` — structured outputs, the service constrains the answer to the
+ * schema; `tool` — the input of a tool call the service does not constrain, for a schema too large for
+ * the grammar (decision 036). Either way only the zod schema decides whether the answer is used.
+ */
+export type LlmOutputMode = 'grammar' | 'tool';
 
 export interface TokenUsage {
   /** Input tokens billed at the full price (not read from or written to the cache). */

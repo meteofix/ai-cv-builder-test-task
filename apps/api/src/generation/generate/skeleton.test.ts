@@ -1,4 +1,4 @@
-import { cvDocumentSchema, LIMITS } from '@cv/shared';
+import { bulletsOf, cvDocumentSchema, LIMITS } from '@cv/shared';
 import { describe, expect, it } from 'vitest';
 import type { Fact } from '../../grounding/index.js';
 import { buildSkeleton, type Prose } from './skeleton.js';
@@ -52,7 +52,7 @@ describe('buildSkeleton', () => {
     expect(document.experience.map((job) => job.id)).toEqual(
       positions.slice(0, LIMITS.maxExperience).map((fact) => fact.id),
     );
-    expect(document.skills).toHaveLength(LIMITS.maxSkills);
+    expect(document.skills[0]?.items).toHaveLength(LIMITS.maxSkills);
   });
 
   it('copies structure from facts with the fact id as item id, and clears the end of a current job', () => {
@@ -65,7 +65,7 @@ describe('buildSkeleton', () => {
       start: '2020',
       end: null,
       current: true,
-      bullets: [],
+      groups: [{ id: 'p1-g1', title: null, items: [] }],
     });
   });
 
@@ -78,10 +78,12 @@ describe('buildSkeleton', () => {
     const document = build([position('p1'), position('p2'), skill('sql'), skill('go')], prose);
     // The writer no longer orders the jobs (decision 033): the CV keeps the order of the source.
     expect(document.experience.map((job) => job.id)).toEqual(['p1', 'p2']);
-    expect(document.experience[1]?.bullets).toEqual([
+    expect(bulletsOf(document.experience[1]!)).toEqual([
       { id: 'b1', text: 'Shipped.', factIds: ['p2'] },
     ]);
-    expect(document.skills.map((item) => item.name)).toEqual(['go']);
+    expect(document.skills.flatMap((group) => group.items.map((item) => item.name))).toEqual([
+      'go',
+    ]);
     expect(document.summary).toEqual({ text: 'Engineer.', factIds: ['p2'] });
   });
 
@@ -133,7 +135,10 @@ describe('buildSkeleton', () => {
       source,
     );
     expect(
-      document.additional.map(({ title, items }) => [title, items.map((i) => i.text)]),
+      document.additional.map(({ title, entries }) => [
+        title,
+        entries.flatMap((entry) => bulletsOf(entry).map((line) => line.text)),
+      ]),
     ).toEqual([
       ['Certificates', ['AWS Certified']],
       ['Additional information', ['React course']],

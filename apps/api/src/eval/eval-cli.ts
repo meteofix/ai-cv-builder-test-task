@@ -20,6 +20,7 @@ import { parseArgs } from 'node:util';
 import { LIMITS } from '@cv/shared';
 import { z } from 'zod';
 import { loadConfig, loadEnvFile } from '../config/env.js';
+import { pdfPager, shapeOf, type Shape } from './shape.js';
 import { extractPdfText } from '../sources/extract-pdf-text.js';
 import { callCost, COMPOSE_HEADER, composeRow, runCompose } from './compose-eval.js';
 import { runPairwise, runReviewerTest } from './eval-runs.js';
@@ -121,8 +122,12 @@ async function runComposeMode(files: CorpusFile[]): Promise<string> {
   const config = loadConfig();
   const roles = await roleMap();
   const rows: string[][] = [];
+  const shapes: string[][] = [];
   const calls: string[] = [];
   const reasks: string[] = [];
+  const reasked = { author: 0, reviewer: 0 };
+  const notes: string[] = [];
+  const pager = await pdfPager();
   for (const file of files) {
     const role = roles[file.name] ?? values.role;
     const text = await sourceText(file);
@@ -136,7 +141,18 @@ async function runComposeMode(files: CorpusFile[]): Promise<string> {
     );
     write(`${file.name}: ${Math.round(run.totalMs / 1000)} s`);
     reasks.push(...run.problems.map((problem) => `- ${file.name} ${problem.replace(/\s+/g, ' ')}`));
+    for (const role of ['author', 'reviewer'] as const) {
+      if (run.calls.filter((call) => call.role === role).length > 1) reasked[role]++;
+    }
     if (!run.ok) continue;
+    if (run.author.structureNotes) notes.push(`- ${file.name}: ${run.author.structureNotes}`);
+    shapes.push(
+      shapeRow(
+        file.name,
+        shapeOf(run.composed.document, text),
+        await pager.pages(run.composed.document),
+      ),
+    );
     await dump(file, {
       'document.json': JSON.stringify(run.composed.document, null, 2),
       'not-in-cv.json': JSON.stringify(run.composed.analysis, null, 2),
@@ -146,6 +162,7 @@ async function runComposeMode(files: CorpusFile[]): Promise<string> {
       role: role,
     });
   }
+  await pager.close();
   const line = (cells: readonly string[]) => `| ${cells.join(' | ')} |`;
   return [
     `## Compose (${rows.length} files; author ${config.AUTHOR_MODEL}/${config.AUTHOR_EFFORT}, reviewer ${config.REVIEWER_MODEL}/${config.REVIEWER_EFFORT})`,
@@ -160,10 +177,48 @@ async function runComposeMode(files: CorpusFile[]): Promise<string> {
     '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...calls,
     '',
+    '### Shape',
+    '',
+    line(SHAPE_HEADER),
+    line(SHAPE_HEADER.map(() => '---')),
+    ...shapes.map(line),
+    '',
+    '### Structure notes (author, not shown to the person)',
+    '',
+    ...(notes.length > 0 ? notes : ['none']),
+    '',
     '### Re-asks',
+    '',
+    `Files with a re-ask: author ${reasked.author} of ${files.length}, reviewer ${reasked.reviewer} of ${files.length}.`,
     '',
     ...(reasks.length > 0 ? reasks : ['none']),
   ].join('\n');
+}
+
+const SHAPE_HEADER = [
+  'file',
+  'pages',
+  'bullets',
+  'median / max chars',
+  'over 2 lines',
+  'summary chars',
+  'entries',
+  'titled groups',
+  'titles not in the source',
+];
+
+function shapeRow(name: string, shape: Shape, pages: number): string[] {
+  return [
+    name,
+    `${pages}`,
+    `${shape.bullets}`,
+    `${shape.medianChars} / ${shape.maxChars}`,
+    `${shape.long}`,
+    `${shape.summaryChars}`,
+    `${shape.entries}`,
+    `${shape.titledGroups}`,
+    shape.inventedTitles.join('; ') || '—',
+  ];
 }
 
 async function roleMap(): Promise<Record<string, string>> {

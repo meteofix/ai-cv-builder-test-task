@@ -15,7 +15,13 @@ const cv: CvDocument = {
       start: '2021',
       end: null,
       current: true,
-      bullets: [{ id: 'b1', text: "Saved $$ on hosting: a $& b $` c $' d", factIds: [] }],
+      groups: [
+        {
+          id: 'g1',
+          title: null,
+          items: [{ id: 'b1', text: "Saved $$ on hosting: a $& b $` c $' d", factIds: [] }],
+        },
+      ],
     },
   ],
   education: [],

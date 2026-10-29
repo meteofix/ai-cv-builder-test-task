@@ -3,7 +3,9 @@ import { useController, useFormContext } from 'react-hook-form';
 import { DatePicker } from './DatePicker';
 
 type DatePath =
-  `experience.${number}.${'start' | 'end'}` | `education.${number}.${'start' | 'end'}`;
+  | `experience.${number}.${'start' | 'end'}`
+  | `education.${number}.${'start' | 'end'}`
+  | `additional.${number}.entries.${number}.${'start' | 'end'}`;
 
 /** A date of the form, kept as `YYYY`, `YYYY-MM` or null. */
 export function DateField({

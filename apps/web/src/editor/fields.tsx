@@ -62,6 +62,10 @@ export function AddButton({
   );
 }
 
-export function FieldError({ message }: { message: string | undefined }) {
-  return message ? <span className="field__error">{message}</span> : null;
+export function FieldError({ message, id }: { message: string | undefined; id?: string }) {
+  return message ? (
+    <span className="field__error" id={id}>
+      {message}
+    </span>
+  ) : null;
 }

@@ -23,6 +23,8 @@ const PROMPTS = {
   institution: 'What is the name of the school or university?',
   degree: 'What degree or programme did you study?',
   educationDates: 'When did you study there?',
+  entryTitle: 'What is the name of this project, course or certificate?',
+  entryDates: 'When was this?',
   vague: 'This is vague. What exactly did you do, and what was the result?',
 } as const;
 
@@ -92,6 +94,19 @@ export function buildQuestions(
         prompt,
         item.context || null,
       );
+    } else if (target.kind === 'entry') {
+      missing(
+        {
+          section: 'additional',
+          itemId: `${additionalId(target.section)}-e${target.entry + 1}`,
+          field: target.field,
+        },
+        item.question ?? (target.field === 'dates' ? PROMPTS.entryDates : PROMPTS.entryTitle),
+        item.context || null,
+        target.field === 'dates' ? 'dates' : 'text',
+      );
+    } else if (target.kind === 'title') {
+      // The review drops a doubtful group title without a question (apply-review.ts).
     } else if (target.kind === 'skills') {
       push({
         kind: 'unverified',

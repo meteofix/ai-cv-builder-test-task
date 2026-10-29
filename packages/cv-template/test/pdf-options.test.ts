@@ -18,7 +18,7 @@ const cv: CvDocument = {
   summary: { text: 'Full-stack engineer.', factIds: [] },
   experience: [],
   education: [],
-  skills: [{ id: 's1', name: 'TypeScript' }],
+  skills: [{ id: 'g1', title: null, items: [{ id: 's1', name: 'TypeScript' }] }],
   additional: [],
 };
 

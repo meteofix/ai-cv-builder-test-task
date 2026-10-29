@@ -1,28 +1,41 @@
-import { LIMITS, type CvDocument, type JobTarget } from '@cv/shared';
+import { LIMITS, type CvDocument, type CvEntry, type JobTarget } from '@cv/shared';
 import { useState } from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Icon } from '../components/Icon';
-import { AddButton, IconButton, UpdatingLabel } from './fields';
+import { ExtraEntry } from './ExtraEntry';
+import { AddButton, UpdatingLabel } from './fields';
 import { newId } from './prepare';
+
+/** A new entry starts with one empty group, so its first line can be added at once. */
+const newEntry = (): CvEntry => ({
+  id: newId(),
+  title: '',
+  start: null,
+  end: null,
+  groups: [{ id: newId(), title: null, items: [] }],
+});
 
 function ExtraSection({
   index,
   itemId,
-  updating,
+  target,
   onRemove,
 }: {
   index: number;
   itemId: string;
-  updating: boolean;
+  target?: JobTarget | undefined;
   onRemove: () => void;
 }) {
   const { register, control } = useFormContext<CvDocument>();
-  const lines = useFieldArray({ control, name: `additional.${index}.items`, keyName: 'key' });
+  const entries = useFieldArray({ control, name: `additional.${index}.entries`, keyName: 'key' });
+  // The id, not the index: the list can change while the dialog is open.
+  const [removing, setRemoving] = useState<string | null>(null);
+  const updating = (id: string) => target?.section === 'additional' && target.itemId === id;
 
   return (
-    <div className="extra-section" id={`item-${itemId}`} aria-busy={updating || undefined}>
-      {updating ? <UpdatingLabel /> : null}
+    <div className="extra-section" id={`item-${itemId}`} aria-busy={updating(itemId) || undefined}>
+      {updating(itemId) ? <UpdatingLabel /> : null}
       <label className="field">
         <span className="field__label">Section title</span>
         <input
@@ -31,44 +44,50 @@ function ExtraSection({
           {...register(`additional.${index}.title`)}
         />
       </label>
-      <div className="field" role="group" aria-label="Lines">
-        <span className="field__label" aria-hidden="true">
-          Lines
-        </span>
-        <ul className="line-list">
-          {lines.fields.map((line, lineIndex) => (
-            <li className="line-row" key={line.key}>
-              <input
-                className="input"
-                aria-label={`Line ${lineIndex + 1}`}
-                maxLength={LIMITS.maxTextChars}
-                {...register(`additional.${index}.items.${lineIndex}.text`)}
-              />
-              <IconButton
-                label="Remove line"
-                icon="close"
-                onClick={() => {
-                  lines.remove(lineIndex);
-                }}
-              />
-            </li>
-          ))}
-        </ul>
-      </div>
+      {entries.fields.map((entry, entryIndex) => (
+        <ExtraEntry
+          key={entry.key}
+          section={index}
+          index={entryIndex}
+          count={entries.fields.length}
+          entryId={entry.id}
+          updating={updating(entry.id)}
+          onMove={(to) => {
+            entries.move(entryIndex, to);
+          }}
+          onRemove={() => {
+            setRemoving(entry.id);
+          }}
+        />
+      ))}
       <div className="question-card__actions">
         <AddButton
-          disabled={lines.fields.length >= LIMITS.maxAdditionalItems}
+          disabled={entries.fields.length >= LIMITS.maxAdditionalItems}
           onClick={() => {
-            lines.append({ id: newId(), text: '', factIds: [] });
+            entries.append(newEntry());
           }}
         >
-          Add line
+          Add entry
         </AddButton>
         <button type="button" className="btn btn--danger entry-card__remove" onClick={onRemove}>
           <Icon name="trash" />
           Remove section
         </button>
       </div>
+      <ConfirmDialog
+        open={removing !== null}
+        title="Remove this entry?"
+        message="Its lines go with it."
+        confirmLabel="Remove"
+        onCancel={() => {
+          setRemoving(null);
+        }}
+        onConfirm={() => {
+          const at = entries.fields.findIndex((entry) => entry.id === removing);
+          if (at >= 0) entries.remove(at);
+          setRemoving(null);
+        }}
+      />
     </div>
   );
 }
@@ -93,7 +112,7 @@ export function AdditionalSection({ target }: { target?: JobTarget | undefined }
           key={field.key}
           index={index}
           itemId={field.id}
-          updating={target?.section === 'additional' && target.itemId === field.id}
+          target={target}
           onRemove={() => {
             setRemoving(field.id);
           }}
@@ -103,7 +122,7 @@ export function AdditionalSection({ target }: { target?: JobTarget | undefined }
         variant="secondary"
         disabled={fields.length >= LIMITS.maxAdditionalSections}
         onClick={() => {
-          append({ id: newId(), title: '', items: [] });
+          append({ id: newId(), title: '', entries: [newEntry()] });
         }}
       >
         Add section
@@ -111,7 +130,7 @@ export function AdditionalSection({ target }: { target?: JobTarget | undefined }
       <ConfirmDialog
         open={removing !== null}
         title="Remove this section?"
-        message="All its lines go with it."
+        message="All its entries go with it."
         confirmLabel="Remove"
         onCancel={() => {
           setRemoving(null);

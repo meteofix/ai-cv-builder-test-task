@@ -102,4 +102,20 @@ describe('ATS readability of the PDF', () => {
     },
     60_000,
   );
+
+  it('TPL-10 — skill groups read in order, each title before its own skills', async () => {
+    const text = await pdfText(enSample);
+    let from = text.indexOf('SKILLS');
+    for (const group of enSample.skills) {
+      const title = text.indexOf(`${group.title ?? ''}: ${group.items[0]?.name ?? ''}`, from);
+      expect(title, `group ${group.title ?? ''}`).toBeGreaterThan(from);
+      let at = title;
+      for (const skill of group.items) {
+        const found = text.indexOf(skill.name, at);
+        expect(found, `${skill.name} after ${group.title ?? ''}`).toBeGreaterThan(at);
+        at = found;
+      }
+      from = at;
+    }
+  }, 60_000);
 });

@@ -7,11 +7,12 @@ import {
 } from '@cv/shared';
 import { z } from 'zod';
 import { segmentSource, type Segment } from '../../grounding/index.js';
-import type { LlmRole } from '../../llm/llm-transport.js';
+import type { LlmOutputMode, LlmRole } from '../../llm/llm-transport.js';
 import { accountSource } from './accounting.js';
 import { applyReview } from './apply-review.js';
 import { authorOutputSchema, authorSchema, type AuthorOutput } from './author-schema.js';
-import { buildDraft, toDocument, type Draft } from './draft.js';
+import { buildDraft, groupItems, toDocument, type Draft } from './draft.js';
+import { alignStops } from './stops.js';
 import {
   AUTHOR_SYSTEM,
   authorInput,
@@ -49,6 +50,7 @@ export interface ModelRequest<T> {
   input: string;
   schema: z.ZodType<T>;
   check: (output: T) => string | null;
+  output?: LlmOutputMode;
 }
 
 /** A refined schema as a check: its issues as one message for the re-ask, or null. */
@@ -77,6 +79,8 @@ export function authorRequest(
   const answer = checkWith(authorSchema(source.index));
   return {
     role: 'author',
+    // Too large for the service's grammar with groups and entries (decision 036).
+    output: 'tool',
     system: AUTHOR_SYSTEM,
     cached: source.cached,
     input: authorInput(targetRole),
@@ -139,13 +143,21 @@ export function compose(
   const draft = buildDraft(author, source.index, source.text, targetRole);
   const items = [
     ...draft.summary,
-    ...draft.experience.flatMap((job) => job.bullets),
-    ...draft.additional.flatMap((section) => section.items),
+    ...draft.experience.flatMap((job) => groupItems(job.groups)),
+    ...draft.additional.flatMap((section) =>
+      section.entries.flatMap((entry) => groupItems(entry.groups)),
+    ),
   ];
   const kept = items.filter((item) => item.kept).length;
   const view = reviewView(draft);
   const asked = applyReview(draft, review, view, targetRole);
   const { questions, unasked } = buildQuestions(draft, asked, author.gaps);
+  // An entry kept only for a question past the cap has no question to wait for.
+  for (const { target } of unasked) {
+    if (target.kind !== 'entry') continue;
+    const entry = draft.additional[target.section]?.entries[target.entry];
+    if (entry) entry.asked = false;
+  }
   const { items: notInCv, coverage } = accountSource({
     segments: source.segments,
     index: source.index,
@@ -154,7 +166,7 @@ export function compose(
     unasked,
   });
   return {
-    document: toDocument(draft),
+    document: alignStops(toDocument(draft)),
     questions,
     analysis: {
       version: 2,

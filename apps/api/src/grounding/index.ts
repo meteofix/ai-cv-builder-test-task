@@ -19,4 +19,3 @@ export { overlaps } from './span.js';
 export { verifyFacts, type VerifiedFacts } from './verify-facts.js';
 export { checkEmail, checkLink, checkPhone } from './contacts.js';
 export { MAX_LINE_CHARS, segmentSource, type Segment } from './segments.js';
-export { splitSkills } from './split-skills.js';

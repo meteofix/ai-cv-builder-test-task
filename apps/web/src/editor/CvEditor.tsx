@@ -17,6 +17,7 @@ import { ContactsSection } from './ContactsSection';
 import { EducationSection } from './EducationSection';
 import { ExperienceSection } from './ExperienceSection';
 import { NotInCvPanel } from './NotInCvPanel';
+import { PageCount } from './PageCount';
 import { PdfButton } from './PdfButton';
 import { PreviewDialog } from './PreviewDialog';
 import { prepareDocument } from './prepare';
@@ -99,6 +100,8 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
   const notInCv = useNotInCv(cv.id);
   const desktop = useIsDesktop();
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Measured by the preview, so known on a phone once the preview has been opened.
+  const [pages, setPages] = useState<number | null>(null);
   // The dialog only exists on a phone: a resize to desktop closes it, so it does not reopen by itself later.
   if (desktop && previewOpen) setPreviewOpen(false);
   // A save pending or an AI job running: the PDF would be of a document that is about to change.
@@ -175,6 +178,11 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
               <ContactsSection updating={updating('contacts')} />
               <HeadlineSection updating={updating('headline')} />
               <SummarySection updating={updating('summary')} />
+              {notInCv.data?.orderReason ? (
+                <p className="order-note" role="note">
+                  <strong>Order of your experience:</strong> {notInCv.data.orderReason}
+                </p>
+              ) : null}
               <ExperienceSection target={target} />
               <EducationSection target={target} />
               <SkillsSection updating={updating('skills')} />
@@ -192,10 +200,11 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
           <aside className="preview" aria-label="Preview">
             <div className="preview__head">
               <h2 className="preview__title">Preview</h2>
+              <PageCount pages={pages} />
               <span className="badge">A4</span>
             </div>
             <div className="preview__frame">
-              <CvPreview document={preview} />
+              <CvPreview document={preview} onPages={setPages} />
             </div>
           </aside>
         ) : null}
@@ -222,7 +231,8 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
               setPreviewOpen(false);
             }}
           >
-            <CvPreview document={preview} />
+            <PageCount pages={pages} />
+            <CvPreview document={preview} onPages={setPages} />
           </PreviewDialog>
         </>
       )}

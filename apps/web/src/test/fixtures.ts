@@ -20,13 +20,19 @@ export function editorDocument(overrides: Partial<CvDocument> = {}): CvDocument 
         start: '2023-03',
         end: null,
         current: true,
-        bullets: [
+        groups: [
           {
-            id: 'b-1',
-            text: 'Led the migration of the web checkout to Next.js 14.',
-            factIds: ['f1'],
+            id: 'pos-1-g1',
+            title: null,
+            items: [
+              {
+                id: 'b-1',
+                text: 'Led the migration of the web checkout to Next.js 14.',
+                factIds: ['f1'],
+              },
+              { id: 'b-2', text: 'Designed a PostgreSQL-backed job queue.', factIds: ['f2'] },
+            ],
           },
-          { id: 'b-2', text: 'Designed a PostgreSQL-backed job queue.', factIds: ['f2'] },
         ],
       },
       {
@@ -36,7 +42,13 @@ export function editorDocument(overrides: Partial<CvDocument> = {}): CvDocument 
         start: '2021-01',
         end: '2023-02',
         current: false,
-        bullets: [{ id: 'b-3', text: 'Developed REST APIs in NestJS.', factIds: ['f3'] }],
+        groups: [
+          {
+            id: 'pos-2-g1',
+            title: null,
+            items: [{ id: 'b-3', text: 'Developed REST APIs in NestJS.', factIds: ['f3'] }],
+          },
+        ],
       },
     ],
     education: [
@@ -49,16 +61,36 @@ export function editorDocument(overrides: Partial<CvDocument> = {}): CvDocument 
       },
     ],
     skills: [
-      { id: 'sk-1', name: 'TypeScript' },
-      { id: 'sk-2', name: 'React' },
+      {
+        id: 'skg-1',
+        title: 'Frontend',
+        items: [
+          { id: 'sk-1', name: 'TypeScript' },
+          { id: 'sk-2', name: 'React' },
+        ],
+      },
     ],
     additional: [
       {
         id: 'add-1',
         title: 'Languages',
-        items: [
-          { id: 'l-1', text: 'Ukrainian — native', factIds: [] },
-          { id: 'l-2', text: 'English — C1', factIds: [] },
+        entries: [
+          {
+            id: 'add-1-e1',
+            title: '',
+            start: null,
+            end: null,
+            groups: [
+              {
+                id: 'add-1-e1-g1',
+                title: null,
+                items: [
+                  { id: 'l-1', text: 'Ukrainian — native', factIds: [] },
+                  { id: 'l-2', text: 'English — C1', factIds: [] },
+                ],
+              },
+            ],
+          },
         ],
       },
     ],

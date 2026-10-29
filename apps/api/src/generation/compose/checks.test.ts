@@ -1,3 +1,4 @@
+import { bulletsOf } from '@cv/shared';
 import { describe, expect, it } from 'vitest';
 import { authorAnswer, SOURCE } from '../../../test/generation/compose-fixture.js';
 import { authorRequest, compose, prepareSource, reviewRequest } from './compose.js';
@@ -30,7 +31,7 @@ describe('compose — the checks a model answer must pass', () => {
         experience: [
           {
             ...authorAnswer().experience[0]!,
-            bullets: [{ text: 'x'.repeat(401), segments: ['S6'] }],
+            groups: [{ title: '', items: [{ text: 'x'.repeat(401), segments: ['S6'] }] }],
           },
         ],
       }),
@@ -50,9 +51,20 @@ describe('compose — the checks a model answer must pass', () => {
     expect(authorCheck(answer)).toContain(message);
   });
 
+  it('refuses more than 20 skill groups through the document check', () => {
+    const groups = Array.from({ length: 21 }, (_, i) => ({
+      title: `G${i}`,
+      segments: ['S14'],
+      items: [`S${i}`],
+    }));
+    expect(authorRequest(source, ROLE).check(authorAnswer({ skills: groups }))).toContain(
+      'does not fit its limits',
+    );
+  });
+
   it('refuses an answer whose CV would not fit the document: finalize could never save it', () => {
     const long = prepareSource(`${SOURCE}\n${'Backend engineer and platform builder '.repeat(6)}`);
-    const answer = authorAnswer({ headline: { text: null, segments: ['S16'] } });
+    const answer = authorAnswer({ headline: { text: '', segments: ['S16'] } });
     expect(authorRequest(long, ROLE).check(answer)).toContain('does not fit its limits');
   });
 
@@ -106,7 +118,7 @@ describe('compose — the checks a model answer must pass', () => {
     expect(check({ issues: [ask] })).toBeNull();
     expect(check({ issues: [ask] })).toBeNull();
     expect(
-      compose(source, authorAnswer(), { issues: [ask] }, ROLE).document.experience[0]?.bullets,
+      bulletsOf(compose(source, authorAnswer(), { issues: [ask] }, ROLE).document.experience[0]!),
     ).toHaveLength(1);
   });
 

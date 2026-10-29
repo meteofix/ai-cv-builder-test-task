@@ -2,7 +2,7 @@ import type { NotInCvItem, SourceCoverage } from '@cv/shared';
 import type { Segment } from '../../grounding/index.js';
 import type { Asked } from './apply-review.js';
 import type { AuthorOutput } from './author-schema.js';
-import { positionId, type Draft } from './draft.js';
+import { groupItems, positionId, type Draft } from './draft.js';
 import { verbatim, type SegmentIndex } from './verbatim.js';
 
 /**
@@ -33,7 +33,7 @@ function draftCitations(draft: Draft): Set<string> {
   }
   for (const job of draft.experience) {
     add(job.segments);
-    job.bullets.forEach((bullet) => {
+    groupItems(job.groups).forEach((bullet) => {
       add(bullet.segments);
     });
   }
@@ -44,8 +44,11 @@ function draftCitations(draft: Draft): Set<string> {
     add(group.segments);
   });
   draft.additional.forEach((section) => {
-    section.items.forEach((item) => {
-      add(item.segments);
+    section.entries.forEach((entry) => {
+      add(entry.segments);
+      groupItems(entry.groups).forEach((item) => {
+        add(item.segments);
+      });
     });
   });
   return cited;

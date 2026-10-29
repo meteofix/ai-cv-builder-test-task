@@ -82,90 +82,70 @@
   white-space: nowrap;
 }
 
-/* Bullets — one textarea per bullet */
-.bullet-list {
+/* A group of items (decision 036): skills, a subsection of bullets, a group of lines of an extra entry.
+   Groups are separated by a rule; one untitled group looks like a plain list. */
+.item-groups {
+  display: grid;
+  gap: var(--space-3);
+}
+.item-group {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.item-group + .item-group {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-line);
+}
+.item-group__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: end;
+}
+.item-group__add-title {
+  justify-self: start;
+  min-height: var(--control-h);
+}
+.item-list {
   display: grid;
   gap: var(--space-2);
 }
-.bullet-row {
+/* One bullet or line: the field and its ↑/↓/remove; on a phone the buttons go under the field. */
+.item-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--control-h);
-  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-2);
   align-items: start;
 }
-
-/* Tag input (skills) */
-.tag-input {
+.item-row__actions {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-h);
-  padding: var(--space-1);
-  border: 1px solid var(--color-line-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
 }
-.tag-input:focus-within {
-  outline: var(--focus-outline);
-  outline-offset: 0;
-  border-color: var(--color-focus);
-}
-.tag {
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding-left: var(--space-3);
-  border-radius: var(--radius-full);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-  font-weight: var(--weight-medium);
-}
-.tag__remove {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-full);
-  background: none;
-  color: inherit;
-  cursor: pointer;
-}
-.tag__remove::after {
-  content: '';
-  position: absolute;
-  inset: -4px -6px;
-} /* 44 px hit area */
-.tag__remove:hover {
-  background: var(--color-accent-line);
-}
-.tag__remove:disabled {
-  color: var(--color-disabled-ink);
-  cursor: not-allowed;
-}
-.tag-input__field {
-  flex: 1 1 120px;
-  min-width: 0;
-  min-height: 36px;
-  padding: 0 var(--space-2);
-  border: 0;
-  background: none;
-  outline: none;
+@media (max-width: 640px) {
+  .item-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .item-row__actions {
+    justify-self: end;
+  }
 }
 
-/* Additional section (title + list of lines) */
+/* Additional section (title + entries) and one entry (title, dates, groups of lines) */
 .extra-section {
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
+}
+.extra-entry {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-md);
+  scroll-margin-top: calc(var(--control-h) + var(--space-4));
 }
 .line-list {
   display: grid;
@@ -175,4 +155,25 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--control-h);
   gap: var(--space-2);
+}
+
+/* Advice under a field and next to the preview: a hint, warning-coloured past the advice, never an error. */
+.char-count,
+.page-count {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+.char-count--long,
+.page-count--long {
+  color: var(--color-warning);
+  font-weight: var(--weight-semibold);
+}
+.preview__head .page-count {
+  margin-left: auto;
+}
+.preview-dialog__body .page-count {
+  display: block;
+  margin-bottom: var(--space-2);
 }

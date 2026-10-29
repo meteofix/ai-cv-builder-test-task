@@ -158,13 +158,23 @@ export function sampleDocument(overrides: Partial<CvDocument> = {}): CvDocument 
         start: '2021',
         end: null,
         current: true,
-        bullets: [
-          { id: randomUUID(), text: 'Led the migration of billing to TypeScript.', factIds: [] },
+        groups: [
+          {
+            id: randomUUID(),
+            title: null,
+            items: [
+              {
+                id: randomUUID(),
+                text: 'Led the migration of billing to TypeScript.',
+                factIds: [],
+              },
+            ],
+          },
         ],
       },
     ],
     education: [{ id: randomUUID(), institution: 'Kyiv Polytechnic Institute' }],
-    skills: [{ id: randomUUID(), name: 'TypeScript' }],
+    skills: [{ id: randomUUID(), title: null, items: [{ id: randomUUID(), name: 'TypeScript' }] }],
     additional: [],
     ...overrides,
   };

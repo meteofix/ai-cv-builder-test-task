@@ -59,11 +59,17 @@ export function buildSkeleton(input: SkeletonInput): CvDocument {
       start,
       end: current ? null : end,
       current,
-      bullets: (prose?.bullets.get(fact.id) ?? []).map(({ id, text, factIds }) => ({
-        id,
-        text,
-        factIds: [...factIds],
-      })),
+      groups: [
+        {
+          id: `${fact.id}-g1`,
+          title: null,
+          items: (prose?.bullets.get(fact.id) ?? []).map(({ id, text, factIds }) => ({
+            id,
+            text,
+            factIds: [...factIds],
+          })),
+        },
+      ],
     };
   });
 
@@ -98,7 +104,7 @@ export function buildSkeleton(input: SkeletonInput): CvDocument {
     summary: summary(prose?.summary ?? []),
     experience,
     education,
-    skills,
+    skills: skills.length > 0 ? [{ id: 'skills', title: null, items: skills }] : [],
     additional: additional(of('other'), input),
   };
 }
@@ -152,10 +158,20 @@ function additional(facts: FactOf<'other'>[], input: SkeletonInput): CvAdditiona
       id: randomUUID(),
       title:
         heading && findQuote(input.source, heading) ? heading : ADDITIONAL_FALLBACK[input.locale],
-      items: items.slice(0, LIMITS.maxAdditionalItems).map((fact) => ({
+      entries: items.slice(0, LIMITS.maxAdditionalItems).map((fact) => ({
         id: fact.id,
-        text: verbatim(input.source, fact),
-        factIds: [fact.id],
+        title: '',
+        start: null,
+        end: null,
+        groups: [
+          {
+            id: `${fact.id}-g1`,
+            title: null,
+            items: [
+              { id: `${fact.id}-i1`, text: verbatim(input.source, fact), factIds: [fact.id] },
+            ],
+          },
+        ],
       })),
     });
   }

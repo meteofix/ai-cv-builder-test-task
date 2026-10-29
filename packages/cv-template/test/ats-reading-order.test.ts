@@ -1,6 +1,6 @@
 import { chromium, type Browser } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { experienceGroups } from '@cv/shared';
+import { bulletsOf, experienceGroups } from '@cv/shared';
 import { LABELS } from '../src/index.js';
 import { enSample } from './fixtures/en-sample.js';
 import { ukSample } from './fixtures/uk-sample.js';
@@ -44,11 +44,11 @@ describe('reading order of the PDF (cv-template.md, behaviour 1)', () => {
       // A company's shared bullets (only its first position has any) follow its last title (behaviour 5a).
       let index = 0;
       for (const group of experienceGroups(sample.experience)) {
-        const shared = group.length > 1 && group.slice(1).every((p) => p.bullets.length === 0);
+        const shared = group.length > 1 && group.slice(1).every((p) => bulletsOf(p).length === 0);
         group.forEach((position, i) => {
           const after = titles[shared ? index + group.length - 1 : index + i]!;
           const before = titles[shared ? index + group.length : index + i + 1]!;
-          for (const bullet of position.bullets) {
+          for (const bullet of bulletsOf(position)) {
             const at = find(text, bullet.text.slice(0, 40), 0);
             expect(at, `${bullet.id} after its position`).toBeGreaterThan(after);
             expect(at, `${bullet.id} before the next position`).toBeLessThan(before);

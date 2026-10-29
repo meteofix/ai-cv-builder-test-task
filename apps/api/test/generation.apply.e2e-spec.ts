@@ -1,5 +1,5 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { LIMITS, type Answer, type QuestionTarget } from '@cv/shared';
+import { bulletsOf, LIMITS, type Answer, type QuestionTarget } from '@cv/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Cv, CvQuestion, CvSource, GenerationJob, type IUser } from '../src/db/entities.js';
 import { sourceFactsSchema } from '../src/generation/generate/schemas.js';
@@ -122,7 +122,49 @@ describe('apply_answer', () => {
       });
     });
 
+    // Questions about extra entries come from the review of an author-written CV (decision 036).
     it.each([
+      [
+        'dates',
+        { type: 'dates' as const, start: '2021-04', end: null, current: true },
+        { start: '2021-04', end: null },
+      ],
+      [
+        'dates',
+        { type: 'dates' as const, start: '2019', end: '2020-06', current: false },
+        { start: '2019', end: '2020-06' },
+      ],
+      ['title', { type: 'text' as const, text: ' Proofing Timer ' }, { title: 'Proofing Timer' }],
+    ])('sets the %s of an extra entry without the LLM', async (field, answer, expected) => {
+      const entry = { id: 'a1-e1', title: '', start: null, end: null, groups: [] };
+      const { cv, question } = await answeredCv(
+        entityManager(app),
+        user,
+        { target: { section: 'additional', itemId: 'a1-e1', field }, answer },
+        (document) => ({
+          ...document,
+          additional: [{ id: 'a1', title: 'Projects', entries: [entry] }],
+        }),
+      );
+      await run();
+      expect(fake.requests).toEqual([]);
+      expect((await cvRow(cv.id)).document!.additional[0]!.entries[0]).toMatchObject(expected);
+      expect((await questionRow(question.id)).applyStatus).toBe('applied');
+    });
+
+    it.each([
+      [
+        'a dates answer whose extra entry is gone',
+        { section: 'additional' as const, itemId: 'a1-e9', field: 'dates' },
+        { type: 'dates' as const, start: '2019', end: '2020', current: false },
+        'The part of the CV this answer was for no longer exists.',
+      ],
+      [
+        'a dates answer aimed at a whole extra section',
+        { section: 'additional' as const, itemId: 'a1', field: 'dates' },
+        { type: 'dates' as const, start: '2019', end: '2020', current: false },
+        'This answer does not fit the part of the CV it was asked about.',
+      ],
       [
         'a dates answer whose position is gone',
         { section: 'experience' as const, itemId: 'deleted', field: 'dates' },
@@ -146,6 +188,7 @@ describe('apply_answer', () => {
       const { cv, question, job } = await answeredCv(em, user, { target, answer }, (document) => ({
         ...document,
         education: [{ id: 'e1', institution: 'KPI' }],
+        additional: [{ id: 'a1', title: 'Projects', entries: [] }],
       }));
       const before = await cvRow(cv.id);
       await run();
@@ -208,7 +251,7 @@ describe('apply_answer', () => {
         { type: 'text', text: 'I did many things.' },
       );
       await run();
-      expect((await positionOf(cv.id, POSITION_A)).bullets.map((bullet) => bullet.text)).toEqual([
+      expect(bulletsOf(await positionOf(cv.id, POSITION_A)).map((bullet) => bullet.text)).toEqual([
         ...full.slice(0, -1),
         'Wrote the onboarding guide.',
       ]);
@@ -226,7 +269,7 @@ describe('apply_answer', () => {
         { type: 'text', text: 'I did things.' },
       );
       await run();
-      const texts = (await positionOf(cv.id, POSITION_A)).bullets.map((bullet) => bullet.text);
+      const texts = bulletsOf(await positionOf(cv.id, POSITION_A)).map((bullet) => bullet.text);
       expect(texts).not.toContain('Unreferenced claim.');
     });
 
@@ -301,7 +344,7 @@ describe('apply_answer', () => {
       expect(secondWriter).toContain('I led 7 engineers.');
       expect(secondWriter).toContain('I hired 3 more engineers.');
       // "7" is only in the first answer and "3" only in the second: both spans must point at the right text.
-      expect((await positionOf(first.cv.id, POSITION_A)).bullets[0]?.text).toBe(
+      expect(bulletsOf(await positionOf(first.cv.id, POSITION_A))[0]?.text).toBe(
         'Led 7 engineers and hired 3 more.',
       );
       expect((await questionRow(second.question.id)).applyStatus).toBe('applied');
@@ -361,7 +404,7 @@ describe('apply_answer', () => {
         'succeeded',
       );
       expect(await answersOf(cv.id)).toHaveLength(1);
-      expect((await positionOf(cv.id, POSITION_A)).bullets[0]?.text).toBe('Led a team.');
+      expect(bulletsOf(await positionOf(cv.id, POSITION_A))[0]?.text).toBe('Led a team.');
     });
   });
 });

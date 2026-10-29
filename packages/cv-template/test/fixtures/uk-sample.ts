@@ -24,16 +24,22 @@ export const ukSample: CvDocument = {
       start: '2022-09',
       end: null,
       current: true,
-      bullets: [
+      groups: [
         {
-          id: 'b1',
-          text: 'Розробив бібліотеку UI-компонентів, яку використовують три внутрішні продукти.',
-          factIds: [],
-        },
-        {
-          id: 'b2',
-          text: 'Переписав форму оформлення замовлення з урахуванням доступності (WCAG 2.1 AA).',
-          factIds: [],
+          id: 'g1',
+          title: null,
+          items: [
+            {
+              id: 'b1',
+              text: 'Розробив бібліотеку UI-компонентів, яку використовують три внутрішні продукти.',
+              factIds: [],
+            },
+            {
+              id: 'b2',
+              text: 'Переписав форму оформлення замовлення з урахуванням доступності (WCAG 2.1 AA).',
+              factIds: [],
+            },
+          ],
         },
       ],
     },
@@ -47,9 +53,15 @@ export const ukSample: CvDocument = {
       end: '2022',
     },
   ],
-  skills: ['React', 'TypeScript', 'CSS', 'Vite', 'Jest'].map((name, index) => ({
-    id: `s${index}`,
-    name,
-  })),
+  skills: [
+    {
+      id: 'g0',
+      title: null,
+      items: ['React', 'TypeScript', 'CSS', 'Vite', 'Jest'].map((name, index) => ({
+        id: `s${index}`,
+        name,
+      })),
+    },
+  ],
   additional: [],
 };

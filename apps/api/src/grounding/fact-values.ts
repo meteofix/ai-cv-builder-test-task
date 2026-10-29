@@ -13,9 +13,11 @@ const CONTINUES: Record<'email' | 'link', { left: RegExp; right: RegExp }> = {
   email: { left: /[\p{L}\p{N}._%+\-@]/u, right: /[\p{L}\p{N}.-]/u },
   link: { left: /[\p{L}\p{N}._%+\-@/~#?=&]/u, right: /[\p{L}\p{N}._%+\-@/~#?=&]/u },
 };
-const SPACE = /\s/u;
-const LETTER = /\p{L}/u;
 const DIGIT = /\p{N}/u;
+/** Marks that join two digit groups of one phone number when they touch both. */
+const JOINING = new Set(['/', '(', ')']);
+/** Enough look-back for a `scheme://www.` before a link. */
+const LINK_PREFIX_MAX = 64;
 
 /** What a phone is written with between its digit groups: horizontal whitespace, dots and any dash. */
 function phoneInner(char: string): boolean {
@@ -119,11 +121,18 @@ export function checkValues(fact: ExtractedFact, source: string, span: Span): Ex
 function widen(text: string, start: number, end: number, field: 'email' | 'link' | 'phone'): Span {
   let [from, to] = [start, end];
   if (field === 'phone') {
-    while (from > 0 && '+('.includes(text[from - 1] ?? '')) from--;
-    if (text[to] === ')' && text.slice(from, to).includes('(')) to++;
+    if (text[from - 1] === '+') from--;
+    // An area code in brackets belongs to the number (`(050) 123`); brackets around it do not.
+    const close = text.indexOf(')', from);
+    if (text[from - 1] === '(' && close !== -1 && close < to && DIGIT.test(text[close - 1] ?? '')) {
+      from--;
+    }
+    if (text[from - 1] === '+') from--;
   }
   if (field === 'link') {
-    const prefix = /(?:[a-z][a-z0-9+.-]*:\/\/)?(?:www\.)?$/i.exec(text.slice(0, from))?.[0] ?? '';
+    // A bounded look-back: an unanchored pattern over the whole source would be quadratic.
+    const window = text.slice(Math.max(0, from - LINK_PREFIX_MAX), from);
+    const prefix = /(?:[a-z][a-z0-9+.-]*:\/\/)?(?:www\.)?$/i.exec(window)?.[0] ?? '';
     from -= prefix.length;
     const afterSlash = text[to + 1] ?? ' ';
     const sentenceEnd = afterSlash === '.' && !CONTINUES.link.right.test(text[to + 2] ?? ' ');
@@ -152,13 +161,19 @@ function wholeAddress(
     while (before >= 0 && phoneInner(source[before] ?? '')) before--;
     let after = end;
     while (after < source.length && phoneInner(source[after] ?? '')) after++;
-    const joins = (char: string, far: string) =>
-      DIGIT.test(char) ||
-      (char !== '' && !LETTER.test(char) && !SPACE.test(char) && DIGIT.test(far));
     const left = source[before] ?? '';
     const right = source[after] ?? '';
-    const leftContinues = left === '+' || joins(left, source[before - 1] ?? '');
-    const rightContinues = joins(right, source[after + 1] ?? '');
+    // Right next to the match, `/` and brackets between digits join groups of one number
+    // (`0171/1234567`, `(050)123`); across whitespace only an area code's `)` before it does
+    // (`+38 (050) 123`). A comma or a bracket after spaces starts something else (`01001, +380 …`,
+    // `… 67 (9:00–18:00)`).
+    const touching = (char: string, far: string) => JOINING.has(char) && DIGIT.test(far);
+    const leftContinues =
+      DIGIT.test(left) ||
+      left === '+' ||
+      touching(source[start - 1] ?? '', source[start - 2] ?? '') ||
+      (left === ')' && DIGIT.test(source[before - 1] ?? ''));
+    const rightContinues = DIGIT.test(right) || touching(source[end] ?? '', source[end + 1] ?? '');
     return !leftContinues && !rightContinues;
   }
   const { left: continuesLeft, right: continuesRight } = CONTINUES[field];

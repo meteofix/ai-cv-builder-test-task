@@ -289,6 +289,7 @@ describe('verifyFacts', () => {
       'Site: https://example.com:8443/cv',
     ],
     ['a phone after a spaced en dash', 'phone', '123 45 67', 'Tel: 050 – 123 45 67'],
+    ['a phone behind an area code in brackets', 'phone', '123 45 67', 'Tel: +38 (050) 123 45 67'],
   ] as const)('drops %s', (_case, field, value, quote) => {
     const { facts, dropped } = verifyFacts(quote, [
       { id: 'c', kind: 'contact', quote, contact: { field, value } },
@@ -383,6 +384,41 @@ describe('verifyFacts', () => {
       'See https://github.com/iryna-k/.',
       'https://github.com/iryna-k',
       'https://github.com/iryna-k/',
+    ],
+    [
+      'a phone after a postcode and a comma',
+      'phone',
+      'Kyiv, 01001, +380 50 123 45 67',
+      '+380501234567',
+      '+380 50 123 45 67',
+    ],
+    [
+      'a phone after a house number',
+      'phone',
+      'вул. Хрещатик, 22, +380 50 123 45 67',
+      '+380501234567',
+      '+380 50 123 45 67',
+    ],
+    [
+      'a phone followed by office hours',
+      'phone',
+      '+380 50 123 45 67 (9:00–18:00)',
+      '+380501234567',
+      '+380 50 123 45 67',
+    ],
+    [
+      'a phone in brackets',
+      'phone',
+      'iryna@x.com (+380 50 123 45 67)',
+      '+380 50 123 45 67',
+      '+380 50 123 45 67',
+    ],
+    [
+      'a phone with its area code in brackets',
+      'phone',
+      'Tel: (050) 123-45-67',
+      '0501234567',
+      '(050) 123-45-67',
     ],
   ] as const)('keeps an address %s', (_case, field, quote, value, stored) => {
     const { facts } = verifyFacts(quote, [
@@ -497,4 +533,28 @@ describe('verifyFacts', () => {
       expect(facts[0]).toMatchObject({ contact: { value: stored } });
     },
   );
+
+  it('keeps the brackets around a phone out of the value when the quote is only the value', () => {
+    const source = 'iryna@x.com (+380 50 123 45 67)';
+    const value = '+380 50 123 45 67';
+    const { facts } = verifyFacts(source, [
+      { id: 'c', kind: 'contact', quote: value, contact: { field: 'phone', value } },
+    ]);
+    expect(facts[0]).toMatchObject({ contact: { value } });
+  });
+
+  it('finds a link after a long run of letters quickly', () => {
+    const source = `${'a'.repeat(40_000)} https://github.com/iryna-k`;
+    const started = performance.now();
+    const { facts } = verifyFacts(source, [
+      {
+        id: 'c',
+        kind: 'contact',
+        quote: 'github.com/iryna-k',
+        contact: { field: 'link', value: 'github.com/iryna-k' },
+      },
+    ]);
+    expect(facts[0]).toMatchObject({ contact: { value: 'https://github.com/iryna-k' } });
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
 });

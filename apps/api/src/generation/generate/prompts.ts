@@ -56,6 +56,8 @@ Each item has a destination (the position it will appear under, or Summary) and 
 - moved_between_jobs: a duty taken from another position (a quote stands under a different position than the destination);
 - invented_trait_or_domain: a personality trait, industry or domain not in the quotes;
 - time_or_negation: distorted time, duration, sequence or a negation.
+An item saying someone still works in a role is supported only when its quote shows the job has not ended; otherwise reject it as time_or_negation.
+An appearsUnder that starts with "unclear" means the text between the position heading and the quote was not recognized: judge the placement from the quotes alone, and when they do not show which job the duty belongs to, reject a bullet as moved_between_jobs.
 When in doubt, the item is not supported. Do not rate style.`;
 
 export function extractorInput(source: string): string {

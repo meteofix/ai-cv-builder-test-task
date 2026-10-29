@@ -182,6 +182,20 @@ describe('apply_answer', () => {
       expect(await answersOf(cv.id)).toHaveLength(1);
     });
 
+    it('labels an answer fact for the judge as the user’s answer about its position', async () => {
+      fake.on('writer', bullets(['Led a team.'])).on('judge', judgeAnswer());
+      await answered(
+        { section: 'experience', itemId: POSITION_A },
+        { type: 'text', text: 'I led a team.' },
+      );
+      await run();
+      const [judgeInput] = fake.inputs('judge');
+      expect(judgeInput).toContain(
+        '"appearsUnder":"the user\'s answer about Senior Engineer — Acme Corp (2021 – ?)"',
+      );
+      expect(judgeInput).toContain('"destination":"Senior Engineer — Acme Corp (2021 – ?)"');
+    });
+
     it('never cuts the user’s own bullet when the regenerated ones fill the cap', async () => {
       const six = ['One.', 'Two.', 'Three.', 'Four.', 'Five.', 'Six.'];
       fake.on('writer', bullets(six)).on('judge', judgeAnswer());

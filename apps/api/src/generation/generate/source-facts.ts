@@ -1,5 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql';
 import { CvSource, GenerationJob } from '../../db/entities.js';
+import { isCurrentClaim } from './judge-step.js';
 import {
   judgeResultSchema,
   sourceFactsSchema,
@@ -36,7 +37,11 @@ export async function removedProse(em: EntityManager, cvId: string): Promise<Rem
   // A step that has not run yet has no result; a result that does not parse is a bug and surfaces.
   const write = job.state.write === undefined ? null : writeResultSchema.parse(job.state.write);
   const judge = job.state.judge === undefined ? null : judgeResultSchema.parse(job.state.judge);
-  return [...(write?.removed ?? []), ...(judge?.removed ?? [])];
+  // A rejected "still in this role" is not text that was left out: it shows as a dates question.
+  return [
+    ...(write?.removed ?? []),
+    ...(judge?.removed ?? []).filter((item) => !isCurrentClaim(item)),
+  ];
 }
 
 export function requiredFacts(facts: SourceFacts | null): SourceFacts {

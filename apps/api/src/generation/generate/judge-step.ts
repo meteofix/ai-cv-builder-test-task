@@ -1,4 +1,4 @@
-import type { Fact } from '../../grounding/index.js';
+import { sourceLines, type Fact } from '../../grounding/index.js';
 import type { LlmClient } from '../../llm/llm-client.js';
 import type { JobRun } from '../job-handler.js';
 import { JUDGE_SYSTEM, judgeInput, type Evidence } from './prompts.js';
@@ -19,21 +19,25 @@ export interface ItemToJudge {
 /**
  * The evidence the judge needs to catch a duty moved between jobs: each cited quote with the position it
  * stands under in the source (the nearest position before it), which the item's destination must match.
- * Facts past `sourceLength` are the user's answers and say which position they answer for.
+ * Facts past `sourceLength` are the user's answers and say which position they answer for. When a line no
+ * fact covers lies between that position and the quote (a heading the extractor missed), the placement is
+ * reported as unclear instead of naming a position the quote may not belong to.
  */
-export function judgeEvidence(facts: readonly Fact[], text: string, sourceLength: number) {
+export function judgeEvidence(
+  facts: readonly Fact[],
+  text: string,
+  sourceLength: number,
+  uncoveredLines: readonly string[] = [],
+) {
   const positions = facts
-    .filter((fact): fact is Extract<Fact, { kind: 'position' }> => fact.kind === 'position')
+    .filter((fact): fact is PositionFact => fact.kind === 'position')
     .sort((a, b) => a.span[0] - b.span[0]);
   const byId = new Map(facts.map((fact) => [fact.id, fact]));
-  // Dates in the label keep two positions with the same title and company apart.
-  const labelOf = (position: Extract<Fact, { kind: 'position' }>) => {
-    const { start, end, current } = position.position;
-    return `${positionLabel(position.position)} (${start ?? '?'} – ${current ? 'present' : (end ?? '?')})`;
-  };
+  const uncovered = new Set(uncoveredLines);
+  const lines = sourceLines(text.slice(0, sourceLength));
   const label = (id: string | null) => {
     const position = id === null ? undefined : positions.find((candidate) => candidate.id === id);
-    return position ? labelOf(position) : null;
+    return position ? positionDescription(position) : null;
   };
   const appearsUnder = (fact: Fact): string | null => {
     if (fact.span[0] >= sourceLength) {
@@ -41,7 +45,12 @@ export function judgeEvidence(facts: readonly Fact[], text: string, sourceLength
       return about ? `the user's answer about ${about}` : "the user's answer";
     }
     const before = positions.filter((position) => position.span[0] <= fact.span[0]).at(-1);
-    return before ? labelOf(before) : null;
+    if (!before) return null;
+    const unrecognizedBetween = lines.some(
+      ({ span, text: line }) =>
+        span[0] >= before.span[1] && span[1] <= fact.span[0] && uncovered.has(line.trim()),
+    );
+    return unrecognizedBetween ? UNCLEAR : positionDescription(before);
   };
   return {
     destination: (positionId: string | null) =>
@@ -54,6 +63,45 @@ export function judgeEvidence(facts: readonly Fact[], text: string, sourceLength
         return [{ quote, appearsUnder: appearsUnder(fact) }];
       }),
   };
+}
+
+type PositionFact = Extract<Fact, { kind: 'position' }>;
+
+const UNCLEAR =
+  'unclear: unrecognized text stands between the nearest position above and this quote';
+const CURRENT_CLAIM = 'current:';
+
+/**
+ * "<title> — <company> (<start> – <end>)". The dates keep two positions with the same title and company
+ * apart; "present" is left out, because whether a job is current is itself a claim the judge checks.
+ */
+function positionDescription(position: PositionFact): string {
+  const { start, end } = position.position;
+  return `${positionLabel(position.position)} (${start ?? '?'} – ${end ?? '?'})`;
+}
+
+/**
+ * A position marked current is a claim nothing mechanical can check (the code has no words for
+ * "present"), so it goes to the judge with the position's own quote; a rejection turns it into a dates
+ * question (generation.md §3.3).
+ */
+export function currentClaims(
+  facts: readonly Fact[],
+  evidence: (factIds: readonly string[]) => Evidence[],
+): ItemToJudge[] {
+  return facts
+    .filter((fact): fact is PositionFact => fact.kind === 'position' && fact.position.current)
+    .map((fact) => ({
+      id: `${CURRENT_CLAIM}${fact.id}`,
+      text: `Still works in this role: the job "${positionLabel(fact.position)}" has not ended.`,
+      destination: positionDescription(fact),
+      evidence: evidence([fact.id]),
+      positionId: fact.id,
+    }));
+}
+
+export function isCurrentClaim(item: { itemId: string }): boolean {
+  return item.itemId.startsWith(CURRENT_CLAIM);
 }
 
 /**

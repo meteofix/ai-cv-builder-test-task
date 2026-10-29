@@ -2,6 +2,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Cv, CvQuestion, GenerationJob } from '../src/db/entities.js';
 import { replaceDocument } from '../src/generation/generate/document-write.js';
+import { removedProse } from '../src/generation/generate/source-facts.js';
 import { JobError } from '../src/generation/job-errors.js';
 import { JobEngine } from '../src/generation/job-engine.js';
 import { entityManager, resetDatabase } from './support/db.js';
@@ -10,6 +11,7 @@ import {
   extractorAnswer,
   judgeAnswer,
   pipelineHarness,
+  SAMPLE_FACTS,
   writerAnswer,
 } from './generation/pipeline-harness.js';
 
@@ -39,7 +41,16 @@ describe('generation finalize', () => {
 
   it('makes no judge call when the mechanical checks removed every item', async () => {
     fake
-      .on('extractor', extractorAnswer())
+      .on(
+        'extractor',
+        extractorAnswer({
+          facts: SAMPLE_FACTS.map((fact) =>
+            fact.kind === 'position'
+              ? { ...fact, position: { ...fact.position, current: false } }
+              : fact,
+          ),
+        }),
+      )
       .on(
         'writer',
         writerAnswer({
@@ -117,8 +128,80 @@ describe('generation finalize', () => {
     await queued();
     await app.get(JobEngine).processNext();
     const [judgeInput] = fake.inputs('judge');
-    expect(judgeInput).toContain('"destination":"Senior Engineer — Acme Corp (2021 – present)"');
-    expect(judgeInput).toContain('"appearsUnder":"Senior Engineer — Acme Corp (2021 – present)"');
+    expect(judgeInput).toContain('"destination":"Senior Engineer — Acme Corp (2021 – ?)"');
+    expect(judgeInput).toContain('"appearsUnder":"Senior Engineer — Acme Corp (2021 – ?)"');
     expect(judgeInput).toContain('"destination":"Summary"');
+  });
+
+  describe('a job marked current is judged', () => {
+    const claim = (text: string) => text.startsWith('Still works in this role');
+
+    it('asks the judge whether the job has not ended, with the position’s own quote', async () => {
+      fake
+        .on('extractor', extractorAnswer())
+        .on('writer', writerAnswer())
+        .on('judge', judgeAnswer());
+      await queued();
+      await app.get(JobEngine).processNext();
+      const [judgeInput] = fake.inputs('judge');
+      expect(judgeInput).toContain('Still works in this role');
+      expect(judgeInput).toContain('"quote":"Senior Engineer, Acme Corp, 2021 – present"');
+    });
+
+    it('keeps a supported current job current, with no dates question', async () => {
+      fake
+        .on('extractor', extractorAnswer())
+        .on('writer', writerAnswer())
+        .on('judge', judgeAnswer());
+      const { cv } = await queued();
+      await app.get(JobEngine).processNext();
+      const job = (await entityManager(app).findOneOrFail(Cv, cv.id)).document!.experience[0]!;
+      expect(job).toMatchObject({ current: true, end: null });
+      const questions = await entityManager(app).find(CvQuestion, { cv: cv.id });
+      expect(questions.some((q) => q.target.field === 'dates')).toBe(false);
+    });
+
+    it('turns a rejected "still in this role" into a past job with a dates question', async () => {
+      fake
+        .on('extractor', extractorAnswer())
+        .on('writer', writerAnswer())
+        .on(
+          'judge',
+          judgeAnswer((item) => (claim(item.text) ? 'time_or_negation' : null)),
+        );
+      const { cv } = await queued();
+      await app.get(JobEngine).processNext();
+      const job = (await entityManager(app).findOneOrFail(Cv, cv.id)).document!.experience[0]!;
+      expect(job).toMatchObject({ current: false, end: null, start: '2021' });
+      const questions = await entityManager(app).find(CvQuestion, { cv: cv.id });
+      expect(questions).toContainEqual(
+        expect.objectContaining({
+          kind: 'missing',
+          answerType: 'dates',
+          target: { section: 'experience', itemId: job.id, field: 'dates' },
+        }),
+      );
+      // The claim is not prose that was left out: no "unverified" question or panel entry for it.
+      expect(questions.some((q) => q.kind === 'unverified')).toBe(false);
+      const removed = await removedProse(entityManager(app), cv.id);
+      expect(removed.some((item) => claim(item.text))).toBe(false);
+    });
+
+    it('fails closed: a current job without a verdict becomes a dates question too', async () => {
+      fake
+        .on('extractor', extractorAnswer())
+        .on('writer', writerAnswer())
+        .on(
+          'judge',
+          judgeAnswer(
+            () => null,
+            (item) => claim(item.text),
+          ),
+        );
+      const { cv } = await queued();
+      await app.get(JobEngine).processNext();
+      const job = (await entityManager(app).findOneOrFail(Cv, cv.id)).document!.experience[0]!;
+      expect(job).toMatchObject({ current: false, end: null });
+    });
   });
 });

@@ -141,4 +141,24 @@ describe('judgeEvidence', () => {
       { quote: answer, appearsUnder: "the user's answer about Senior Engineer — Acme (? – ?)" },
     ]);
   });
+
+  it('reports the placement as unclear when unrecognized lines lie between the position and the quote', () => {
+    // The extractor missed the "Engineer, Globex" heading, so Globex's bullet seems to stand under Acme.
+    const { evidence } = judgeEvidence(
+      facts.filter((fact) => fact.id !== 'f3'),
+      source,
+      source.length,
+      ['Engineer, Globex'],
+    );
+    expect(evidence(['f4'])).toEqual([
+      {
+        quote: 'Built search.',
+        appearsUnder:
+          'unclear: unrecognized text stands between the nearest position above and this quote',
+      },
+    ]);
+    expect(evidence(['f2'])).toEqual([
+      { quote: 'Led billing.', appearsUnder: 'Senior Engineer — Acme (? – ?)' },
+    ]);
+  });
 });

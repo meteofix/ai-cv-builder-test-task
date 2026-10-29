@@ -165,6 +165,7 @@ export class ApplyAnswerHandler implements JobHandler {
       [...facts.facts, ...facts.answers, written.answerFact],
       withAnswers(text, [...facts.answers, written.answerFact]),
       text.length,
+      facts.uncoveredLines,
     );
     const positionId = positionOf(target);
     const items = written.items.map((item) => ({

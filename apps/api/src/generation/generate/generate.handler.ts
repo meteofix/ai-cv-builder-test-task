@@ -10,7 +10,13 @@ import { Clock } from '../clock.js';
 import type { JobHandler, JobRun } from '../job-handler.js';
 import { LeaseLostError } from '../job-errors.js';
 import { EXTRACTOR_SYSTEM, extractorInput, WRITER_SYSTEM, writerInput } from './prompts.js';
-import { judgeEvidence, judgeProse, type ItemToJudge } from './judge-step.js';
+import {
+  currentClaims,
+  isCurrentClaim,
+  judgeEvidence,
+  judgeProse,
+  type ItemToJudge,
+} from './judge-step.js';
 import { checkProse } from './prose-checks.js';
 import { buildQuestions } from './questions.js';
 import {
@@ -125,8 +131,13 @@ export class GenerateHandler implements JobHandler {
 
   private async judge(run: JobRun, cv: ICv, text: string, source: SourceFacts): Promise<void> {
     const written = writeResultSchema.parse(run.job.state.write);
-    const { destination, evidence } = judgeEvidence(source.facts, text, text.length);
-    const items: ItemToJudge[] = [
+    const { destination, evidence } = judgeEvidence(
+      source.facts,
+      text,
+      text.length,
+      source.uncoveredLines,
+    );
+    const prose: ItemToJudge[] = [
       ...written.summary.map((item) => ({ ...item, positionId: null })),
       ...written.positions.flatMap(({ positionId, bullets }) =>
         bullets.map((item) => ({ ...item, positionId })),
@@ -138,6 +149,7 @@ export class GenerateHandler implements JobHandler {
       destination: destination(positionId),
       evidence: evidence(factIds),
     }));
+    const items = [...prose, ...currentClaims(source.facts, evidence)];
     const removed = await judgeProse(this.llm, run, items, cv.targetRole);
     this.log.info(
       {
@@ -162,9 +174,19 @@ export class GenerateHandler implements JobHandler {
       if (!cv || !source) throw new LeaseLostError();
       const facts = required(source.facts);
       const rejected = new Set(judged.removed.map((item) => item.itemId));
+      // A rejected "still in this role" makes the job not current; its open end becomes a dates question.
+      const notCurrent = new Set(
+        judged.removed.filter(isCurrentClaim).flatMap((item) => item.positionId ?? []),
+      );
+      const judgedFacts = facts.facts.map((fact) =>
+        fact.kind === 'position' && notCurrent.has(fact.id)
+          ? { ...fact, position: { ...fact.position, current: false } }
+          : fact,
+      );
+      const removedProse = judged.removed.filter((item) => !isCurrentClaim(item));
       const document = buildSkeleton({
         source: source.text,
-        facts: facts.facts,
+        facts: judgedFacts,
         targetRole: cv.targetRole,
         locale: facts.locale,
         prose: passingProse(written, rejected),
@@ -175,8 +197,8 @@ export class GenerateHandler implements JobHandler {
       const questions = buildQuestions({
         source: source.text,
         document: valid,
-        facts: facts.facts,
-        removed: [...written.removed, ...judged.removed],
+        facts: judgedFacts,
+        removed: [...written.removed, ...removedProse],
       });
       // One flush gives every row the same time; the API orders questions by `createdAt`.
       questions.forEach((question, i) => {

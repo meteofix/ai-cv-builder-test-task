@@ -160,7 +160,7 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 
 ## 014. Extra sections are copied verbatim
 
-**Decision.** Sections beyond the required five (certifications, languages, projects, volunteering) are extracted as facts with the section heading from the source and copied verbatim into `additional` without the writer; the judge does not check verbatim copies. One item per source line; dates stay inside the text; a heading not found in the source falls back to "Additional information". Self-descriptions ("About me") become `profile` facts that only the summary may use.
+**Decision.** Sections beyond the required five (certifications, languages, projects, volunteering) are extracted as facts with the section heading from the source and copied verbatim into `additional` without the writer; the judge does not check verbatim copies. One item per source line; dates stay inside the text; a heading not found in the source falls back to "Additional information". Self-descriptions ("About me", or the title line under the name) become `profile` facts that only the summary may use.
 **Revision.** Was: only the five sections named in the task → now: extra sections are kept, because dropping them throws away what the user wrote.
 
 ## 015. The CV keeps the source language

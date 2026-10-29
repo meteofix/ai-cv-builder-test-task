@@ -1,0 +1,31 @@
+Daniel Okafor
+Product Designer
+daniel.okafor@example.com
+London, United Kingdom
+
+About me
+Designer who turns messy research into simple interfaces. Comfortable in Figma, user interviews and design systems.
+
+Work experience
+
+Lead Product Designer — Brightcart, 2022 – present
+- Redesigned the checkout flow, which raised the completed-order rate by 12%.
+- Built the Brightcart design system in Figma with 140 components used by four product teams.
+- Worked on various projects across the company.
+
+Product Designer — Fernway Travel
+- Ran 30 user interviews for the trip-planner app and turned them into a prioritised backlog.
+- Helped the team with different tasks.
+
+Junior UX Designer — Studio Kite, 2016 – 2018
+- Made wireframes and clickable prototypes for client websites.
+
+Education
+Northbank School of Design, London — BA Design, 2012 – 2015
+
+Skills
+Figma, user research, prototyping, design systems, usability testing, HTML, CSS
+
+Certificates
+Google UX Design Certificate, 2021
+Nielsen Norman Group UX Certification, 2023

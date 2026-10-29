@@ -1,0 +1,35 @@
+Olena Marchuk
+Backend Engineer
+Lviv, Ukraine
+olena.marchuk@example.com
++380 00 123 4567
+github.com/example-olena
+
+Summary
+Backend engineer with nine years of experience building payment and logistics services in Node.js and Go. I like owning a service end to end, from the database schema to the on-call rotation.
+
+Experience
+
+Senior Backend Engineer, Parcelly (Lviv), March 2021 – present
+- Designed the delivery-tracking API in Node.js and PostgreSQL that serves 40 million requests a day.
+- Cut the p95 latency of route quotes from 900 ms to 180 ms by moving pricing rules into a cached Go service.
+- Led the migration from a monolith to six services over 14 months without downtime.
+- Mentored three junior engineers and ran the backend interview loop.
+
+Backend Engineer, Paymint (Kyiv), June 2018 – February 2021
+- Built the card-payment reconciliation job in Node.js that matches 2 million transactions a night.
+- Added idempotency keys to the payments API, which removed duplicate charges reported by support.
+- Wrote the integration tests for the PSP adapters and set up their CI pipeline in GitHub Actions.
+
+Junior Developer, Kameniar Soft (Lviv), July 2017 – May 2018
+- Maintained REST endpoints of a hotel booking system in Java and Spring.
+- Fixed production bugs found by the QA team and wrote regression tests for them.
+
+Education
+Lviv Institute of Applied Mathematics, BSc in Applied Mathematics, 2013 – 2017
+
+Skills
+Node.js, TypeScript, Go, PostgreSQL, Redis, Kafka, Docker, Kubernetes, AWS, GitHub Actions
+
+Languages
+English (C1), Ukrainian (native), Polish (B1)

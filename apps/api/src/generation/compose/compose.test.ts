@@ -177,6 +177,30 @@ describe('compose — the review', () => {
     expect(questions).toEqual([]);
   });
 
+  it('an ask on a skill group puts it into "Not in your CV" instead of asking: no answer could apply', () => {
+    const review: ReviewOutput = {
+      issues: [
+        {
+          item: 'skills.1',
+          action: 'ask',
+          class: 'invented_detail',
+          text: null,
+          segments: [],
+          question: 'Did you use Kafka?',
+        },
+      ],
+    };
+    const { document, questions, analysis } = compose(source, authorAnswer(), review, ROLE);
+    expect(document.skills).toEqual([]);
+    expect(questions.filter((question) => question.target.section === 'skills')).toEqual([]);
+    expect(analysis.notInCv).toContainEqual({
+      text: 'Go, PostgreSQL (tuning, replication), Kafka',
+      reason: 'not_included',
+      context: 'Did you use Kafka?',
+      section: 'skills',
+    });
+  });
+
   it('an ask takes the item out and asks about it with the proposed text', () => {
     const review: ReviewOutput = {
       issues: [
@@ -194,9 +218,10 @@ describe('compose — the review', () => {
     expect(bulletsOf(document.experience[0]!).map((bullet) => bullet.text)).toEqual([
       'Mentored two junior developers',
     ]);
+    // The answer will rewrite the group the bullet stood in (docs/specs/generation.md §5).
     expect(questions[0]).toEqual({
       kind: 'unverified',
-      target: { section: 'experience', itemId: 'p1' },
+      target: { section: 'experience', itemId: 'p1-g1' },
       prompt: 'Was it 6 minutes for every report?',
       context: 'Cut report generation from 40 to 6 minutes',
       answerType: 'text',

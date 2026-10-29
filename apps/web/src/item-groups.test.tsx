@@ -44,6 +44,11 @@ function card(org: string) {
 const extra = () => within(screen.getByRole('region', { name: 'Additional sections' }));
 
 describe('subsections of a position', () => {
+  it('gives each subsection an element of its own, so a question about it can scroll there', async () => {
+    await mountEditor();
+    expect(document.getElementById('item-pos-1-g1')).toHaveAttribute('role', 'group');
+  });
+
   it('a plain list gets a title through "Add a subsection title"; clearing it makes it plain again', async () => {
     const { user, puts } = await mountEditor();
     const position = card('Brightpath Studio');

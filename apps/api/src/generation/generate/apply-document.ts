@@ -1,6 +1,23 @@
-import { bulletsOf, LIMITS, type Answer, type CvDocument, type QuestionTarget } from '@cv/shared';
-import type { ProseItem } from './schemas.js';
-import { summary } from './skeleton.js';
+import { randomUUID } from 'node:crypto';
+import {
+  LIMITS,
+  type Answer,
+  type CvDocument,
+  type NotInCvItem,
+  type QuestionTarget,
+} from '@cv/shared';
+import {
+  carried,
+  partGroups,
+  partKept,
+  partOf,
+  partRewritten,
+  partRoom,
+  type GroupPart,
+  type PartItem,
+  type Scope,
+} from '../compose/answer-part.js';
+import { endsWithStop, inStyle } from '../compose/stops.js';
 
 /** Fields a text answer sets directly, without the LLM. */
 const DIRECT_FIELDS = ['company', 'title', 'location', 'institution', 'degree'] as const;
@@ -16,25 +33,40 @@ export const NOTES = {
   partial: 'Some of the new text could not be verified and was left out.',
   nothing: 'None of the new text could be verified, so this part of your CV was left as it was.',
   ownSummary: 'You wrote the summary yourself, so it was left as it was.',
+  instruction:
+    'Your answer read like an instruction to the AI rather than information about you, so it was not used.',
+  dropped:
+    'Some earlier text of this part is no longer shown; it is in "Not in your CV", where you can add it back.',
 } as const;
+
+/** Why an earlier item is in "Not in your CV" after an answer replaced its part. */
+export const DROPPED_REASON = 'Taken out when the CV was updated from your answer';
 
 export type Patch =
   | { kind: 'dates'; answer: Extract<Answer, { type: 'dates' }> }
   | { kind: 'field'; field: DirectField; value: string }
-  | { kind: 'bullets'; bullets: readonly ProseItem[] }
-  | { kind: 'summary'; sentences: readonly ProseItem[] };
+  /** The reviewed new items of a content answer's part; `left` is how many the review left out. */
+  | { kind: 'part'; scope: Scope; items: readonly PartItem[]; left: number };
 
 export type PatchResult =
   | { kind: 'gone' | 'mismatch' }
-  /** `document` is the same object when nothing could be applied; `note` explains a partial result. */
-  | { kind: 'patched'; document: CvDocument; partial: boolean; note: string | null };
+  /**
+   * `document` is the same object when nothing could be applied; `note` explains a partial result;
+   * `dropped` are earlier items the answer's part no longer shows, for "Not in your CV".
+   */
+  | {
+      kind: 'patched';
+      document: CvDocument;
+      partial: boolean;
+      note: string | null;
+      dropped: NotInCvItem[];
+    };
 
-const patched = (document: CvDocument, note: string | null = null): PatchResult => ({
-  kind: 'patched',
-  document,
-  partial: note !== null,
-  note,
-});
+const patched = (
+  document: CvDocument,
+  note: string | null = null,
+  dropped: NotInCvItem[] = [],
+): PatchResult => ({ kind: 'patched', document, partial: note !== null, note, dropped });
 
 /**
  * The document with only the answer's target changed. Everything else keeps its object, so it stays byte
@@ -45,17 +77,8 @@ export function applyPatch(
   target: QuestionTarget,
   patch: Patch,
 ): PatchResult {
-  if (target.section === 'summary') {
-    if (patch.kind !== 'summary') return { kind: 'mismatch' };
-    // A summary without fact references was written by the user (an edit clears them).
-    if (document.summary.factIds.length === 0 && document.summary.text.trim()) {
-      return patched(document, NOTES.ownSummary);
-    }
-    if (patch.sentences.length === 0) return patched(document, NOTES.nothing);
-    const next = summary(patch.sentences);
-    const cut = next.text.length < patch.sentences.map((s) => s.text).join(' ').length;
-    return patched({ ...document, summary: next }, cut ? NOTES.partial : null);
-  }
+  if (patch.kind === 'part') return applyPart(document, target, patch);
+  if (target.section === 'summary') return { kind: 'mismatch' };
 
   if (target.section === 'education') {
     const index = document.education.findIndex((item) => item.id === target.itemId);
@@ -65,7 +88,7 @@ export function applyPatch(
       const next = { ...school, start: patch.answer.start, end: patch.answer.end };
       return patched({ ...document, education: document.education.with(index, next) });
     }
-    if (patch.kind === 'field' && (patch.field === 'institution' || patch.field === 'degree')) {
+    if (patch.field === 'institution' || patch.field === 'degree') {
       const next = { ...school, [patch.field]: patch.value };
       return patched({ ...document, education: document.education.with(index, next) });
     }
@@ -78,37 +101,18 @@ export function applyPatch(
   const index = document.experience.findIndex((item) => item.id === target.itemId);
   const job = document.experience[index];
   if (!job) return { kind: 'gone' };
-  const replace = (next: typeof job, note: string | null = null) =>
-    patched({ ...document, experience: document.experience.with(index, next) }, note);
-  switch (patch.kind) {
-    case 'dates':
-      return replace({
-        ...job,
-        start: patch.answer.start,
-        end: patch.answer.current ? null : patch.answer.end,
-        current: patch.answer.current,
-      });
-    case 'field':
-      if (patch.field === 'institution' || patch.field === 'degree') return { kind: 'mismatch' };
-      return replace({ ...job, [patch.field]: patch.value });
-    case 'bullets': {
-      if (patch.bullets.length === 0) return patched(document, NOTES.nothing);
-      // Bullets the user wrote or edited (no factIds) always stay, after the regenerated ones.
-      const own = bulletsOf(job).filter((bullet) => bullet.factIds.length === 0);
-      const room = Math.max(0, LIMITS.maxBulletsPerPosition - own.length);
-      const fresh = patch.bullets.slice(0, room).map(({ id, text, factIds }) => ({
-        id,
-        text,
-        factIds: [...factIds],
-      }));
-      const note = fresh.length < patch.bullets.length ? NOTES.partial : null;
-      // The old answer flow knows no groups; it goes until the new one replaces it (V2-Z3).
-      const groups = [{ id: `${job.id}-g1`, title: null, items: [...fresh, ...own] }];
-      return replace({ ...job, groups }, note);
-    }
-    case 'summary':
-      return { kind: 'mismatch' };
+  const replace = (next: typeof job) =>
+    patched({ ...document, experience: document.experience.with(index, next) });
+  if (patch.kind === 'dates') {
+    return replace({
+      ...job,
+      start: patch.answer.start,
+      end: patch.answer.current ? null : patch.answer.end,
+      current: patch.answer.current,
+    });
   }
+  if (patch.field === 'institution' || patch.field === 'degree') return { kind: 'mismatch' };
+  return replace({ ...job, [patch.field]: patch.value });
 }
 
 /** The dates or the title of an extra entry; an answer about a whole section has no field to set. */
@@ -135,4 +139,93 @@ function applyToEntry(document: CvDocument, target: QuestionTarget, patch: Patch
   return document.additional.some((section) => section.id === target.itemId)
     ? { kind: 'mismatch' }
     : { kind: 'gone' };
+}
+
+/**
+ * A content answer's part rewritten (docs/specs/generation.md §5). One item: it joins the part after
+ * everything already there. A group or the summary: the new items replace those the AI wrote, followed by
+ * the person's own; an earlier item no new item carries (cites all its segments) goes to "Not in your
+ * CV", so nothing disappears silently. The part is found again in the document as it is now, so an edit
+ * made while the models wrote is kept.
+ */
+function applyPart(
+  document: CvDocument,
+  target: QuestionTarget,
+  patch: Extract<Patch, { kind: 'part' }>,
+): PatchResult {
+  const part = partOf(document, target, patch.scope);
+  if (!part) return { kind: 'gone' };
+  // A summary without segments was written by the person (an edit clears them).
+  if (part.kind === 'summary' && !document.summary.factIds.length && document.summary.text.trim()) {
+    return patched(document, NOTES.ownSummary);
+  }
+  const groups = part.kind === 'group' ? partGroups(document, part) : [];
+  const full =
+    part.kind === 'group' && part.group === null && groups.length >= LIMITS.maxGroupsPerList;
+  const room = full ? 0 : partRoom(document, part);
+  // New bullets follow the ending style the CV already has; the rest of it is not touched.
+  const withStop = endsWithStop(document);
+  const style = (text: string) =>
+    part.kind === 'group' && part.section === 'experience' ? inStyle(text, withStop) : text;
+  const fresh = patch.items.slice(0, room).map((item) => ({
+    id: randomUUID(),
+    text: style(item.text),
+    factIds: item.factIds.slice(0, LIMITS.maxFactIds),
+  }));
+  if (fresh.length === 0) return patched(document, NOTES.nothing);
+
+  const owner =
+    part.kind === 'summary'
+      ? undefined
+      : part.section === 'experience'
+        ? document.experience[part.job]?.id
+        : document.additional[part.index]?.entries[part.entry]?.id;
+  const dropped = partRewritten(document, part)
+    .filter((old) => !carried(old, fresh, part))
+    .map((old): NotInCvItem => ({
+      text: old.text,
+      reason: 'not_included',
+      context: DROPPED_REASON,
+      section: part.kind === 'summary' ? 'summary' : part.section,
+      ...(owner ? { itemId: owner } : {}),
+    }));
+  const notes = [
+    patch.left > 0 || fresh.length < patch.items.length ? NOTES.partial : null,
+    dropped.length > 0 ? NOTES.dropped : null,
+  ].filter((note) => note !== null);
+  const note = notes.length > 0 ? notes.join(' ') : null;
+
+  if (part.kind === 'summary') {
+    const all = [...partKept(document, part), ...fresh];
+    const text = all.map((item) => item.text).join(' ');
+    const factIds = [...new Set(all.flatMap((item) => item.factIds))].slice(0, LIMITS.maxFactIds);
+    return patched({ ...document, summary: { text, factIds } }, note, dropped);
+  }
+  const current = part.group === null ? undefined : groups[part.group];
+  const before = current?.items ?? [];
+  const items =
+    part.scope === 'item'
+      ? [...before, ...fresh]
+      : [...fresh, ...before.filter((item) => item.factIds.length === 0)];
+  const next = current
+    ? groups.with(part.group ?? 0, { ...current, items })
+    : [...groups, { id: randomUUID(), title: null, items }];
+  return patched(withGroups(document, part, next), note, dropped);
+}
+
+function withGroups(
+  document: CvDocument,
+  part: GroupPart,
+  groups: CvDocument['experience'][number]['groups'],
+) {
+  if (part.section === 'experience') {
+    const job = document.experience[part.job];
+    if (!job) return document;
+    return { ...document, experience: document.experience.with(part.job, { ...job, groups }) };
+  }
+  const section = document.additional[part.index];
+  const entry = section?.entries[part.entry];
+  if (!section || !entry) return document;
+  const entries = section.entries.with(part.entry, { ...entry, groups });
+  return { ...document, additional: document.additional.with(part.index, { ...section, entries }) };
 }

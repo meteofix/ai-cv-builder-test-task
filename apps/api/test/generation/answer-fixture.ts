@@ -1,183 +1,166 @@
 import type { EntityManager } from '@mikro-orm/postgresql';
 import type { Answer, CvDocument, QuestionTarget } from '@cv/shared';
+
+/** `unverified` asks about one item the review took out; `vague` about a group, a job or the summary. */
+type QuestionKind = 'missing' | 'vague' | 'unverified';
 import type { IUser } from '../../src/db/entities.js';
-import { buildSkeleton } from '../../src/generation/generate/skeleton.js';
-import type { SourceFacts } from '../../src/generation/generate/schemas.js';
-import { verifyFacts, type ExtractedFact } from '../../src/grounding/index.js';
-import type { TransportRequest } from '../../src/llm/llm-transport.js';
-import { userText } from './fake-llm.js';
+import type { SourceAnalysis } from '../../src/generation/compose/compose.js';
 import { createCv, createJob, createQuestion } from '../support/factories.js';
 
 /**
- * A finished CV for the `apply_answer` examples (GEN-20..GEN-22): position A (Acme, `f2`) with AI bullets
- * `a1`, `a2` and the user-written `u1`; position B (Globex, `f5`) with `b1`, `b2`; a summary.
+ * An invented CV the author and the reviewer wrote (docs/specs/generation.md §5). Segments: S1 the name,
+ * S2 job A's line, S3–S4 its bullets, S5 a subsection heading, S6 its bullet, S7 job B's line, S8–S9 its
+ * bullets, S10 a project. Job A has a plain group (two bullets citing segments and `u1`, which the person
+ * wrote) and a titled group "Mentoring"; job B has one plain group.
  */
-export const ANSWER_SOURCE = `Iryna Kovalenko
-Senior Engineer, Acme Corp, 2021 – present
-- Led the billing migration.
-- Ran the on-call rotation.
-Engineer, Globex, 2018 – 2021
-- Built the search service.
-- Cut search latency by 30%.`;
+export const ANSWER_SOURCE = [
+  'Iryna Kovalenko',
+  'Senior Engineer, Acme Corp, 2021 – present',
+  'Led the billing migration.',
+  'Kept the weekly on-call schedule.',
+  'Mentoring',
+  'Mentored two new engineers.',
+  'Engineer, Globex, 2018 – 2021',
+  'Built the search service.',
+  'Cut search latency by 30%.',
+  'Trail app: offline maps for hikers',
+].join('\n');
 
-const EXTRACTED: ExtractedFact[] = [
-  {
-    id: 'name',
-    kind: 'contact',
-    quote: 'Iryna Kovalenko',
-    contact: { field: 'fullName', value: 'Iryna Kovalenko' },
-  },
-  {
-    id: 'acme',
-    kind: 'position',
-    quote: 'Senior Engineer, Acme Corp, 2021 – present',
-    position: {
-      company: 'Acme Corp',
-      title: 'Senior Engineer',
-      location: null,
-      start: '2021',
-      end: null,
-      current: true,
-    },
-  },
-  {
-    id: 'billing',
-    kind: 'achievement',
-    quote: 'Led the billing migration.',
-    achievement: { positionId: 'acme' },
-  },
-  {
-    id: 'oncall',
-    kind: 'achievement',
-    quote: 'Ran the on-call rotation.',
-    achievement: { positionId: 'acme' },
-  },
-  {
-    id: 'globex',
-    kind: 'position',
-    quote: 'Engineer, Globex, 2018 – 2021',
-    position: {
-      company: 'Globex',
-      title: 'Engineer',
-      location: null,
-      start: '2018',
-      end: '2021',
-      current: false,
-    },
-  },
-  {
-    id: 'search',
-    kind: 'achievement',
-    quote: 'Built the search service.',
-    achievement: { positionId: 'globex' },
-  },
-  {
-    id: 'latency',
-    kind: 'achievement',
-    quote: 'Cut search latency by 30%.',
-    achievement: { positionId: 'globex' },
-  },
-];
+export const POSITION_A = 'p1';
+export const POSITION_B = 'p2';
+export const GROUP_A1 = 'p1-g1';
+export const GROUP_A2 = 'p1-g2';
+export const ENTRY = 'a1-e1';
 
-const VERIFIED = verifyFacts(ANSWER_SOURCE, EXTRACTED).facts;
-const idOf = (quote: string): string => {
-  const fact = VERIFIED.find((candidate) => candidate.quote === quote);
-  if (!fact) throw new Error(`fixture fact not found: ${quote}`);
-  return fact.id;
-};
-export const POSITION_A = idOf('Senior Engineer, Acme Corp, 2021 – present');
-export const POSITION_B = idOf('Engineer, Globex, 2018 – 2021');
+const item = (id: string, text: string, factIds: string[]) => ({ id, text, factIds });
 
+export function answerDocument(): CvDocument {
+  return {
+    locale: 'en',
+    contacts: { fullName: 'Iryna Kovalenko', email: '', phone: '', location: '', links: [] },
+    headline: 'Staff Engineer',
+    summary: { text: 'Engineer who leads migrations.', factIds: ['S2', 'S3'] },
+    experience: [
+      {
+        id: POSITION_A,
+        factId: 'S2',
+        company: 'Acme Corp',
+        title: 'Senior Engineer',
+        start: '2021',
+        end: null,
+        current: true,
+        groups: [
+          {
+            id: GROUP_A1,
+            title: null,
+            items: [
+              item('p1-b1', 'Migrated billing', ['S3']),
+              item('p1-b2', 'Ran on-call', ['S4']),
+              item('u1', 'Wrote the onboarding guide', []),
+            ],
+          },
+          {
+            id: GROUP_A2,
+            title: 'Mentoring',
+            items: [item('p1-b3', 'Mentored two new engineers', ['S6'])],
+          },
+        ],
+      },
+      {
+        id: POSITION_B,
+        factId: 'S7',
+        company: 'Globex',
+        title: 'Engineer',
+        start: '2018',
+        end: '2021',
+        current: false,
+        groups: [
+          {
+            id: 'p2-g1',
+            title: null,
+            items: [
+              item('p2-b1', 'Built search', ['S8']),
+              item('p2-b2', 'Cut search latency by 30%', ['S9']),
+            ],
+          },
+        ],
+      },
+    ],
+    education: [{ id: 'e1', institution: 'Kyiv Polytechnic Institute', start: null, end: null }],
+    skills: [],
+    additional: [
+      {
+        id: 'a1',
+        title: 'Projects',
+        entries: [
+          {
+            id: ENTRY,
+            title: 'Trail app',
+            start: null,
+            end: null,
+            groups: [
+              {
+                id: 'a1-e1-g1',
+                title: null,
+                items: [item('a1-e1-i1', 'Offline maps for hikers', ['S10'])],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function answerAnalysis(answers: string[] = []): SourceAnalysis {
+  return {
+    version: 2,
+    locale: 'en',
+    notInCv: [],
+    coverage: { contentLines: 10, notRecognized: 0, low: false },
+    orderReason: null,
+    answers,
+  };
+}
+
+/** One answered question with its queued `apply_answer` job, on the CV above (made once per test). */
 export async function answeredCv(
   em: EntityManager,
   user: IUser,
-  question: { target: QuestionTarget; answer: Answer },
+  question: { target: QuestionTarget; answer: Answer; prompt?: string; kind?: QuestionKind },
   edit: (document: CvDocument) => CvDocument = (document) => document,
 ) {
-  const facts = VERIFIED;
-  const sourceFacts: SourceFacts = {
-    locale: 'en',
-    facts,
-    sectionHeadings: [],
-    instructionSpans: [],
-    uncoveredLines: [],
-    answers: [],
-  };
-  const bullet = (id: string, text: string, factIds: string[]) => ({ id, text, factIds });
-  const document = buildSkeleton({
-    source: ANSWER_SOURCE,
-    facts,
-    targetRole: 'Staff Engineer',
-    locale: 'en',
-    prose: {
-      summary: [{ id: 's1', text: 'Engineer who leads migrations.', factIds: [POSITION_A] }],
-      bullets: new Map([
-        [
-          POSITION_A,
-          [
-            bullet('a1', 'Led the migration of billing.', [idOf('Led the billing migration.')]),
-            bullet('a2', 'Ran on-call.', [idOf('Ran the on-call rotation.')]),
-            bullet('u1', 'Wrote the onboarding guide.', []),
-          ],
-        ],
-        [
-          POSITION_B,
-          [
-            bullet('b1', 'Built search.', [idOf('Built the search service.')]),
-            bullet('b2', 'Cut search latency by 30%.', [idOf('Cut search latency by 30%.')]),
-          ],
-        ],
-      ]),
-      skills: [],
-    },
-  });
   const cv = await createCv(em, {
     user,
     targetRole: 'Staff Engineer',
-    document: edit(document),
+    document: edit(answerDocument()),
     version: 1,
-    source: { text: ANSWER_SOURCE, facts: sourceFacts },
+    source: { text: ANSWER_SOURCE, facts: answerAnalysis() },
   });
-  const row = await createQuestion(em, {
+  const asked = await answerAgain(
+    em,
     cv,
-    kind: question.answer.type === 'dates' ? 'missing' : 'vague',
-    target: question.target,
-    answerType: question.answer.type,
-    status: 'answered',
-    answer: question.answer,
-    applyStatus: 'applying',
-  });
-  const job = await createJob(em, {
-    cv,
-    kind: 'apply_answer',
-    payload: { questionId: row.id, answer: question.answer },
-    target: {
-      questionId: row.id,
-      section: question.target.section,
-      ...(question.target.itemId ? { itemId: question.target.itemId } : {}),
-    },
-  });
-  return { cv, question: row, job };
+    question.target,
+    question.answer,
+    question.prompt,
+    question.kind,
+  );
+  return { cv, ...asked };
 }
 
-/** The facts the writer was given, read back from its request. */
-export function writerFacts(request: TransportRequest<unknown>): { id: string; quote: string }[] {
-  const json =
-    /<cv_source>\n([\s\S]*)\n<\/cv_source>/.exec(userText(request))?.[1] ?? '{"facts":[]}';
-  return (JSON.parse(json) as { facts: { id: string; quote: string }[] }).facts;
-}
-
-/** One more answered question with its queued job, on a CV made by `answeredCv`. */
 export async function answerAgain(
   em: EntityManager,
-  cv: Awaited<ReturnType<typeof answeredCv>>['cv'],
+  cv: Awaited<ReturnType<typeof createCv>>,
   target: QuestionTarget,
   answer: Answer,
+  prompt = 'What exactly did you do, and what was the result?',
+  kind: QuestionKind = answer.type === 'dates' ? 'missing' : 'vague',
 ) {
   const question = await createQuestion(em, {
     cv,
-    kind: 'vague',
+    kind,
     target,
+    prompt,
     answerType: answer.type,
     status: 'answered',
     answer,

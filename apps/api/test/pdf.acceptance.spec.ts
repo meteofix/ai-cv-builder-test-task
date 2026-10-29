@@ -54,7 +54,7 @@ describe('pdf acceptance (docs/specs/pdf.md)', () => {
     const flat = text.replace(/\s+/g, ' ');
     expect(flat).toContain('Iryna Kovalenko');
     expect(flat).toContain('Acme Corp');
-    expect(flat).toContain('Led the migration of billing to TypeScript.');
+    expect(flat).toContain('Migrated billing to TypeScript.');
     expect(bytes.toString('latin1')).toContain('IBMPlexSans');
   });
 

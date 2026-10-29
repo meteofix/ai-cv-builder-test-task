@@ -56,8 +56,9 @@ export type ReviewTarget =
 /** Where a text item stands, for its question. */
 export type Place =
   | { section: 'headline' | 'summary' | 'contacts' }
-  | { section: 'experience'; job: number }
-  | { section: 'additional'; index: number };
+  /** `group`: the index of the item's group, so a question can target that group alone. */
+  | { section: 'experience'; job: number; group?: number }
+  | { section: 'additional'; index: number; entry?: number; group?: number };
 
 /** The draft as the reviewer reads it, and what each id it may answer by stands for. */
 export interface ReviewView {
@@ -84,7 +85,12 @@ export function reviewView(draft: Draft): ReviewView {
     );
   };
   // Items are numbered across the groups of one list; a titled group prints its title's id above them.
-  const groups = (prefix: string, list: readonly DraftGroup[], place: Place, max: number) => {
+  const groups = (
+    prefix: string,
+    list: readonly DraftGroup[],
+    place: Extract<Place, { section: 'experience' | 'additional' }>,
+    max: number,
+  ) => {
     let n = 0;
     list.forEach((group, g) => {
       if (group.title !== null) {
@@ -93,7 +99,7 @@ export function reviewView(draft: Draft): ReviewView {
         lines.push(`[${id}] (group title) ${JSON.stringify(group.title)}:`);
       }
       group.items.forEach((item) => {
-        text(`${prefix}.${++n}`, item, place, max);
+        text(`${prefix}.${++n}`, item, { ...place, group: g }, max);
       });
     });
   };
@@ -165,7 +171,7 @@ export function reviewView(draft: Draft): ReviewView {
         `Entry ${i + 1}.${j + 1} (from ${cited(entry.segments)}): [${n}.title] ` +
           `${JSON.stringify(entry.title)} · [${n}.dates] ${dateRange(entry.start, entry.end, false)}`,
       );
-      groups(n, entry.groups, { section: 'additional', index: i }, LIMITS.maxTextChars);
+      groups(n, entry.groups, { section: 'additional', index: i, entry: j }, LIMITS.maxTextChars);
     });
   });
   return { targets, text: lines.join('\n') };

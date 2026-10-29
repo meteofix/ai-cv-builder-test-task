@@ -120,6 +120,7 @@ export function TextGroups({ name, kind }: { name: TextGroupsPath; kind: Kind })
         return (
           <ItemGroup
             key={group.key}
+            id={value?.id}
             label={`Subsection ${index + 1}`}
             titleName={`${path}.${index}.title`}
             titlePlaceholder="Optional, for example Platform"

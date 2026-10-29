@@ -106,6 +106,8 @@ export function accountSource(input: {
     text: item.original,
     reason: 'not_included',
     context: item.question ?? UNCONFIRMED,
+    // "Add" puts a skill group back among the skills.
+    ...(item.target.kind === 'skills' ? { section: 'skills' } : {}),
   }));
   const ignored = segments
     .filter((segment) => segment.instruction)

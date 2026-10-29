@@ -165,7 +165,7 @@ export function sampleDocument(overrides: Partial<CvDocument> = {}): CvDocument 
             items: [
               {
                 id: randomUUID(),
-                text: 'Led the migration of billing to TypeScript.',
+                text: 'Migrated billing to TypeScript.',
                 factIds: [],
               },
             ],

@@ -1,5 +1,6 @@
 import type { QuestionTarget } from '@cv/shared';
 import type { Asked } from './apply-review.js';
+import type { Place } from './review.js';
 import type { AuthorOutput } from './author-schema.js';
 import { additionalId, educationId, positionId, type Draft, type DraftJob } from './draft.js';
 
@@ -74,7 +75,10 @@ export function buildQuestions(
     push({ kind: 'missing', target, prompt, context, answerType });
   };
 
-  for (const item of asked) {
+  // An answer cannot rewrite a list of skills (§5), so a doubtful skill group is not asked about: it goes
+  // to "Not in your CV" with the reviewer's question, where "Add" puts it back.
+  const findings = asked.filter((item) => item.target.kind !== 'skills');
+  for (const item of findings) {
     const { target } = item;
     if (target.kind === 'field') {
       const label = positionLabel(draft.experience[target.job] ?? { title: '', company: '' });
@@ -105,32 +109,17 @@ export function buildQuestions(
         item.context || null,
         target.field === 'dates' ? 'dates' : 'text',
       );
-    } else if (target.kind === 'title') {
-      // The review drops a doubtful group title without a question (apply-review.ts).
-    } else if (target.kind === 'skills') {
-      push({
-        kind: 'unverified',
-        target: { section: 'skills' },
-        prompt: item.question ?? PROMPTS.unverified,
-        context: item.context,
-        answerType: 'text',
-      });
-    } else {
+    } else if (target.kind === 'item') {
       const { place } = target;
-      const questionTarget: QuestionTarget =
-        place.section === 'experience'
-          ? job(place.job)
-          : place.section === 'additional'
-            ? { section: 'additional', itemId: additionalId(place.index) }
-            : { section: place.section };
       push({
         kind: 'unverified',
-        target: questionTarget,
+        target: findingTarget(place),
         prompt: item.question ?? PROMPTS.unverified,
         context: item.context,
         answerType: 'text',
       });
     }
+    // A doubtful group title is dropped without a question (apply-review.ts); skills are left out above.
   }
 
   fromFindings = false;
@@ -185,5 +174,37 @@ export function buildQuestions(
       missing(job(i, 'company'), PROMPTS.company, positionLabel(position));
   });
   // Findings come first and each is exactly one question, so the ones past the cap are the last findings.
-  return { questions: questions.slice(0, MAX_QUESTIONS), unasked: asked.slice(MAX_QUESTIONS) };
+  // `unasked`: what findings took out of the CV with no question to bring it back — skill groups, and
+  // the findings past the cap; "Not in your CV" lists both.
+  return {
+    questions: questions.slice(0, MAX_QUESTIONS),
+    unasked: [
+      ...asked.filter((item) => item.target.kind === 'skills'),
+      ...findings.slice(MAX_QUESTIONS),
+    ],
+  };
+}
+
+/**
+ * Where the answer to a doubtful item lands: its group (a job's `p1-g2`, an entry's `a1-e1-g1`), so the
+ * answer rewrites that group only (§5); the summary as a whole; a section otherwise.
+ */
+function findingTarget(place: Place): QuestionTarget {
+  if (place.section === 'experience') {
+    const owner = positionId(place.job);
+    return {
+      section: 'experience',
+      itemId: place.group === undefined ? owner : `${owner}-g${place.group + 1}`,
+    };
+  }
+  if (place.section === 'additional') {
+    const section = additionalId(place.index);
+    if (place.entry === undefined) return { section: 'additional', itemId: section };
+    const entry = `${section}-e${place.entry + 1}`;
+    return {
+      section: 'additional',
+      itemId: place.group === undefined ? entry : `${entry}-g${place.group + 1}`,
+    };
+  }
+  return { section: place.section };
 }

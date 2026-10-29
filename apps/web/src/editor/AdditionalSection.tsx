@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon';
 import { ExtraEntry } from './ExtraEntry';
 import { AddButton, UpdatingLabel } from './fields';
 import { newId } from './prepare';
+import { concerns } from './showInCv';
 
 /** A new entry starts with one empty group, so its first line can be added at once. */
 const newEntry = (): CvEntry => ({
@@ -51,7 +52,7 @@ function ExtraSection({
           index={entryIndex}
           count={entries.fields.length}
           entryId={entry.id}
-          updating={updating(entry.id)}
+          updating={concerns(target, 'additional', entry.id)}
           onMove={(to) => {
             entries.move(entryIndex, to);
           }}

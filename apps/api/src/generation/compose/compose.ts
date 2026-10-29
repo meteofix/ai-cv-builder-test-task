@@ -122,6 +122,8 @@ export const sourceAnalysisSchema = z.object({
   notInCv: z.array(notInCvItemSchema),
   coverage: sourceCoverageSchema,
   orderReason: z.string().nullable(),
+  /** The person's content answers in order: segments A1… of later answers (docs/specs/generation.md §5). */
+  answers: z.array(z.string()).default([]),
 });
 export type SourceAnalysis = z.infer<typeof sourceAnalysisSchema>;
 
@@ -174,6 +176,7 @@ export function compose(
       notInCv,
       coverage,
       orderReason: author.orderReason,
+      answers: [],
     },
     counts: {
       fixed: review.issues.filter((issue) => issue.action === 'fix').length,

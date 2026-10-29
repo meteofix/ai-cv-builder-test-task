@@ -9,6 +9,8 @@ export type TextGroupsPath =
 type TitlePath = `skills.${number}.title` | `${TextGroupsPath}.${number}.title`;
 
 interface ItemGroupProps {
+  /** The group's id: questions about the group scroll to it (`item-<id>`). */
+  id?: string | undefined;
   /** Names the group for assistive technology and its buttons: "Group 2", "Subsection 1". */
   label: string;
   titleName: TitlePath;
@@ -31,6 +33,7 @@ interface ItemGroupProps {
  * title, so the group is a plain list again.
  */
 export function ItemGroup({
+  id,
   label,
   titleName,
   titlePlaceholder,
@@ -53,7 +56,7 @@ export function ItemGroup({
   });
 
   return (
-    <div className="item-group" role="group" aria-label={label}>
+    <div className="item-group" id={id ? `item-${id}` : undefined} role="group" aria-label={label}>
       <div className="item-group__head">
         {shown ? (
           <label className="field item-group__title">

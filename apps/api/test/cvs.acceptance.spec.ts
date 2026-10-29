@@ -194,7 +194,7 @@ describe('cvs acceptance (docs/specs/cvs.md)', () => {
                 items: [
                   {
                     id: 'b1',
-                    text: 'Led the migration of billing to TypeScript.',
+                    text: 'Migrated billing to TypeScript.',
                     factIds: ['f3'],
                   },
                   { id: 'b2', text: 'Cut the build time in half.', factIds: ['f4'] },
@@ -224,7 +224,7 @@ describe('cvs acceptance (docs/specs/cvs.md)', () => {
                 items: [
                   {
                     id: 'b1',
-                    text: 'Led the migration of billing to TypeScript, on time.',
+                    text: 'Migrated billing to TypeScript, on time.',
                     factIds: ['f3'],
                   },
                   { id: 'b2', text: 'Cut the build time in half.', factIds: [] },

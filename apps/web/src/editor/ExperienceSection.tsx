@@ -9,6 +9,7 @@ import { AddButton, IconButton, UpdatingLabel } from './fields';
 import { newId } from './prepare';
 import { TextGroups } from './TextGroups';
 import { useIsDesktop } from './useIsDesktop';
+import { concerns } from './showInCv';
 
 interface PositionCardProps {
   index: number;
@@ -162,7 +163,7 @@ export function ExperienceSection({ target }: { target?: JobTarget | undefined }
             count={fields.length}
             itemId={field.id}
             open={desktop || added === field.id}
-            updating={target?.section === 'experience' && target.itemId === field.id}
+            updating={concerns(target, 'experience', field.id)}
             onMove={(to) => {
               move(index, to);
             }}

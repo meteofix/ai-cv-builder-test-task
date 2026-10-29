@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { applyVerdicts, type ItemToJudge } from './judge-step.js';
+import type { Fact } from '../../grounding/index.js';
+import { applyVerdicts, judgeEvidence, type ItemToJudge } from './judge-step.js';
 import type { JudgeOutput } from './schemas.js';
 
 const ITEMS: ItemToJudge[] = [
-  { id: 's1', text: 'Summary.', quotes: ['q'], positionId: null },
-  { id: 'b1', text: 'Bullet.', quotes: ['q'], positionId: 'f4' },
+  { id: 's1', text: 'Summary.', destination: 'Summary', evidence: [], positionId: null },
+  { id: 'b1', text: 'Bullet.', destination: 'Engineer — Acme', evidence: [], positionId: 'f4' },
 ];
 type Verdicts = JudgeOutput['verdicts'];
 
@@ -78,5 +79,66 @@ describe('applyVerdicts (fail closed)', () => {
       positionId: 'f4',
       class: 'no_verdict',
     });
+  });
+});
+
+describe('judgeEvidence', () => {
+  const source = 'Senior Engineer, Acme\n- Led billing.\nEngineer, Globex\n- Built search.';
+  const at = (text: string): [number, number] => [
+    source.indexOf(text),
+    source.indexOf(text) + text.length,
+  ];
+  const position = (id: string, title: string, company: string, quote: string): Fact => ({
+    id,
+    kind: 'position',
+    quote,
+    span: at(quote),
+    position: { company, title, location: null, start: null, end: null, current: false },
+  });
+  const facts: Fact[] = [
+    position('f1', 'Senior Engineer', 'Acme', 'Senior Engineer, Acme'),
+    // The extractor put Acme's achievement under Globex: the mechanical checks accept the assignment.
+    {
+      id: 'f2',
+      kind: 'achievement',
+      quote: 'Led billing.',
+      span: at('Led billing.'),
+      achievement: { positionId: 'f3' },
+    },
+    position('f3', 'Engineer', 'Globex', 'Engineer, Globex'),
+    {
+      id: 'f4',
+      kind: 'achievement',
+      quote: 'Built search.',
+      span: at('Built search.'),
+      achievement: { positionId: 'f3' },
+    },
+  ];
+
+  it('shows the judge where each quote stands in the source, so a moved duty is visible', () => {
+    const { destination, evidence } = judgeEvidence(facts, source, source.length);
+    expect(destination('f3')).toBe('Engineer — Globex (? – ?)');
+    expect(evidence(['f2', 'f4'])).toEqual([
+      { quote: 'Led billing.', appearsUnder: 'Senior Engineer — Acme (? – ?)' },
+      { quote: 'Built search.', appearsUnder: 'Engineer — Globex (? – ?)' },
+    ]);
+    expect(destination(null)).toBe('Summary');
+    expect(destination('f9')).toBe('Unknown position');
+  });
+
+  it('labels a fact from the user’s answer as such', () => {
+    const answer = 'I led five people.';
+    const text = `${source}\n${answer}`;
+    const fact: Fact = {
+      id: 'a1',
+      kind: 'achievement',
+      quote: answer,
+      span: [source.length + 1, text.length],
+      achievement: { positionId: 'f1' },
+    };
+    const { evidence } = judgeEvidence([...facts, fact], text, source.length);
+    expect(evidence(['a1'])).toEqual([
+      { quote: answer, appearsUnder: "the user's answer about Senior Engineer — Acme (? – ?)" },
+    ]);
   });
 });

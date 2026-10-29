@@ -1,15 +1,59 @@
+import type { Fact } from '../../grounding/index.js';
 import type { LlmClient } from '../../llm/llm-client.js';
 import type { JobRun } from '../job-handler.js';
-import { JUDGE_SYSTEM, judgeInput } from './prompts.js';
+import { JUDGE_SYSTEM, judgeInput, type Evidence } from './prompts.js';
+import { positionLabel } from './questions.js';
 import { judgeOutputSchema, type JudgeOutput, type RemovedItem } from './schemas.js';
 
 /** A prose item as the judge sees it, with where it would go in the document. */
 export interface ItemToJudge {
   id: string;
   text: string;
-  quotes: string[];
+  /** Where the item will appear: "<title> — <company>" of its position, or "Summary". */
+  destination: string;
+  evidence: Evidence[];
   /** The position of a bullet; null for a summary sentence. */
   positionId: string | null;
+}
+
+/**
+ * The evidence the judge needs to catch a duty moved between jobs: each cited quote with the position it
+ * stands under in the source (the nearest position before it), which the item's destination must match.
+ * Facts past `sourceLength` are the user's answers and say which position they answer for.
+ */
+export function judgeEvidence(facts: readonly Fact[], text: string, sourceLength: number) {
+  const positions = facts
+    .filter((fact): fact is Extract<Fact, { kind: 'position' }> => fact.kind === 'position')
+    .sort((a, b) => a.span[0] - b.span[0]);
+  const byId = new Map(facts.map((fact) => [fact.id, fact]));
+  // Dates in the label keep two positions with the same title and company apart.
+  const labelOf = (position: Extract<Fact, { kind: 'position' }>) => {
+    const { start, end, current } = position.position;
+    return `${positionLabel(position.position)} (${start ?? '?'} – ${current ? 'present' : (end ?? '?')})`;
+  };
+  const label = (id: string | null) => {
+    const position = id === null ? undefined : positions.find((candidate) => candidate.id === id);
+    return position ? labelOf(position) : null;
+  };
+  const appearsUnder = (fact: Fact): string | null => {
+    if (fact.span[0] >= sourceLength) {
+      const about = fact.kind === 'achievement' ? label(fact.achievement.positionId) : null;
+      return about ? `the user's answer about ${about}` : "the user's answer";
+    }
+    const before = positions.filter((position) => position.span[0] <= fact.span[0]).at(-1);
+    return before ? labelOf(before) : null;
+  };
+  return {
+    destination: (positionId: string | null) =>
+      positionId === null ? 'Summary' : (label(positionId) ?? 'Unknown position'),
+    evidence: (factIds: readonly string[]): Evidence[] =>
+      factIds.flatMap((id) => {
+        const fact = byId.get(id);
+        if (!fact) return [];
+        const quote = text.slice(fact.span[0], fact.span[1]).replace(/\s+/g, ' ').trim();
+        return [{ quote, appearsUnder: appearsUnder(fact) }];
+      }),
+  };
 }
 
 /**
@@ -51,7 +95,12 @@ export async function judgeProse(
     role: 'judge',
     system: JUDGE_SYSTEM,
     input: judgeInput({
-      items: items.map(({ id, text, quotes }) => ({ id, text, quotes })),
+      items: items.map(({ id, text, destination, evidence }) => ({
+        id,
+        text,
+        destination,
+        evidence,
+      })),
       targetRole,
     }),
     schema: judgeOutputSchema,

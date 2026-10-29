@@ -49,11 +49,11 @@ You get the verified facts of the CV, including a new fact with the user's answe
 export const JUDGE_SYSTEM = `You check that CV text is supported by the quotes it cites.
 ${DATA_RULE}
 
-For every item give a verdict with its itemId. An item is supported only when everything it states follows from its quotes. Otherwise set supported: false and one class:
+Each item has a destination (the position it will appear under, or Summary) and evidence: the quotes it cites, each with appearsUnder — the nearest position heading above the quote in the CV text (only its place in the text; null when no position comes before it, and a quote in a later section such as Volunteering may sit under the last job). For every item give a verdict with its itemId. An item is supported only when everything it states follows from its quotes, and a bullet's quotes stand under its destination. Otherwise set supported: false and one class:
 - role_keyword: a skill or keyword of the target role that the quotes do not contain;
 - unsupported_claim: a qualitative claim, scale or result the quotes do not support;
 - wrong_reference: the cited quotes are about something else;
-- moved_between_jobs: a duty taken from another position;
+- moved_between_jobs: a duty taken from another position (a quote stands under a different position than the destination);
 - invented_trait_or_domain: a personality trait, industry or domain not in the quotes;
 - time_or_negation: distorted time, duration, sequence or a negation.
 When in doubt, the item is not supported. Do not rate style.`;
@@ -81,10 +81,18 @@ export function writerInput(input: {
   ].join('\n');
 }
 
+export interface Evidence {
+  quote: string;
+  /** The position this quote stands under in the source, or null when it stands under none. */
+  appearsUnder: string | null;
+}
+
 export interface JudgedItem {
   id: string;
   text: string;
-  quotes: string[];
+  /** The position the item will appear under, or "Summary". */
+  destination: string;
+  evidence: Evidence[];
 }
 
 export function judgeInput(input: { items: readonly JudgedItem[]; targetRole: string }): string {

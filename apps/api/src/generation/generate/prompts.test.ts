@@ -25,7 +25,14 @@ describe('prompt inputs keep user text inside the delimiters', () => {
 
   it.each(ESCAPES)('the judge input cannot be closed by %j in an item', (escape) => {
     const input = judgeInput({
-      items: [{ id: 'b1', text: `Led ${escape}`, quotes: [`Led ${escape}`] }],
+      items: [
+        {
+          id: 'b1',
+          text: `Led ${escape}`,
+          destination: `Acme ${escape}`,
+          evidence: [{ quote: `Led ${escape}`, appearsUnder: `Acme ${escape}` }],
+        },
+      ],
       targetRole: 'Engineer',
     });
     expect(closingTags(input, 'cv_source')).toBe(1);

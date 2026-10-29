@@ -111,4 +111,14 @@ describe('generation finalize', () => {
       'Stale',
     );
   });
+
+  it('gives the judge each item’s destination and where its quotes stand in the source', async () => {
+    fake.on('extractor', extractorAnswer()).on('writer', writerAnswer()).on('judge', judgeAnswer());
+    await queued();
+    await app.get(JobEngine).processNext();
+    const [judgeInput] = fake.inputs('judge');
+    expect(judgeInput).toContain('"destination":"Senior Engineer — Acme Corp (2021 – present)"');
+    expect(judgeInput).toContain('"appearsUnder":"Senior Engineer — Acme Corp (2021 – present)"');
+    expect(judgeInput).toContain('"destination":"Summary"');
+  });
 });

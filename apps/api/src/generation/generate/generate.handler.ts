@@ -10,7 +10,7 @@ import { Clock } from '../clock.js';
 import type { JobHandler, JobRun } from '../job-handler.js';
 import { LeaseLostError } from '../job-errors.js';
 import { EXTRACTOR_SYSTEM, extractorInput, WRITER_SYSTEM, writerInput } from './prompts.js';
-import { judgeProse, type ItemToJudge } from './judge-step.js';
+import { judgeEvidence, judgeProse, type ItemToJudge } from './judge-step.js';
 import { checkProse } from './prose-checks.js';
 import { buildQuestions } from './questions.js';
 import {
@@ -21,7 +21,7 @@ import {
   type SourceFacts,
   type WriteResult,
 } from './schemas.js';
-import { buildSkeleton, verbatim, type Prose } from './skeleton.js';
+import { buildSkeleton, type Prose } from './skeleton.js';
 import { replaceDocument } from './document-write.js';
 import { loadSource, requiredFacts as required } from './source-facts.js';
 
@@ -125,12 +125,7 @@ export class GenerateHandler implements JobHandler {
 
   private async judge(run: JobRun, cv: ICv, text: string, source: SourceFacts): Promise<void> {
     const written = writeResultSchema.parse(run.job.state.write);
-    const byId = new Map(source.facts.map((fact) => [fact.id, fact]));
-    const quotes = (factIds: readonly string[]) =>
-      factIds.flatMap((factId) => {
-        const fact = byId.get(factId);
-        return fact ? [verbatim(text, fact)] : [];
-      });
+    const { destination, evidence } = judgeEvidence(source.facts, text, text.length);
     const items: ItemToJudge[] = [
       ...written.summary.map((item) => ({ ...item, positionId: null })),
       ...written.positions.flatMap(({ positionId, bullets }) =>
@@ -140,7 +135,8 @@ export class GenerateHandler implements JobHandler {
       id,
       text: itemText,
       positionId,
-      quotes: quotes(factIds),
+      destination: destination(positionId),
+      evidence: evidence(factIds),
     }));
     const removed = await judgeProse(this.llm, run, items, cv.targetRole);
     this.log.info(

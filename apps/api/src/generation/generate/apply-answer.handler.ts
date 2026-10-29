@@ -14,9 +14,9 @@ import { JobError, LeaseLostError } from '../job-errors.js';
 import type { ClaimedJob } from '../job-store.js';
 import { applyPatch, isDirectField, NOTES, type Patch } from './apply-document.js';
 import { replaceDocument } from './document-write.js';
-import { judgeProse } from './judge-step.js';
+import { judgeEvidence, judgeProse } from './judge-step.js';
 import { APPLY_BULLETS_SYSTEM, APPLY_SUMMARY_SYSTEM, writerInput } from './prompts.js';
-import { proseChecker, quotesOf } from './prose-checks.js';
+import { proseChecker } from './prose-checks.js';
 import {
   applyWriteResultSchema,
   bulletsRewriteSchema,
@@ -161,15 +161,17 @@ export class ApplyAnswerHandler implements JobHandler {
     target: QuestionTarget,
   ): Promise<void> {
     const written = applyWriteResultSchema.parse(run.job.state.write);
-    const quotes = quotesOf(
+    const { destination, evidence } = judgeEvidence(
       [...facts.facts, ...facts.answers, written.answerFact],
       withAnswers(text, [...facts.answers, written.answerFact]),
+      text.length,
     );
     const positionId = positionOf(target);
     const items = written.items.map((item) => ({
       id: item.id,
       text: item.text,
-      quotes: quotes(item.factIds),
+      destination: destination(positionId),
+      evidence: evidence(item.factIds),
       positionId,
     }));
     const removed = await judgeProse(this.llm, run, items, cv.targetRole);

@@ -543,18 +543,21 @@ describe('verifyFacts', () => {
     expect(facts[0]).toMatchObject({ contact: { value } });
   });
 
-  it('finds a link after a long run of letters quickly', () => {
-    const source = `${'a'.repeat(40_000)} https://github.com/iryna-k`;
+  it('finds a link after a long run of letters quickly, even after partial occurrences', () => {
+    // Each rejected occurrence looks back for a scheme; over the whole source that took about a second
+    // per occurrence, so the look-back window keeps this well under the bound.
+    const partial = ' .github.com/iryna-k'.repeat(4);
+    const source = `${'a'.repeat(45_000)}${partial} https://github.com/iryna-k`;
     const started = performance.now();
     const { facts } = verifyFacts(source, [
       {
         id: 'c',
         kind: 'contact',
-        quote: 'github.com/iryna-k',
+        quote: source,
         contact: { field: 'link', value: 'github.com/iryna-k' },
       },
     ]);
     expect(facts[0]).toMatchObject({ contact: { value: 'https://github.com/iryna-k' } });
-    expect(performance.now() - started).toBeLessThan(1_000);
+    expect(performance.now() - started).toBeLessThan(1_500);
   });
 });

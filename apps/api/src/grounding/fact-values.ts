@@ -123,8 +123,9 @@ function widen(text: string, start: number, end: number, field: 'email' | 'link'
   if (field === 'phone') {
     if (text[from - 1] === '+') from--;
     // An area code in brackets belongs to the number (`(050) 123`); brackets around it do not.
-    const close = text.indexOf(')', from);
-    if (text[from - 1] === '(' && close !== -1 && close < to && DIGIT.test(text[close - 1] ?? '')) {
+    // Only inside the match: a search to the end of the source per candidate would be O(n²).
+    const close = text.lastIndexOf(')', to - 1);
+    if (text[from - 1] === '(' && close >= from && DIGIT.test(text[close - 1] ?? '')) {
       from--;
     }
     if (text[from - 1] === '+') from--;

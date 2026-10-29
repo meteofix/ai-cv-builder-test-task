@@ -1,5 +1,11 @@
 import { experienceGroups } from '@cv/shared';
-import { sourceLines, type Fact } from '../../grounding/index.js';
+import {
+  normalizeText,
+  overlaps,
+  sourceLines,
+  type Fact,
+  type Span,
+} from '../../grounding/index.js';
 import type { LlmClient } from '../../llm/llm-client.js';
 import type { JobRun } from '../job-handler.js';
 import { JUDGE_SYSTEM, judgeInput, type Evidence } from './prompts.js';
@@ -29,6 +35,10 @@ export function judgeEvidence(
   text: string,
   sourceLength: number,
   uncoveredLines: readonly string[],
+  /** The extractor's section headings: a heading between a job and its bullet is no boundary. */
+  sectionHeadings: readonly string[] = [],
+  /** Instruction lines: never shown to the judge, which they could try to steer. */
+  instructionSpans: readonly Span[] = [],
 ) {
   const positions = facts
     .filter((fact): fact is PositionFact => fact.kind === 'position')
@@ -40,6 +50,30 @@ export function judgeEvidence(
     const position = id === null ? undefined : positions.find((candidate) => candidate.id === id);
     return position ? positionDescription(position) : null;
   };
+  // Lines between a position and a quote that belong to that position's block (its titles and their
+  // bullets) explain themselves; any other line — one nobody recognized, a heading, or a line another
+  // fact quotes, such as the line of a dropped job that a skill also covers — goes to the judge.
+  const blockOf = new Map<string, Span[]>();
+  for (const group of experienceGroups(
+    positions.map((fact) => ({ id: fact.id, company: fact.position.company })),
+  )) {
+    const ids = new Set(group.map((position) => position.id));
+    const spans = facts
+      .filter(
+        (fact) =>
+          (fact.kind === 'position' && ids.has(fact.id)) ||
+          (fact.kind === 'achievement' && ids.has(fact.achievement.positionId ?? '')),
+      )
+      .map((fact) => fact.span);
+    for (const id of ids) blockOf.set(id, spans);
+  }
+  const headings = new Set(sectionHeadings.map((heading) => normalizeText(heading).toLowerCase()));
+  /** A line between a job and a quote that is not part of the job's block and is no heading. */
+  const foreign = (span: Span, line: string, block: readonly Span[]) =>
+    HAS_LETTER.test(line) &&
+    !headings.has(normalizeText(line).toLowerCase()) &&
+    !instructionSpans.some((instruction) => overlaps(instruction, span)) &&
+    (uncovered.has(line.trim()) || !block.some((covering) => overlaps(covering, span)));
   // Consecutive positions of one company whose title lines are stacked (no bullet between them) share
   // the bullets that follow the last one: such a quote stands under each of them (cv-template 5a).
   const stackedLast = new Map<string, Set<string>>();
@@ -59,7 +93,9 @@ export function judgeEvidence(
       ) &&
       !lines.some(
         ({ span, text: line }) =>
-          span[0] >= first.span[1] && span[1] <= last.span[0] && uncovered.has(line.trim()),
+          span[0] >= first.span[1] &&
+          span[1] <= last.span[0] &&
+          foreign(span, line, blockOf.get(first.id) ?? []),
       );
     if (stacked) stackedLast.set(last.id, new Set(group.map((position) => position.id)));
   }
@@ -71,10 +107,11 @@ export function judgeEvidence(
     const before = positions.filter((position) => position.span[0] <= fact.span[0]).at(-1);
     if (!before) return { appearsUnder: null };
     const shared = destination !== null && stackedLast.get(before.id)?.has(destination) === true;
+    const own = blockOf.get(before.id) ?? [];
     const between = lines
       .filter(
         ({ span, text: line }) =>
-          span[0] >= before.span[1] && span[1] <= fact.span[0] && uncovered.has(line.trim()),
+          span[0] >= before.span[1] && span[1] <= fact.span[0] && foreign(span, line, own),
       )
       .map(({ text: line }) => line.trim().slice(0, MAX_LINE_CHARS));
     // A missed heading tends to open the gap (followed by its dates and location), a sub-heading to close
@@ -108,6 +145,7 @@ type PositionFact = Extract<Fact, { kind: 'position' }>;
 const MAX_LINES_BETWEEN = 3;
 const MAX_LINE_CHARS = 200;
 const CURRENT_CLAIM = 'current:';
+const HAS_LETTER = /\p{L}/u;
 
 /**
  * "<title> — <company> (<start> – <end>)". The dates keep two positions with the same title and company

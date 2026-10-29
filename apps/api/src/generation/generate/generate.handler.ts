@@ -108,6 +108,8 @@ export class GenerateHandler implements JobHandler {
       text,
       text.length,
       source.uncoveredLines,
+      source.sectionHeadings,
+      source.instructionSpans,
     );
     const prose: ItemToJudge[] = [
       ...written.summary.map((item) => ({ ...item, positionId: null })),

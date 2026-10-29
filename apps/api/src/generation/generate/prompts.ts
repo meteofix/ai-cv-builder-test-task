@@ -84,7 +84,7 @@ Each item has a destination (the position it will appear under, or Summary) and 
 - invented_trait_or_domain: a personality trait, industry or domain not in the quotes;
 - time_or_negation: distorted time, duration, sequence or a negation.
 An item saying someone still works in a role is supported only when its quote shows the job has not ended; otherwise reject it as time_or_negation.
-unrecognizedBefore lists lines of the CV between that heading and the quote that were not recognized (often page footers or sub-headings): reject a bullet as moved_between_jobs only when those lines name a different job or employer than its destination (a client, customer or project named under a job is part of that job, not a different one).
+unrecognizedBefore lists lines of the CV between that heading and the quote that are not part of that position's own entry (often page footers, sub-headings or headings, sometimes another job's line): reject a bullet as moved_between_jobs only when those lines name a different job or employer than its destination (a client, customer or project named under a job is part of that job, not a different one).
 When in doubt, the item is not supported. Do not rate style.`;
 
 export function extractorInput(source: string): string {

@@ -41,12 +41,14 @@ export function verifyFacts(
       drop(fact, 'instruction');
       continue;
     }
-    const checked = checkValues(fact);
+    const sourceText = source.slice(span[0], span[1]);
+    const checked = checkValues(fact, sourceText);
     if (!checked) {
       drop(fact, 'field_not_in_quote');
       continue;
     }
-    located.push({ ...checked, span });
+    // The stored quote is the source's text, so nothing downstream (the writer included) sees the model's copy.
+    located.push({ ...checked, quote: sourceText.replace(/\s+/g, ' ').trim(), span });
   }
 
   // Achievements are resolved last: their position may come later in the model's list.
@@ -62,27 +64,49 @@ export function verifyFacts(
   return { facts: renumber(kept), dropped };
 }
 
-/** The fact with values not found in its quote cleared, or null when the fact means nothing without them. */
-function checkValues(fact: ExtractedFact): ExtractedFact | null {
-  const inQuote = (value: string) => findQuote(fact.quote, value) !== null;
-  const text = (value: string) => (inQuote(value) ? value : '');
-  const optional = (value: string | null) => (value !== null && inQuote(value) ? value : null);
+/**
+ * The fact with every value taken from the source text at its span: a value not found there is cleared,
+ * or the fact is dropped when it means nothing without it. The stored value is the user's own text at the
+ * match, never the model's spelling (`ab.example.com` found as `a-b.example.com` keeps `a-b.example.com`).
+ */
+function checkValues(fact: ExtractedFact, located: string): ExtractedFact | null {
+  const index = indexText(located);
+  const fromSource = (value: string, keepSigns = false): string | null => {
+    const span = findQuote(index, value);
+    if (!span) return null;
+    let [start, end] = span;
+    // A letters-and-digits match ends on a digit: a phone keeps the `+` or brackets written around it.
+    if (keepSigns) {
+      while (start > 0 && '+('.includes(located[start - 1] ?? '')) start--;
+      if (located[end] === ')' && located.slice(start, end).includes('(')) end++;
+    }
+    return located.slice(start, end).replace(/\s+/g, ' ');
+  };
+  const text = (value: string) => fromSource(value) ?? '';
+  const optional = (value: string | null) => (value === null ? null : fromSource(value));
   // Months are not checked: only the year has to be in the quote.
   const date = (value: string | null) =>
-    value !== null && inQuote(value.slice(0, 4)) ? value : null;
+    value !== null && fromSource(value.slice(0, 4)) !== null ? value : null;
 
   switch (fact.kind) {
     case 'position': {
       const { company, title, location, start, end, current } = fact.position;
+      const verifiedStart = date(start);
+      const verifiedEnd = date(end);
+      // A verified end date contradicts "current". It wins when its year differs from the start year; an
+      // end equal to the start year may just be the start read twice, so both are dropped and the
+      // incomplete dates become a question instead of one guess silently winning.
+      const ambiguous =
+        current && verifiedEnd !== null && verifiedEnd.slice(0, 4) === verifiedStart?.slice(0, 4);
       return {
         ...fact,
         position: {
           company: text(company),
           title: text(title),
           location: optional(location),
-          start: date(start),
-          end: date(end),
-          current,
+          start: verifiedStart,
+          end: ambiguous ? null : verifiedEnd,
+          current: current && verifiedEnd === null,
         },
       };
     }
@@ -98,10 +122,14 @@ function checkValues(fact: ExtractedFact): ExtractedFact | null {
         },
       };
     }
-    case 'skill':
-      return inQuote(fact.skill.name) ? fact : null;
-    case 'contact':
-      return inQuote(fact.contact.value) ? fact : null;
+    case 'skill': {
+      const name = fromSource(fact.skill.name);
+      return name === null ? null : { ...fact, skill: { name } };
+    }
+    case 'contact': {
+      const value = fromSource(fact.contact.value, fact.contact.field === 'phone');
+      return value === null ? null : { ...fact, contact: { ...fact.contact, value } };
+    }
     default:
       return fact;
   }

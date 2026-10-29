@@ -60,11 +60,13 @@ The span is `[start, end)` in the **original** source (`end` exclusive). An empt
 ### 2. Checking an extracted fact — `verifyFacts(source, extracted, instructionSpans?) → { facts, dropped }`
 
 - The quote is not found → the fact is dropped (`dropped`, reason `quote_not_found`). It is not user text, so it is logged as a counter and shown nowhere.
-- Structural values must be found in the fact's own quote with `findQuote(quote, value)`:
+- Structural values must be found in the fact's own quote — in code, in the source text at the fact's span, which is what the quote stands for — with `findQuote`:
   - `position.company`, `position.title`, `position.location`, `education.institution`, `education.degree` — a value not found becomes `''` (company, title, institution) or `null` (location, degree); the fact stays, the gap becomes a question;
   - dates — only the year: the four digits of `start`/`end` must appear in the quote; otherwise the date becomes `null` (months are not checked);
   - `skill.name`, `contact.value` — not found → the fact is dropped (`field_not_in_quote`): a skill or contact without its value is nothing;
   - `achievement.positionId` must be the id of a kept position fact, else the fact is dropped (`unknown_position`).
+- The stored value is the source text at the match, whitespace collapsed — never the model's spelling — and so is the stored `quote` (the source text at the span). A letters-and-digits match therefore cannot change a value: `https://ab.example.com` found in `https://a-b.example.com` is stored as `https://a-b.example.com`. Such a match ends on letters or digits, so for a phone the `+` and `(` right before it and a closing `)` after it are kept (`+380 50 123 45 67`, `(050) 123-45-67`).
+- `position.current` cannot be checked against the text, but it must not contradict it: when the end date is verified (its year is in the quote), `current` becomes `false`, so the source's date wins over the model's flag — unless the end year equals the start year (it may be the start read twice): then the end is dropped too, and the incomplete dates become a question.
 - A fact whose span overlaps one of `instructionSpans` (the result of `instructionFragments`, §3) is dropped (`instruction`) before its values are checked, so an achievement of an injected position is dropped too (`unknown_position`).
 - Duplicate ids keep the first fact whose quote is found (`duplicate_id` for the later ones), so an invented fact cannot push out a real one that reuses its id; the server then renumbers kept facts `f1…fn` in source order of their spans, rewriting `positionId` references.
 - `dropped` lists `{id, kind, reason}` only, never text, so it can be logged as counters.

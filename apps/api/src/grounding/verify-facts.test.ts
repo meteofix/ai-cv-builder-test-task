@@ -121,4 +121,135 @@ describe('verifyFacts', () => {
     expect(facts.map((fact) => fact.kind)).toEqual(['position']);
     expect(dropped).toEqual([{ id: 'ach', kind: 'achievement', reason: 'instruction' }]);
   });
+
+  it.each([
+    [
+      'a URL',
+      'link',
+      'https://ab.example.com',
+      'Site: https://a-b.example.com',
+      'https://a-b.example.com',
+    ],
+    [
+      'an e-mail',
+      'email',
+      'iryna.k@example.com',
+      'Mail: iryna-k@example.com',
+      'iryna-k@example.com',
+    ],
+    ['a name in other case', 'fullName', 'IRYNA KOVALENKO', 'Iryna Kovalenko', 'Iryna Kovalenko'],
+  ] as const)(
+    'stores %s as written in the source, not as the model spelled it',
+    (_case, field, value, quote, stored) => {
+      const { facts } = verifyFacts(quote, [
+        { id: 'c', kind: 'contact', quote, contact: { field, value } },
+      ]);
+      expect(facts[0]).toMatchObject({ contact: { field, value: stored } });
+    },
+  );
+
+  it('stores company and skill names as written in the source', () => {
+    const quote = 'Engineer, ACME Corp., Node.js';
+    const { facts } = verifyFacts(quote, [
+      {
+        id: 'p',
+        kind: 'position',
+        quote,
+        position: {
+          company: 'Acme Corp',
+          title: 'engineer',
+          location: null,
+          start: null,
+          end: null,
+          current: false,
+        },
+      },
+      { id: 's', kind: 'skill', quote, skill: { name: 'nodejs' } },
+    ]);
+    expect(
+      facts.map((fact) =>
+        fact.kind === 'position'
+          ? fact.position.company
+          : fact.kind === 'skill'
+            ? fact.skill.name
+            : null,
+      ),
+    ).toEqual(['ACME Corp', 'Node.js']);
+  });
+
+  it.each([
+    [
+      'a verified end date wins over "current"',
+      'Engineer, Acme, 2020 - 2021',
+      '2021',
+      { end: '2021', current: false },
+    ],
+    [
+      '"current" stays without an end date',
+      'Engineer, Acme, 2020 - present',
+      null,
+      { end: null, current: true },
+    ],
+    [
+      'an end date not in the quote does not cancel "current"',
+      'Engineer, Acme, 2020 - present',
+      '2023',
+      { end: null, current: true },
+    ],
+  ])('%s', (_case, quote, end, expected) => {
+    const { facts } = verifyFacts(quote, [
+      {
+        id: 'p',
+        kind: 'position',
+        quote,
+        position: {
+          company: 'Acme',
+          title: 'Engineer',
+          location: null,
+          start: '2020',
+          end,
+          current: true,
+        },
+      },
+    ]);
+    expect(facts[0]).toMatchObject({ position: expected });
+  });
+
+  it.each([
+    ['Tel: +380 50 123 45 67', '+380501234567', '+380 50 123 45 67'],
+    ['Phone (050) 123-45-67', '0501234567', '(050) 123-45-67'],
+  ])('keeps the signs written around a phone number in %j', (quote, value, stored) => {
+    const { facts } = verifyFacts(quote, [
+      { id: 'c', kind: 'contact', quote, contact: { field: 'phone', value } },
+    ]);
+    expect(facts[0]).toMatchObject({ contact: { value: stored } });
+  });
+
+  it('treats an end year equal to the start year on a current job as ambiguous', () => {
+    const quote = 'Engineer, Acme, 2020 – present';
+    const { facts } = verifyFacts(quote, [
+      {
+        id: 'p',
+        kind: 'position',
+        quote,
+        position: {
+          company: 'Acme',
+          title: 'Engineer',
+          location: null,
+          start: '2020',
+          end: '2020',
+          current: true,
+        },
+      },
+    ]);
+    expect(facts[0]).toMatchObject({ position: { start: '2020', end: null, current: false } });
+  });
+
+  it('stores the quote as the source text, not the model’s copy of it', () => {
+    const source = 'Cut   costs by 1,140%.';
+    const { facts } = verifyFacts(source, [
+      { id: 'r', kind: 'profile', quote: 'cut costs by 1140' },
+    ]);
+    expect(facts[0]?.quote).toBe('Cut costs by 1,140');
+  });
 });

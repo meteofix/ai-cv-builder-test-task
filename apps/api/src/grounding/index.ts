@@ -4,7 +4,6 @@ export { findQuote, indexText, normalizeText, type QuoteIndex } from './find-quo
 export { instructionFragments, sourceLines, type SourceLine } from './instructions.js';
 export {
   checkNumbers,
-  checkOrder,
   checkReferences,
   numberTokens,
   selectSkills,

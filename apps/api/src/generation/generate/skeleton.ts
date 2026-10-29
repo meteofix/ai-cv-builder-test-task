@@ -16,8 +16,6 @@ type FactOf<K extends Fact['kind']> = Extract<Fact, { kind: K }>;
 export interface Prose {
   summary: readonly ProseItem[];
   bullets: ReadonlyMap<string, readonly ProseItem[]>;
-  /** Position ids in display order; null keeps the source order. */
-  order: readonly string[] | null;
   /** Selected skill fact ids; null shows every skill. */
   skills: readonly string[] | null;
 }
@@ -47,7 +45,9 @@ export function buildSkeleton(input: SkeletonInput): CvDocument {
     facts.filter((fact): fact is FactOf<K> => fact.kind === kind);
   const prose = input.prose;
 
-  const positions = ordered(of('position'), prose?.order ?? null);
+  // Experience always follows the source (decision 033): facts come renumbered in source order
+  // (grounding.md §2), and the writer picks bullets, not the order of jobs. Do not sort them here.
+  const positions = of('position');
   const experience = positions.slice(0, LIMITS.maxExperience).map((fact): CvPosition => {
     const { company, title, location, start, end, current } = fact.position;
     return {
@@ -101,11 +101,6 @@ export function buildSkeleton(input: SkeletonInput): CvDocument {
     skills,
     additional: additional(of('other'), input),
   };
-}
-
-function ordered<T extends Fact>(facts: T[], order: readonly string[] | null): T[] {
-  if (!order) return facts;
-  return order.flatMap((id) => facts.filter((fact) => fact.id === id));
 }
 
 function contacts(facts: FactOf<'contact'>[]): CvDocument['contacts'] {

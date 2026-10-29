@@ -69,16 +69,16 @@ describe('buildSkeleton', () => {
     });
   });
 
-  it('follows the writer order and skill selection when there is prose', () => {
+  it('keeps the source order of positions and follows the writer’s skill selection', () => {
     const prose: Prose = {
       summary: [{ id: 's1', text: 'Engineer.', factIds: ['p2'] }],
       bullets: new Map([['p2', [{ id: 'b1', text: 'Shipped.', factIds: ['p2'] }]]]),
-      order: ['p2', 'p1'],
       skills: ['go'],
     };
     const document = build([position('p1'), position('p2'), skill('sql'), skill('go')], prose);
-    expect(document.experience.map((job) => job.id)).toEqual(['p2', 'p1']);
-    expect(document.experience[0]?.bullets).toEqual([
+    // The writer no longer orders the jobs (decision 033): the CV keeps the order of the source.
+    expect(document.experience.map((job) => job.id)).toEqual(['p1', 'p2']);
+    expect(document.experience[1]?.bullets).toEqual([
       { id: 'b1', text: 'Shipped.', factIds: ['p2'] },
     ]);
     expect(document.skills.map((item) => item.name)).toEqual(['go']);
@@ -93,7 +93,6 @@ describe('buildSkeleton', () => {
         { id: 's2', text: 'This sentence does not fit.', factIds: ['p2'] },
       ],
       bullets: new Map(),
-      order: null,
       skills: null,
     };
     expect(build([position('p1')], prose).summary).toEqual({

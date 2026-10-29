@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   checkNumbers,
-  checkOrder,
   checkReferences,
   findQuote,
   instructionFragments,
@@ -182,17 +181,6 @@ describe('grounding acceptance (docs/specs/grounding.md)', () => {
       [['f99'], false],
     ])('GRD-5 — a summary sentence with %j passes: %s', (factIds, passes) => {
       expect(checkReferences({ factIds }, null, facts)).toBe(passes);
-    });
-  });
-
-  describe('GRD-6 — order', () => {
-    it.each([
-      [['f7', 'f1', 'f4'], true],
-      [['f1', 'f4'], false],
-      [['f1', 'f1', 'f4'], false],
-      [['f1', 'f4', 'f9'], false],
-    ])('GRD-6 — %j is a permutation of f1, f4, f7: %s', (order, passes) => {
-      expect(checkOrder(order, ['f1', 'f4', 'f7'])).toBe(passes);
     });
   });
 

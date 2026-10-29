@@ -1,19 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import {
-  checkNumbers,
-  checkOrder,
-  checkReferences,
-  selectSkills,
-  type Fact,
-} from '../../grounding/index.js';
+import { checkNumbers, checkReferences, selectSkills, type Fact } from '../../grounding/index.js';
 import type { ProseItem, RemovedItem, WriteResult, WriterOutput } from './schemas.js';
 import { verbatim } from './skeleton.js';
 
 export interface ProseCheck {
   result: WriteResult;
-  /** For counters: writer output that named a position that does not exist, and an order we replaced. */
+  /** For counters: writer output that named a position that does not exist. */
   unknownPositions: number;
-  orderReplaced: boolean;
 }
 
 /**
@@ -80,16 +73,13 @@ export function checkProse(
     });
   }
 
-  const orderValid = checkOrder(output.experienceOrder, positionIds);
   return {
     result: {
       summary,
       positions,
-      order: orderValid ? output.experienceOrder : positionIds,
       skills: selectSkills(output.skills, facts),
       removed,
     },
     unknownPositions,
-    orderReplaced: !orderValid,
   };
 }

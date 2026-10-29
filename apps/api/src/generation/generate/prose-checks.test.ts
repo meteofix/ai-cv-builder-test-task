@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Fact } from '../../grounding/index.js';
 import { checkProse } from './prose-checks.js';
-import type { WriterOutput } from './schemas.js';
+import { writerOutputSchema, type WriterOutput } from './schemas.js';
+import { buildSkeleton } from './skeleton.js';
 
 const SOURCE = 'Acme\nCut costs by 38%.\nGlobex\nGo, SQL';
 const at = (text: string): [number, number] => [
@@ -33,7 +34,6 @@ function output(overrides: Partial<WriterOutput> = {}): WriterOutput {
   return {
     summary: [{ text: 'Engineer.', factIds: ['f1'] }],
     positions: [],
-    experienceOrder: ['f3', 'f1'],
     skills: ['f5', 'f4'],
     ...overrides,
   };
@@ -102,19 +102,31 @@ describe('checkProse', () => {
     expect(check.result.removed).toEqual([]);
   });
 
-  it.each([
-    [['f3', 'f1'], ['f3', 'f1'], false],
-    [['f3'], ['f1', 'f3'], true],
-    [['f3', 'f1', 'f9'], ['f1', 'f3'], true],
-  ])('takes the order %j as %j (replaced: %s)', (order, expected, replaced) => {
-    const check = checkProse(output({ experienceOrder: order }), FACTS, SOURCE);
-    expect(check.result.order).toEqual(expected);
-    expect(check.orderReplaced).toBe(replaced);
-  });
-
   it('keeps the writer’s skill order and ignores ids that are not skills', () => {
     expect(
       checkProse(output({ skills: ['f5', 'f1', 'f9', 'f4'] }), FACTS, SOURCE).result.skills,
     ).toEqual(['f5', 'f4']);
+  });
+});
+
+describe('the experience keeps the source order (decision 033)', () => {
+  it('whatever order the writer lists positions in, and with a stray order field', () => {
+    const raw = { ...output(), experienceOrder: ['f3', 'f1'] };
+    const parsed = writerOutputSchema.parse({ ...raw, positions: [...raw.positions].reverse() });
+    const { result } = checkProse(parsed, FACTS, SOURCE);
+    const document = buildSkeleton({
+      source: SOURCE,
+      facts: FACTS,
+      targetRole: 'Engineer',
+      locale: 'en',
+      prose: {
+        summary: result.summary,
+        bullets: new Map(result.positions.map(({ positionId, bullets }) => [positionId, bullets])),
+        skills: result.skills,
+      },
+    });
+    const sourceOrder = FACTS.filter((fact) => fact.kind === 'position').map((fact) => fact.id);
+    expect(document.experience.map((job) => job.id)).toEqual(sourceOrder);
+    expect(sourceOrder.length).toBeGreaterThan(1);
   });
 });

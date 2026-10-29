@@ -114,7 +114,6 @@ export const writerOutputSchema = z.object({
       bullets: z.array(writtenItem(LIMITS.maxBulletChars)).max(LIMITS.maxBulletsPerPosition),
     }),
   ),
-  experienceOrder: z.array(z.string()),
   skills: z.array(z.string()),
 });
 export type WriterOutput = z.infer<typeof writerOutputSchema>;
@@ -179,11 +178,10 @@ export const removedItemSchema = z.object({
 });
 export type RemovedItem = z.infer<typeof removedItemSchema>;
 
-/** `state.write`: prose that passed the mechanical checks, the order, the skill selection, what was removed. */
+/** `state.write`: prose that passed the mechanical checks, the skill selection, what was removed. */
 export const writeResultSchema = z.object({
   summary: z.array(proseItemSchema),
   positions: z.array(z.object({ positionId: z.string(), bullets: z.array(proseItemSchema) })),
-  order: z.array(z.string()),
   skills: z.array(z.string()),
   removed: z.array(removedItemSchema),
 });

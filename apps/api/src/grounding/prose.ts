@@ -79,16 +79,6 @@ export function checkNumbers(
   return { ok: unsupported.length === 0, unsupported };
 }
 
-/** The writer's experience order must be a permutation of the kept position ids. */
-export function checkOrder(order: readonly string[], positionIds: readonly string[]): boolean {
-  const known = new Set(positionIds);
-  return (
-    order.length === known.size &&
-    new Set(order).size === order.length &&
-    order.every((id) => known.has(id))
-  );
-}
-
 /** The writer's skill selection, limited to kept skill facts, in the writer's order, each once. */
 export function selectSkills(ids: readonly string[], facts: readonly Fact[]): string[] {
   const skills = new Set(facts.filter((fact) => fact.kind === 'skill').map((fact) => fact.id));

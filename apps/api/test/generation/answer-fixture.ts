@@ -127,7 +127,6 @@ export async function answeredCv(
           ],
         ],
       ]),
-      order: [POSITION_A, POSITION_B],
       skills: [],
     },
   });

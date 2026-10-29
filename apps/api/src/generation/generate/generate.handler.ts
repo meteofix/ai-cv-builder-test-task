@@ -88,14 +88,13 @@ export class GenerateHandler implements JobHandler {
       job: run.job,
       signal: run.signal,
     });
-    const { result, unknownPositions, orderReplaced } = checkProse(output, source.facts, text);
+    const { result, unknownPositions } = checkProse(output, source.facts, text);
     this.log.info(
       {
         jobId: run.job.id,
         step: 'write',
         removed: countBy(result.removed.map((item) => item.class)),
         unknownPositions,
-        orderReplaced,
       },
       'prose checked',
     );
@@ -199,7 +198,6 @@ function passingProse(written: WriteResult, rejected: ReadonlySet<string>): Pros
     bullets: new Map(
       written.positions.map(({ positionId, bullets }) => [positionId, bullets.filter(passes)]),
     ),
-    order: written.order,
     skills: written.skills,
   };
 }

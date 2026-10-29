@@ -196,7 +196,6 @@ export function writerAnswer(overrides: Partial<WriterOutput> = {}): FakeAnswer 
         { text: 'Senior engineer who moved billing to TypeScript.', factIds: ['f4', 'f5'] },
       ],
       positions: [{ positionId: 'f4', bullets: [{ text: SAMPLE_BULLET, factIds: ['f5'] }] }],
-      experienceOrder: ['f4'],
       skills: ['f7', 'f8', 'f9'],
       ...overrides,
     } satisfies WriterOutput,

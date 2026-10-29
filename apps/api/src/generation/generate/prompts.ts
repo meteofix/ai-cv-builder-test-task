@@ -60,7 +60,6 @@ ${DATA_RULE}
 You get facts with ids, kinds, quotes and structured fields. Write:
 - "summary": 1–4 sentences for the target role; each sentence lists the factIds it is based on.
 - "positions": for each position id, up to ${LIMITS.maxBulletsPerPosition} concise bullets (at most ${LIMITS.maxBulletChars} characters each), each listing factIds — only that position's id and the ids of its achievements.
-- "experienceOrder": every position id once, most relevant to the target role first.
 - "skills": the ids of the skill facts to show, most relevant first.
 Rephrase and condense, but state nothing the quotes do not say: no new technologies, numbers, employers, titles, dates, traits or domains. Keep every number exactly as in the quotes. Write in the CV's language.`;
 

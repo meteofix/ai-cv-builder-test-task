@@ -2,6 +2,8 @@
  * The stylesheet of `docs/design/cv-template/resume-a-en.html` (the part after the font faces, which
  * `fontFaceCss` generates), as it is. The `screen` rules make the preview one continuous A4-wide page;
  * the PDF is printed, so only the `@page` rule and the print rules apply to it.
+ * Nothing with text is positioned (the bullet dot is an inline box): Chromium paints positioned boxes last,
+ * which would move their text to the end of the PDF (docs/specs/cv-template.md, behaviour 1).
  */
 export const CV_CSS = `
 :root{--ink:#1c1e22;--muted:#5a5e66;--faint:#9ba0a8;--rule:#d6d8dc;--accent:#1f4f7b}
@@ -34,9 +36,9 @@ ul{list-style:none}
 .cv-entry__meta{color:var(--muted);break-after:avoid}
 .cv-entry__org{font-weight:500;color:var(--ink)}
 .cv-entry__bullets{margin-top:1.4mm}
-.cv-entry__bullets li{position:relative;padding-left:4.2mm;break-inside:avoid}
+.cv-entry__bullets li{padding-left:4.2mm;break-inside:avoid}
 .cv-entry__bullets li+li{margin-top:.9mm}
-.cv-entry__bullets li::before{content:"";position:absolute;left:.4mm;top:.62em;width:1.2mm;height:1.2mm;border-radius:50%;background:var(--accent)}
+.cv-entry__bullets li::before{content:"";display:inline-block;width:1.2mm;height:1.2mm;margin:0 2.6mm 0 -3.8mm;vertical-align:.15em;border-radius:50%;background:var(--accent)}
 
 .cv-list li{break-inside:avoid}
 .cv-list li+li{margin-top:.9mm}

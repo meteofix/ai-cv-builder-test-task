@@ -149,4 +149,38 @@ describe('a company written above its positions (grounding.md §2)', () => {
       ]),
     ).toEqual(['Engineer: Acme Corp']);
   });
+
+  it('accepts a company line that wraps, also with CRLF line ends', () => {
+    for (const end of ['\n', '\r\n']) {
+      const source = ['Northgate Freight (formerly', 'Southgate Cargo)', 'Lead 2022 – 2024'].join(
+        end,
+      );
+      const quote = 'Northgate Freight (formerly Southgate Cargo)';
+      expect(companies(source, [titled('a', 'Lead', 'Lead 2022 – 2024', quote, quote)])).toEqual([
+        'Lead: Northgate Freight (formerly Southgate Cargo)',
+      ]);
+    }
+  });
+
+  it('rejects a long header that hides another company or a job nobody extracted', () => {
+    const swallowing = 'Globex\nAnalyst 2016 – 2018\nAcme Corp';
+    expect(
+      companies(GROUPED, [
+        titled('g', 'Analyst', 'Analyst 2016 – 2018', 'Globex', 'Globex'),
+        titled('a', 'Lead', 'Lead 2022 – 2024', 'Globex', swallowing),
+      ]),
+    ).toEqual(['Analyst: Globex', 'Lead: ']);
+    // The same header when the Analyst line was not extracted at all.
+    expect(
+      companies(GROUPED, [titled('a', 'Lead', 'Lead 2022 – 2024', 'Globex', swallowing)]),
+    ).toEqual(['Lead: ']);
+  });
+
+  it('rejects a header of more than three lines even when the name spans it', () => {
+    const source = ['Very', 'Long', 'Company', 'Name', 'Lead 2022 – 2024'].join('\n');
+    const quote = 'Very Long Company Name';
+    expect(companies(source, [titled('a', 'Lead', 'Lead 2022 – 2024', quote, quote)])).toEqual([
+      'Lead: ',
+    ]);
+  });
 });

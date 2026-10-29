@@ -71,6 +71,16 @@
 .input.is-target {
   background-color: var(--color-highlight);
 }
+/* iOS Safari zooms the page on focus into a field set below 16 px and leaves it zoomed (horizontal scroll),
+   so fields are 16 px on touch screens and on every narrow window, where the size must not change between
+   the two. The literal is the iOS threshold, not a design token; the zoom itself stays available to the user. */
+@media (max-width: 640px), (pointer: coarse) {
+  .input,
+  .select,
+  .textarea {
+    font-size: 16px;
+  }
+}
 
 /* Checkbox */
 .checkbox {

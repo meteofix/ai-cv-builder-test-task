@@ -103,6 +103,16 @@ export class LlmClient {
         continue;
       }
 
+      // Postgres rejects U+0000 and lone surrogates in jsonb, where step results are stored.
+      if (result.kind === 'output' && !storable(result.output)) {
+        result = {
+          kind: 'invalid',
+          error:
+            'The answer contained a NUL character (U+0000) or a broken character; answer without it.',
+          stopReason: result.stopReason,
+          usage: result.usage,
+        };
+      }
       this.logAttempt(request, model, started, {
         outcome: result.kind,
         stopReason: result.stopReason,
@@ -145,4 +155,19 @@ export class LlmClient {
 /** The original input plus why the last answer was refused, so the model can correct itself. */
 function reask(input: string, error: string): string {
   return `${input}\n\n<previous_answer_error>\nYour previous answer did not match the required output schema:\n${error}\nAnswer again and follow the schema exactly.\n</previous_answer_error>`;
+}
+
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/**
+ * Whether every string (and key) of the parsed answer can be stored in jsonb. The six characters `\u0000`
+ * typed as text are fine; only the real character and lone surrogates are not.
+ */
+function storable(value: unknown): boolean {
+  if (typeof value === 'string') return !value.includes('\u0000') && !LONE_SURROGATE.test(value);
+  if (Array.isArray(value)) return value.every(storable);
+  if (value !== null && typeof value === 'object') {
+    return Object.entries(value).every(([key, item]) => storable(key) && storable(item));
+  }
+  return true;
 }

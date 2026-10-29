@@ -490,7 +490,9 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
       status: 'failed',
       errorCode: 'AI_UNAVAILABLE',
       step: 'write',
+      attempts: 3,
     });
+    expect(fake.inputs('extractor')).toHaveLength(1);
 
     const res = await inject(app, {
       method: 'POST',
@@ -506,7 +508,7 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
     expect(fake.inputs('extractor')).toHaveLength(1);
   });
 
-  it('GEN-18 — retry after GEN-16a exactly (no step had finished) continues the same job', async () => {
+  it('a retry after a failure before any step finished runs the extractor again (GEN-16a, GEN-18)', async () => {
     fake.on('extractor', { status: 529 });
     const { cv, job } = await queued();
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -514,6 +516,8 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
       clock.advance(60_000);
     }
     expect(await jobRow(job.id)).toMatchObject({ status: 'failed', step: 'extract' });
+    // Three job attempts, three transport tries each, and no saved step.
+    expect(fake.inputs('extractor')).toHaveLength(9);
     const res = await inject(app, {
       method: 'POST',
       url: routePath(ROUTES.retryJob.path, { id: cv.id }),

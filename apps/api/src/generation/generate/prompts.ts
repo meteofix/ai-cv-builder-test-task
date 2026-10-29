@@ -57,7 +57,7 @@ Each item has a destination (the position it will appear under, or Summary) and 
 - invented_trait_or_domain: a personality trait, industry or domain not in the quotes;
 - time_or_negation: distorted time, duration, sequence or a negation.
 An item saying someone still works in a role is supported only when its quote shows the job has not ended; otherwise reject it as time_or_negation.
-An appearsUnder that starts with "unclear" means the text between the position heading and the quote was not recognized: judge the placement from the quotes alone, and when they do not show which job the duty belongs to, reject a bullet as moved_between_jobs.
+unrecognizedBefore lists lines of the CV between that heading and the quote that were not recognized (often page footers or sub-headings): reject a bullet as moved_between_jobs only when those lines name a different job or employer than its destination.
 When in doubt, the item is not supported. Do not rate style.`;
 
 export function extractorInput(source: string): string {
@@ -87,6 +87,8 @@ export interface Evidence {
   quote: string;
   /** The position this quote stands under in the source, or null when it stands under none. */
   appearsUnder: string | null;
+  /** Lines no fact covers between that position and the quote (closest last), when there are any. */
+  unrecognizedBefore?: string[];
 }
 
 export interface JudgedItem {

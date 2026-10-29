@@ -1,7 +1,8 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { Cv, CvQuestion, GenerationJob } from '../src/db/entities.js';
+import { Cv, CvQuestion, CvSource, GenerationJob } from '../src/db/entities.js';
 import { replaceDocument } from '../src/generation/generate/document-write.js';
+import { sourceFactsSchema } from '../src/generation/generate/schemas.js';
 import { removedProse } from '../src/generation/generate/source-facts.js';
 import { JobError } from '../src/generation/job-errors.js';
 import { JobEngine } from '../src/generation/job-engine.js';
@@ -185,6 +186,13 @@ describe('generation finalize', () => {
       expect(questions.some((q) => q.kind === 'unverified')).toBe(false);
       const removed = await removedProse(entityManager(app), cv.id);
       expect(removed.some((item) => claim(item.text))).toBe(false);
+      // Stored as judged, so a later answer's writer does not see the job as current again.
+      const stored = sourceFactsSchema.parse(
+        (await entityManager(app).findOneOrFail(CvSource, { cv: cv.id })).facts,
+      );
+      expect(stored.facts.find((fact) => fact.kind === 'position')).toMatchObject({
+        position: { current: false },
+      });
     });
 
     it('fails closed: a current job without a verdict becomes a dates question too', async () => {

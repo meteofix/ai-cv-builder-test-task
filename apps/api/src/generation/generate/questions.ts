@@ -38,6 +38,8 @@ export function buildQuestions(input: {
   document: CvDocument;
   facts: readonly Fact[];
   removed: readonly RemovedItem[];
+  /** Positions the judge did not confirm as current: their dates question comes first, past the cap. */
+  notCurrent?: ReadonlySet<string>;
 }): NewQuestion[] {
   const { document } = input;
   const questions: NewQuestion[] = [];
@@ -47,6 +49,15 @@ export function buildQuestions(input: {
     ...(field ? { field } : {}),
   });
 
+  const notCurrent = input.notCurrent ?? new Set<string>();
+  const datesIncomplete = (job: CvPosition) =>
+    job.start === null || (job.end === null && !job.current);
+  // The CV no longer says "present" for these jobs: the user must see why, whatever else is asked.
+  for (const job of document.experience) {
+    if (notCurrent.has(job.id) && datesIncomplete(job)) {
+      questions.push(missing(position(job.id, 'dates'), PROMPTS.dates, job, 'dates'));
+    }
+  }
   for (const item of input.removed) {
     questions.push({
       kind: 'unverified',
@@ -58,7 +69,7 @@ export function buildQuestions(input: {
   }
   for (const job of document.experience) {
     // A start with no end on a past job would print as a single month.
-    if (job.start === null || (job.end === null && !job.current)) {
+    if (!notCurrent.has(job.id) && datesIncomplete(job)) {
       questions.push(missing(position(job.id, 'dates'), PROMPTS.dates, job, 'dates'));
     }
   }

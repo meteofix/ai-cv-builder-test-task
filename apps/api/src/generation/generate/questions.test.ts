@@ -93,4 +93,26 @@ describe('buildQuestions', () => {
       buildQuestions({ source: '', document: document([job('p1')]), facts: [], removed }),
     ).toHaveLength(10);
   });
+
+  it('asks about the dates of a job the judge did not confirm as current before anything else', () => {
+    const removed = Array.from({ length: 12 }, (_, i) => ({
+      itemId: `b${i}`,
+      text: `Claim ${i}`,
+      positionId: 'p1',
+      class: 'unsupported_claim' as const,
+    }));
+    const questions = buildQuestions({
+      source: '',
+      document: document([job('p1', { start: '2021', end: null, current: false })]),
+      facts: [],
+      removed,
+      notCurrent: new Set(['p1']),
+    });
+    expect(questions).toHaveLength(10);
+    expect(questions[0]).toMatchObject({
+      answerType: 'dates',
+      target: { section: 'experience', itemId: 'p1', field: 'dates' },
+    });
+    expect(questions.filter((q) => q.target.field === 'dates')).toHaveLength(1);
+  });
 });

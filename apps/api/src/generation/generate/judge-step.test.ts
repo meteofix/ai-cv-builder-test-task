@@ -116,7 +116,7 @@ describe('judgeEvidence', () => {
   ];
 
   it('shows the judge where each quote stands in the source, so a moved duty is visible', () => {
-    const { destination, evidence } = judgeEvidence(facts, source, source.length);
+    const { destination, evidence } = judgeEvidence(facts, source, source.length, []);
     expect(destination('f3')).toBe('Engineer — Globex (? – ?)');
     expect(evidence(['f2', 'f4'])).toEqual([
       { quote: 'Led billing.', appearsUnder: 'Senior Engineer — Acme (? – ?)' },
@@ -136,14 +136,15 @@ describe('judgeEvidence', () => {
       span: [source.length + 1, text.length],
       achievement: { positionId: 'f1' },
     };
-    const { evidence } = judgeEvidence([...facts, fact], text, source.length);
+    const { evidence } = judgeEvidence([...facts, fact], text, source.length, []);
     expect(evidence(['a1'])).toEqual([
       { quote: answer, appearsUnder: "the user's answer about Senior Engineer — Acme (? – ?)" },
     ]);
   });
 
-  it('reports the placement as unclear when unrecognized lines lie between the position and the quote', () => {
-    // The extractor missed the "Engineer, Globex" heading, so Globex's bullet seems to stand under Acme.
+  it('passes unrecognized lines between the position and the quote along, keeping the position', () => {
+    // The extractor missed the "Engineer, Globex" heading, so Globex's bullet seems to stand under Acme;
+    // the judge sees the missed heading and can reject the move.
     const { evidence } = judgeEvidence(
       facts.filter((fact) => fact.id !== 'f3'),
       source,
@@ -153,12 +154,52 @@ describe('judgeEvidence', () => {
     expect(evidence(['f4'])).toEqual([
       {
         quote: 'Built search.',
-        appearsUnder:
-          'unclear: unrecognized text stands between the nearest position above and this quote',
+        appearsUnder: 'Senior Engineer — Acme (? – ?)',
+        unrecognizedBefore: ['Engineer, Globex'],
       },
     ]);
     expect(evidence(['f2'])).toEqual([
       { quote: 'Led billing.', appearsUnder: 'Senior Engineer — Acme (? – ?)' },
+    ]);
+  });
+
+  it('keeps the position for a quote after a page footer, and shows the footer as it is', () => {
+    const paged = 'Senior Engineer, Acme\n- Led billing.\nPage 1\n- Ran on-call.';
+    const at = (text: string): [number, number] => [
+      paged.indexOf(text),
+      paged.indexOf(text) + text.length,
+    ];
+    const pagedFacts: Fact[] = [
+      {
+        id: 'f1',
+        kind: 'position',
+        quote: 'Senior Engineer, Acme',
+        span: at('Senior Engineer, Acme'),
+        position: {
+          company: 'Acme',
+          title: 'Senior Engineer',
+          location: null,
+          start: null,
+          end: null,
+          current: false,
+        },
+      },
+      {
+        id: 'f2',
+        kind: 'achievement',
+        quote: 'Ran on-call.',
+        span: at('Ran on-call.'),
+        achievement: { positionId: 'f1' },
+      },
+    ];
+    const { evidence, destination } = judgeEvidence(pagedFacts, paged, paged.length, ['Page 1']);
+    expect(destination('f1')).toBe('Senior Engineer — Acme (? – ?)');
+    expect(evidence(['f2'])).toEqual([
+      {
+        quote: 'Ran on-call.',
+        appearsUnder: 'Senior Engineer — Acme (? – ?)',
+        unrecognizedBefore: ['Page 1'],
+      },
     ]);
   });
 });

@@ -184,6 +184,14 @@ export class GenerateHandler implements JobHandler {
           : fact,
       );
       const removedProse = judged.removed.filter((item) => !isCurrentClaim(item));
+      // Later answers build on the stored facts, so they must not bring back a rejected "current".
+      if (notCurrent.size > 0) {
+        await tx.nativeUpdate(
+          CvSource,
+          { cv: job.cvId },
+          { facts: { ...facts, facts: judgedFacts } },
+        );
+      }
       const document = buildSkeleton({
         source: source.text,
         facts: judgedFacts,
@@ -199,6 +207,7 @@ export class GenerateHandler implements JobHandler {
         document: valid,
         facts: judgedFacts,
         removed: [...written.removed, ...removedProse],
+        notCurrent,
       });
       // One flush gives every row the same time; the API orders questions by `createdAt`.
       questions.forEach((question, i) => {

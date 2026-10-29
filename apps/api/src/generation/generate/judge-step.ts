@@ -9,7 +9,7 @@ import { judgeOutputSchema, type JudgeOutput, type RemovedItem } from './schemas
 export interface ItemToJudge {
   id: string;
   text: string;
-  /** Where the item will appear: "<title> — <company>" of its position, or "Summary". */
+  /** Where the item will appear: "<title> — <company> (<start> – <end>)", "Summary" or "Unknown position". */
   destination: string;
   evidence: Evidence[];
   /** The position of a bullet; null for a summary sentence. */
@@ -19,15 +19,15 @@ export interface ItemToJudge {
 /**
  * The evidence the judge needs to catch a duty moved between jobs: each cited quote with the position it
  * stands under in the source (the nearest position before it), which the item's destination must match.
- * Facts past `sourceLength` are the user's answers and say which position they answer for. When a line no
- * fact covers lies between that position and the quote (a heading the extractor missed), the placement is
- * reported as unclear instead of naming a position the quote may not belong to.
+ * Facts past `sourceLength` are the user's answers and say which position they answer for. Lines no fact
+ * covers between that position and the quote are passed along as they are (`unrecognizedBefore`): a
+ * heading the extractor missed is among them as often as a page footer, and only the judge can tell.
  */
 export function judgeEvidence(
   facts: readonly Fact[],
   text: string,
   sourceLength: number,
-  uncoveredLines: readonly string[] = [],
+  uncoveredLines: readonly string[],
 ) {
   const positions = facts
     .filter((fact): fact is PositionFact => fact.kind === 'position')
@@ -39,18 +39,24 @@ export function judgeEvidence(
     const position = id === null ? undefined : positions.find((candidate) => candidate.id === id);
     return position ? positionDescription(position) : null;
   };
-  const appearsUnder = (fact: Fact): string | null => {
+  const placement = (fact: Fact): Omit<Evidence, 'quote'> => {
     if (fact.span[0] >= sourceLength) {
       const about = fact.kind === 'achievement' ? label(fact.achievement.positionId) : null;
-      return about ? `the user's answer about ${about}` : "the user's answer";
+      return { appearsUnder: about ? `the user's answer about ${about}` : "the user's answer" };
     }
     const before = positions.filter((position) => position.span[0] <= fact.span[0]).at(-1);
-    if (!before) return null;
-    const unrecognizedBetween = lines.some(
-      ({ span, text: line }) =>
-        span[0] >= before.span[1] && span[1] <= fact.span[0] && uncovered.has(line.trim()),
-    );
-    return unrecognizedBetween ? UNCLEAR : positionDescription(before);
+    if (!before) return { appearsUnder: null };
+    const between = lines
+      .filter(
+        ({ span, text: line }) =>
+          span[0] >= before.span[1] && span[1] <= fact.span[0] && uncovered.has(line.trim()),
+      )
+      .map(({ text: line }) => line.trim().slice(0, MAX_LINE_CHARS))
+      .slice(-MAX_LINES_BETWEEN);
+    return {
+      appearsUnder: positionDescription(before),
+      ...(between.length > 0 ? { unrecognizedBefore: between } : {}),
+    };
   };
   return {
     destination: (positionId: string | null) =>
@@ -60,15 +66,16 @@ export function judgeEvidence(
         const fact = byId.get(id);
         if (!fact) return [];
         const quote = text.slice(fact.span[0], fact.span[1]).replace(/\s+/g, ' ').trim();
-        return [{ quote, appearsUnder: appearsUnder(fact) }];
+        return [{ quote, ...placement(fact) }];
       }),
   };
 }
 
 type PositionFact = Extract<Fact, { kind: 'position' }>;
 
-const UNCLEAR =
-  'unclear: unrecognized text stands between the nearest position above and this quote';
+/** Enough context to see a missed heading, without sending a whole unrecognized section. */
+const MAX_LINES_BETWEEN = 3;
+const MAX_LINE_CHARS = 200;
 const CURRENT_CLAIM = 'current:';
 
 /**

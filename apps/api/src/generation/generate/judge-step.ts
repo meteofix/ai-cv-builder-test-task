@@ -1,3 +1,4 @@
+import { experienceGroups } from '@cv/shared';
 import { sourceLines, type Fact } from '../../grounding/index.js';
 import type { LlmClient } from '../../llm/llm-client.js';
 import type { JobRun } from '../job-handler.js';
@@ -39,13 +40,37 @@ export function judgeEvidence(
     const position = id === null ? undefined : positions.find((candidate) => candidate.id === id);
     return position ? positionDescription(position) : null;
   };
-  const placement = (fact: Fact): Omit<Evidence, 'quote'> => {
+  // Consecutive positions of one company whose title lines are stacked (no bullet between them) share
+  // the bullets that follow the last one: such a quote stands under each of them (cv-template 5a).
+  const stackedLast = new Map<string, Set<string>>();
+  for (const group of experienceGroups(
+    positions.map((fact) => ({ id: fact.id, company: fact.position.company, span: fact.span })),
+  )) {
+    const first = group[0];
+    const last = group.at(-1);
+    if (!first || !last || group.length < 2) continue;
+    // A bullet between the titles, or a line nobody recognized there, means the titles are not stacked.
+    const stacked =
+      !facts.some(
+        (fact) =>
+          fact.kind === 'achievement' &&
+          fact.span[0] > first.span[0] &&
+          fact.span[0] < last.span[0],
+      ) &&
+      !lines.some(
+        ({ span, text: line }) =>
+          span[0] >= first.span[1] && span[1] <= last.span[0] && uncovered.has(line.trim()),
+      );
+    if (stacked) stackedLast.set(last.id, new Set(group.map((position) => position.id)));
+  }
+  const placement = (fact: Fact, destination: string | null): Omit<Evidence, 'quote'> => {
     if (fact.span[0] >= sourceLength) {
       const about = fact.kind === 'achievement' ? label(fact.achievement.positionId) : null;
       return { appearsUnder: about ? `the user's answer about ${about}` : "the user's answer" };
     }
     const before = positions.filter((position) => position.span[0] <= fact.span[0]).at(-1);
     if (!before) return { appearsUnder: null };
+    const shared = destination !== null && stackedLast.get(before.id)?.has(destination) === true;
     const between = lines
       .filter(
         ({ span, text: line }) =>
@@ -59,19 +84,20 @@ export function judgeEvidence(
         ? [...between.slice(0, MAX_LINES_BETWEEN), ...between.slice(-MAX_LINES_BETWEEN)]
         : between;
     return {
-      appearsUnder: positionDescription(before),
+      appearsUnder: (shared ? label(destination) : null) ?? positionDescription(before),
       ...(kept.length > 0 ? { unrecognizedBefore: kept } : {}),
     };
   };
   return {
     destination: (positionId: string | null) =>
       positionId === null ? 'Summary' : (label(positionId) ?? 'Unknown position'),
-    evidence: (factIds: readonly string[]): Evidence[] =>
+    /** The quotes of `factIds`, each with where it stands relative to the item's position. */
+    evidence: (factIds: readonly string[], destination: string | null = null): Evidence[] =>
       factIds.flatMap((id) => {
         const fact = byId.get(id);
         if (!fact) return [];
         const quote = text.slice(fact.span[0], fact.span[1]).replace(/\s+/g, ' ').trim();
-        return [{ quote, ...placement(fact) }];
+        return [{ quote, ...placement(fact, destination) }];
       }),
   };
 }

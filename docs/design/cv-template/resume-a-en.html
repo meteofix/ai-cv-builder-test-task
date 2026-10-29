@@ -41,6 +41,8 @@ ul{list-style:none}
 .cv-entry__dates{flex:none;font-size:9.25pt;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .cv-entry__meta{color:var(--muted);break-after:avoid}
 .cv-entry__org{font-weight:500;color:var(--ink)}
+.cv-entry--group>.cv-entry__meta .cv-entry__org{font-size:10.5pt;font-weight:600}
+.cv-entry__role{margin-top:1mm}
 .cv-entry__bullets{margin-top:1.4mm}
 .cv-entry__bullets li{padding-left:4.2mm;break-inside:avoid}
 .cv-entry__bullets li+li{margin-top:.9mm}
@@ -115,12 +117,20 @@ ul{list-style:none}
           <li>Delivered small business websites for local clients using WordPress and custom JavaScript.</li>
         </ul>
       </article>
-      <article class="cv-entry">
-        <div class="cv-entry__head">
-          <h3 class="cv-entry__title">QA Intern</h3>
-          <span class="cv-entry__dates">Jul 2018 – Sep 2018</span>
-        </div>
+      <article class="cv-entry cv-entry--group">
         <p class="cv-entry__meta"><span class="cv-entry__org">Example Labs</span></p>
+        <div class="cv-entry__role">
+          <div class="cv-entry__head">
+            <h3 class="cv-entry__title">QA Engineer</h3>
+            <span class="cv-entry__dates">Oct 2018 – May 2019</span>
+          </div>
+        </div>
+        <div class="cv-entry__role">
+          <div class="cv-entry__head">
+            <h3 class="cv-entry__title">QA Intern</h3>
+            <span class="cv-entry__dates">Jul 2018 – Sep 2018</span>
+          </div>
+        </div>
         <ul class="cv-entry__bullets">
           <li>Wrote and maintained manual test cases for a mobile banking app.</li>
         </ul>

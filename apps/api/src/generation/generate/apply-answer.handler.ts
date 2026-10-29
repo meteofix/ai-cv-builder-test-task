@@ -172,7 +172,7 @@ export class ApplyAnswerHandler implements JobHandler {
       id: item.id,
       text: item.text,
       destination: destination(positionId),
-      evidence: evidence(item.factIds),
+      evidence: evidence(item.factIds, positionId),
       positionId,
     }));
     const removed = await judgeProse(this.llm, run, items, cv.targetRole);

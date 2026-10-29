@@ -300,3 +300,169 @@ describe('judgeEvidence for an achievement whose own position was not kept', () 
     });
   });
 });
+
+describe('judgeEvidence for positions at one company', () => {
+  it('lets a quote under any position of the block stand under the destination', () => {
+    const source = [
+      'Acme Corp',
+      'Lead, 2022 – 2024',
+      'Engineer, 2019 – 2022',
+      'Shipped the billing service',
+      'Globex',
+      'Analyst, 2016 – 2019',
+      'Built reports',
+    ].join('\n');
+    const at = (text: string): [number, number] => [
+      source.indexOf(text),
+      source.indexOf(text) + text.length,
+    ];
+    const position = (id: string, quote: string, company: string): Fact => ({
+      id,
+      kind: 'position',
+      quote,
+      span: at(quote),
+      position: {
+        company,
+        title: quote.split(',')[0] ?? '',
+        location: null,
+        start: null,
+        end: null,
+        current: false,
+      },
+    });
+    const facts: Fact[] = [
+      position('f1', 'Lead, 2022 – 2024', 'Acme Corp'),
+      position('f2', 'Engineer, 2019 – 2022', 'Acme Corp'),
+      {
+        id: 'f3',
+        kind: 'achievement',
+        quote: 'Shipped the billing service',
+        span: at('Shipped the billing service'),
+        achievement: { positionId: 'f1' },
+      },
+      position('f4', 'Analyst, 2016 – 2019', 'Globex'),
+      {
+        id: 'f5',
+        kind: 'achievement',
+        quote: 'Built reports',
+        span: at('Built reports'),
+        achievement: { positionId: 'f4' },
+      },
+    ];
+    const { evidence } = judgeEvidence(facts, source, source.length, []);
+    expect(evidence(['f3'], 'f1')[0]?.appearsUnder).toBe('Lead — Acme Corp (? – ?)');
+    // Another company is never the same block.
+    expect(evidence(['f5'], 'f1')[0]?.appearsUnder).toBe('Analyst — Globex (? – ?)');
+    expect(evidence(['f3'])[0]?.appearsUnder).toBe('Engineer — Acme Corp (? – ?)');
+  });
+});
+
+describe('judgeEvidence: only stacked titles share the bullets below them', () => {
+  const source = [
+    'Acme Corp',
+    'Lead, 2022 – 2024',
+    'Led the team',
+    'Engineer, 2019 – 2022',
+    'Wrote the API',
+  ].join('\n');
+  const at = (text: string): [number, number] => [
+    source.indexOf(text),
+    source.indexOf(text) + text.length,
+  ];
+  const facts: Fact[] = [
+    {
+      id: 'f1',
+      kind: 'position',
+      quote: 'Lead, 2022 – 2024',
+      span: at('Lead, 2022 – 2024'),
+      position: {
+        company: 'Acme Corp',
+        title: 'Lead',
+        location: null,
+        start: '2022',
+        end: '2024',
+        current: false,
+      },
+    },
+    {
+      id: 'f2',
+      kind: 'achievement',
+      quote: 'Led the team',
+      span: at('Led the team'),
+      achievement: { positionId: 'f1' },
+    },
+    {
+      id: 'f3',
+      kind: 'position',
+      quote: 'Engineer, 2019 – 2022',
+      span: at('Engineer, 2019 – 2022'),
+      position: {
+        company: 'Acme Corp',
+        title: 'Engineer',
+        location: null,
+        start: '2019',
+        end: '2022',
+        current: false,
+      },
+    },
+    {
+      id: 'f4',
+      kind: 'achievement',
+      quote: 'Wrote the API',
+      span: at('Wrote the API'),
+      achievement: { positionId: 'f3' },
+    },
+  ];
+
+  it('keeps where a quote stands when each title has bullets of its own', () => {
+    const { evidence } = judgeEvidence(facts, source, source.length, []);
+    expect(evidence(['f4'], 'f1')[0]?.appearsUnder).toBe('Engineer — Acme Corp (2019 – 2022)');
+    expect(evidence(['f2'], 'f3')[0]?.appearsUnder).toBe('Lead — Acme Corp (2022 – 2024)');
+  });
+});
+
+describe('judgeEvidence: a line nobody recognized between two titles', () => {
+  it('keeps the literal placement, as for a bullet there', () => {
+    const source = [
+      'Lead, 2022 – 2024',
+      'Ran the platform team',
+      'Engineer, 2019 – 2022',
+      'Wrote the API',
+    ].join('\n');
+    const at = (text: string): [number, number] => [
+      source.indexOf(text),
+      source.indexOf(text) + text.length,
+    ];
+    const job = (id: string, quote: string, title: string): Fact => ({
+      id,
+      kind: 'position',
+      quote,
+      span: at(quote),
+      position: {
+        company: 'Acme Corp',
+        title,
+        location: null,
+        start: null,
+        end: null,
+        current: false,
+      },
+    });
+    const facts: Fact[] = [
+      job('f1', 'Lead, 2022 – 2024', 'Lead'),
+      job('f2', 'Engineer, 2019 – 2022', 'Engineer'),
+      {
+        id: 'f3',
+        kind: 'achievement',
+        quote: 'Wrote the API',
+        span: at('Wrote the API'),
+        achievement: { positionId: 'f2' },
+      },
+    ];
+    const { evidence } = judgeEvidence(facts, source, source.length, ['Ran the platform team']);
+    expect(evidence(['f3'], 'f1')[0]?.appearsUnder).toBe('Engineer — Acme Corp (? – ?)');
+    // Recognized as nothing, it does not fold; with the line covered the titles would be stacked.
+    expect(
+      judgeEvidence(facts, source, source.length, []).evidence(['f3'], 'f1')[0]?.appearsUnder,
+    ).toBe('Lead — Acme Corp (? – ?)');
+  });
+});

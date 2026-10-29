@@ -1,4 +1,10 @@
-import { linkSchema, type CvDocument, type Locale } from '@cv/shared';
+import {
+  experienceGroups,
+  linkSchema,
+  sharesBullets,
+  type CvDocument,
+  type Locale,
+} from '@cv/shared';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fontFaceCss, type FontSource } from './fonts.js';
@@ -122,6 +128,63 @@ function Entry({ title, dates, org, location, compact = false, ...rest }: EntryP
   );
 }
 
+interface Role {
+  id: string;
+  title: string;
+  dates: string;
+  location?: string | undefined;
+  bullets: readonly { id: string; text: string }[];
+}
+
+function Bullets({ lines }: { lines: readonly { id: string; text: string }[] }) {
+  return lines.length > 0 ? (
+    <ul className="cv-entry__bullets">
+      {lines.map((bullet) => (
+        <li key={bullet.id}>{bullet.text}</li>
+      ))}
+    </ul>
+  ) : null;
+}
+
+/**
+ * Consecutive positions at one company (docs/specs/cv-template.md, behaviour 5a): the company once, then
+ * each title with its dates. Bullets of a position follow it; when only the first position has bullets,
+ * they are the company's shared bullets and follow the last title. The text order is company, titles
+ * with dates, bullets.
+ */
+function GroupEntry({ company, roles }: { company: string; roles: readonly Role[] }) {
+  const lines = roles.map((role) => role.bullets.filter((bullet) => filled(bullet.text)));
+  const shared = sharesBullets(roles);
+  // One location for the company only when every position gives that same one.
+  const locations = [...new Set(roles.map((role) => role.location ?? ''))];
+  const common = locations.length === 1 && filled(locations[0]) ? locations[0] : null;
+  return (
+    <article className="cv-entry cv-entry--group">
+      <p className="cv-entry__meta">
+        <span className="cv-entry__org">{company}</span>
+        {common ? <span className="cv-entry__location">{common}</span> : null}
+      </p>
+      {roles.map((role, i) => (
+        <div className="cv-entry__role" key={role.id}>
+          {filled(role.title) || filled(role.dates) ? (
+            <div className="cv-entry__head">
+              {filled(role.title) ? <h3 className="cv-entry__title">{role.title}</h3> : null}
+              {filled(role.dates) ? <span className="cv-entry__dates">{role.dates}</span> : null}
+            </div>
+          ) : null}
+          {common === null && filled(role.location) ? (
+            <p className="cv-entry__meta">
+              <span className="cv-entry__location">{role.location}</span>
+            </p>
+          ) : null}
+          {shared ? null : <Bullets lines={lines[i] ?? []} />}
+        </div>
+      ))}
+      {shared ? <Bullets lines={lines[0] ?? []} /> : null}
+    </article>
+  );
+}
+
 function CvBody({ document }: { document: CvDocument }) {
   const labels = LABELS[document.locale];
   const { contacts, headline, summary } = document;
@@ -132,6 +195,7 @@ function CvBody({ document }: { document: CvDocument }) {
       title: position.title,
       dates: dateRange(position.start, position.end, position.current, labels),
       org: position.company,
+      company: position.company,
       location: position.location,
       bullets: position.bullets,
     }))
@@ -170,9 +234,15 @@ function CvBody({ document }: { document: CvDocument }) {
       ) : null}
       {positions.length > 0 ? (
         <Section kind="experience" title={labels.experience}>
-          {positions.map((position) => (
-            <Entry key={position.id} {...position} />
-          ))}
+          {experienceGroups(positions).map((group) => {
+            const first = group[0];
+            if (!first) return null;
+            return group.length === 1 ? (
+              <Entry key={first.id} {...first} />
+            ) : (
+              <GroupEntry key={first.id} company={first.org} roles={group} />
+            );
+          })}
         </Section>
       ) : null}
       {schools.length > 0 ? (

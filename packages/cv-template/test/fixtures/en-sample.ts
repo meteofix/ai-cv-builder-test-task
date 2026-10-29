@@ -75,14 +75,24 @@ export const enSample: CvDocument = {
         'Delivered small business websites for local clients using WordPress and custom JavaScript.',
       ]),
     },
+    // Two positions at one company: the shared bullets sit on the first (behaviour 5a).
     {
       id: 'p5',
+      company: 'Example Labs',
+      title: 'QA Engineer',
+      start: '2018-10',
+      end: '2019-05',
+      current: false,
+      bullets: bullets('p5b', ['Wrote and maintained manual test cases for a mobile banking app.']),
+    },
+    {
+      id: 'p6',
       company: 'Example Labs',
       title: 'QA Intern',
       start: '2018-07',
       end: '2018-09',
       current: false,
-      bullets: bullets('p5b', ['Wrote and maintained manual test cases for a mobile banking app.']),
+      bullets: [],
     },
   ],
   education: [

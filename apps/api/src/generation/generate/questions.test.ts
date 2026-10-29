@@ -1,5 +1,5 @@
 import type { CvDocument, CvPosition } from '@cv/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import type { Fact } from '../../grounding/index.js';
 import { buildQuestions } from './questions.js';
 
@@ -122,5 +122,43 @@ describe('buildQuestions', () => {
       target: { section: 'experience', itemId: 'p1', field: 'dates' },
     });
     expect(questions.filter((q) => q.target.field === 'dates')).toHaveLength(1);
+  });
+});
+
+describe('buildQuestions for positions at one company', () => {
+  const ask = (experience: CvPosition[]) =>
+    buildQuestions({
+      source: '',
+      document: document(experience),
+      facts: [],
+      removed: [],
+      notCurrent: new Set(),
+    })
+      .filter((question) => question.target.field === undefined)
+      .map((question) => question.target.itemId);
+
+  it('asks no "no bullets" question for a position whose company block has bullets', () => {
+    expect(
+      ask([
+        job('p1', { company: 'Acme' }),
+        job('p2', { company: 'ACME ', bullets: [] }),
+        job('p3', { company: 'Globex', bullets: [] }),
+      ]),
+    ).toEqual(['p3']);
+  });
+
+  it('asks for every position of a block without any bullet', () => {
+    expect(ask([job('p1', { bullets: [] }), job('p2', { bullets: [] })])).toEqual(['p1', 'p2']);
+  });
+
+  test.each([
+    ['a later position has bullets', [job('p1', { bullets: [] }), job('p2')], ['p1']],
+    [
+      'two have bullets and one has none',
+      [job('p1'), job('p2'), job('p3', { bullets: [] })],
+      ['p3'],
+    ],
+  ])('asks for the positions without bullets when %s', (_name, experience, asked) => {
+    expect(ask(experience)).toEqual(asked);
   });
 });

@@ -120,7 +120,7 @@ export class GenerateHandler implements JobHandler {
       text: itemText,
       positionId,
       destination: destination(positionId),
-      evidence: evidence(factIds),
+      evidence: evidence(factIds, positionId),
     }));
     const items = [...prose, ...currentClaims(source.facts, evidence)];
     const removed = await judgeProse(this.llm, run, items, cv.targetRole);

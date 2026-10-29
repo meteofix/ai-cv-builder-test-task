@@ -54,6 +54,7 @@ const PRINTED_DATES = {
     'Jan 2021 – Feb 2023',
     'Jun 2019 – Dec 2020',
     null,
+    'Oct 2018 – May 2019',
     'Jul 2018 – Sep 2018',
   ],
   uk: ['вер 2022 – дотепер'],

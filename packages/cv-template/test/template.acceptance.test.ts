@@ -66,7 +66,8 @@ describe('CV template', () => {
     expect(printed[1]).toBe('Jan 2021 – Feb 2023');
     // The position without dates has no dates element: the next dates belong to the education entries.
     expect(printed).toContain('2017 – 2019');
-    expect(printed).toHaveLength(6);
+    // Seven dated entries since the reference shows a company with two positions (owner's decision R0-GROUP).
+    expect(printed).toHaveLength(7);
   });
 
   it('TPL-2 — the uk reference: page, title, section titles and dates', () => {
@@ -196,5 +197,64 @@ describe('CV template', () => {
     // Built by concatenation: a replace call would expand the `$` sequences itself.
     expect(html).toContain('<body>' + renderCvBody(tricky) + '</body>');
     expect(html.match(/<head>/g)).toHaveLength(1);
+  });
+
+  it('TPL-9 — consecutive positions at one company', () => {
+    const job = (id: string, title: string, start: string, end: string, texts: string[]) => ({
+      id,
+      company: 'Acme Corp',
+      title,
+      start,
+      end,
+      current: false,
+      bullets: texts.map((text, i) => ({ id: `${id}-${i}`, text, factIds: [] })),
+    });
+    const globex = {
+      ...job('c', 'Developer', '2017-01', '2019-02', ['Built the shop.']),
+      company: 'Globex',
+    };
+    const shared = renderCvBody({
+      ...enSample,
+      experience: [
+        job('a', 'Lead Engineer', '2022-01', '2024-06', ['Shipped the billing service.']),
+        job('b', 'Engineer', '2019-03', '2021-12', []),
+        globex,
+      ],
+    });
+    const group =
+      /<article class="cv-entry cv-entry--group">(.*?)<\/article>/.exec(shared)?.[1] ?? '';
+    expect(group.match(/cv-entry__org/g)).toHaveLength(1);
+    expect(group).toMatch(
+      /Acme Corp.*Lead Engineer.*Jan 2022 – Jun 2024.*Engineer.*Mar 2019 – Dec 2021.*<\/div><\/div><ul class="cv-entry__bullets"><li>Shipped the billing service\.<\/li><\/ul>$/,
+    );
+    expect(shared).toContain(
+      '<article class="cv-entry"><div class="cv-entry__head"><h3 class="cv-entry__title">Developer</h3>',
+    );
+    // When another position of the block has bullets, each position shows its own.
+    const own = renderCvBody({
+      ...enSample,
+      experience: [
+        job('a', 'Lead Engineer', '2022-01', '2024-06', ['Led the team.']),
+        job('b', 'Engineer', '2019-03', '2021-12', ['Wrote the API.']),
+        globex,
+      ],
+    });
+    // The company line carries a location only when every position gives that same one.
+    const located = (places: (string | undefined)[]) =>
+      renderCvBody({
+        ...enSample,
+        experience: places.map((location, i) => ({
+          ...job(`l${i}`, `Title ${i}`, '2020-01', '2021-01', []),
+          ...(location ? { location } : {}),
+        })),
+      });
+    const companyLine = (html: string) =>
+      /cv-entry--group"><p class="cv-entry__meta">(.*?)<\/p>/.exec(html)?.[1] ?? '';
+    expect(companyLine(located(['Kyiv', 'Kyiv']))).toContain('Kyiv');
+    expect(companyLine(located(['Kyiv', undefined]))).not.toContain('Kyiv');
+    expect(located(['Kyiv', 'Lviv'])).toMatch(/Title 0.*Kyiv.*Title 1.*Lviv/);
+    expect(own).toMatch(
+      /Lead Engineer.*Led the team\..*<\/div><div class="cv-entry__role">.*Engineer.*Wrote the API\./,
+    );
   });
 });

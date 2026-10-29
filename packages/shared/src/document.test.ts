@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { cvDocumentSchema, linkSchema } from './index.js';
+import { describe, expect, it, test } from 'vitest';
+import { cvDocumentSchema, experienceGroups, linkSchema, sharesBullets } from './index.js';
 
 const emptyDocument = {
   locale: 'en',
@@ -63,5 +63,41 @@ describe('ids and dates inside the document', () => {
   it('rejects a current position with an end date', () => {
     const experience = [{ ...position('p1', []), end: '2023' }];
     expect(cvDocumentSchema.safeParse({ ...emptyDocument, experience }).success).toBe(false);
+  });
+});
+
+describe('experienceGroups and sharesBullets', () => {
+  const job = (company: string, bullets: string[] = []) => ({
+    company,
+    bullets: bullets.map((text) => ({ text })),
+  });
+
+  it('groups consecutive positions of one company, ignoring case and spacing', () => {
+    const groups = experienceGroups([
+      job('Acme'),
+      job(' acme '),
+      job(''),
+      job(''),
+      job('Globex'),
+      job('Acme'),
+    ]);
+    expect(groups.map((group) => group.map((position) => position.company))).toEqual([
+      ['Acme', ' acme '],
+      [''],
+      [''],
+      ['Globex'],
+      ['Acme'],
+    ]);
+    expect(experienceGroups([])).toEqual([]);
+  });
+
+  test.each([
+    ['only the first has bullets', [job('A', ['x']), job('A')], true],
+    ['a later one has bullets', [job('A'), job('A', ['x'])], false],
+    ['two have bullets', [job('A', ['x']), job('A', ['y']), job('A')], false],
+    ['a single position', [job('A', ['x'])], false],
+    ['blank bullets only', [job('A', [' ']), job('A')], false],
+  ])('sharesBullets when %s: %s', (_name, group, shared) => {
+    expect(sharesBullets(group)).toBe(shared);
   });
 });

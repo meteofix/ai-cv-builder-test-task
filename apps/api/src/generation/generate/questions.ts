@@ -1,4 +1,10 @@
-import type { CvDocument, CvPosition, QuestionTarget } from '@cv/shared';
+import {
+  experienceGroups,
+  sharesBullets,
+  type CvDocument,
+  type CvPosition,
+  type QuestionTarget,
+} from '@cv/shared';
 import type { Fact } from '../../grounding/index.js';
 import type { RemovedItem } from './schemas.js';
 import { verbatim } from './skeleton.js';
@@ -105,8 +111,13 @@ export function buildQuestions(input: {
       answerType: 'text',
     });
   }
-  for (const job of document.experience) {
-    if (job.bullets.length === 0) questions.push(missing(position(job.id), PROMPTS.noBullets, job));
+  // A block whose bullets the template shows for the whole company asks nothing (cv-template 5a).
+  for (const group of experienceGroups(document.experience)) {
+    if (sharesBullets(group)) continue;
+    for (const job of group) {
+      if (job.bullets.length === 0)
+        questions.push(missing(position(job.id), PROMPTS.noBullets, job));
+    }
   }
   return questions.slice(0, MAX_QUESTIONS);
 }

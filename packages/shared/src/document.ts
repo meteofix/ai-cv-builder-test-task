@@ -119,3 +119,40 @@ export type CvPosition = z.infer<typeof positionSchema>;
 export type CvEducation = z.infer<typeof educationSchema>;
 export type CvSkill = z.infer<typeof skillSchema>;
 export type CvAdditionalSection = z.infer<typeof additionalSectionSchema>;
+
+/**
+ * Consecutive positions of one company, as the CV shows them: one block per company, its positions in
+ * document order. A company counts as the same when its name matches ignoring case and spacing; a
+ * position without a company stands alone.
+ */
+export function experienceGroups<T extends { company: string }>(experience: readonly T[]): T[][] {
+  const key = (company: string) => company.trim().replace(/\s+/g, ' ').toLowerCase();
+  const groups: T[][] = [];
+  for (const position of experience) {
+    const last = groups.at(-1);
+    const previous = last?.at(-1);
+    if (
+      last &&
+      previous &&
+      key(position.company) !== '' &&
+      key(previous.company) === key(position.company)
+    ) {
+      last.push(position);
+    } else {
+      groups.push([position]);
+    }
+  }
+  return groups;
+}
+
+/**
+ * Whether a block of positions shows its bullets for the whole company: only its first position has
+ * bullets (the server puts bullets the positions share there). The template and the questions use this
+ * one rule; a block where another position has bullets shows each position's own.
+ */
+export function sharesBullets(group: readonly { bullets: readonly { text: string }[] }[]): boolean {
+  const filled = (position: { bullets: readonly { text: string }[] }) =>
+    position.bullets.some((bullet) => bullet.text.trim() !== '');
+  const [first, ...rest] = group;
+  return first !== undefined && rest.length > 0 && filled(first) && !rest.some(filled);
+}

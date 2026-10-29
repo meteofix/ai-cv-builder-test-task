@@ -17,6 +17,8 @@ interface Run {
   x1: number;
   size: number;
   text: string;
+  /** Position in the content stream: the order the producer wrote the text in. */
+  order: number;
 }
 
 interface Row {
@@ -78,6 +80,7 @@ export function streamText(items: readonly PdfTextItem[]): string {
 
 function toRows(items: readonly PdfTextItem[]): Row[] {
   const visible = items
+    .map((item, order) => ({ ...item, order }))
     .filter(
       (item) =>
         item.str.trim() !== '' &&
@@ -94,6 +97,7 @@ function toRows(items: readonly PdfTextItem[]): Row[] {
       x1: item.x + Math.max(0, item.width),
       size: item.height,
       text: item.str,
+      order: item.order,
     };
     const row = rows.at(-1);
     if (row && Math.abs(row.y - item.y) <= 0.5 * Math.min(row.size, item.height)) {
@@ -249,6 +253,17 @@ function side(row: Row, runs: Run[]): Row | null {
   return runs.length === 0 ? null : { ...row, runs };
 }
 
+/**
+ * Whether the producer wrote the band row by row, as a table is written; two columns are written one
+ * after the other (all of one side before the other), even when their rows happen to align.
+ */
+function writtenByRows(splits: Split[]): boolean {
+  const orders = (pick: (split: Split) => Row | null) =>
+    splits.flatMap((split) => (pick(split)?.runs ?? []).map((run) => run.order));
+  const [left, right] = [orders((split) => split.left), orders((split) => split.right)];
+  return !(Math.max(...left) < Math.min(...right) || Math.max(...right) < Math.min(...left));
+}
+
 /** One band between full-width rows: a table, a column attached to entries, or two columns. */
 function readBand(band: Row[], gutter: Gutter, depth: number): string[] {
   const splits: Split[] = band.map((row) => ({
@@ -270,7 +285,11 @@ function readBand(band: Row[], gutter: Gutter, depth: number): string[] {
   // A list whose markers are runs of their own aligns too, however long it is.
   const markers = (pick: (split: Split) => Row | null) =>
     splits.every((split) => (pick(split)?.runs ?? []).every((run) => run.x1 - run.x0 <= run.size));
-  if (aligned && (band.length <= MAX_TABLE_ROWS || markers((split) => split.left))) {
+  if (
+    aligned &&
+    writtenByRows(splits) &&
+    (band.length <= MAX_TABLE_ROWS || markers((split) => split.left))
+  ) {
     return band.map(rowText);
   }
   const { x0, x1 } = extent(band.flatMap((row) => row.runs));

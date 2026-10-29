@@ -123,6 +123,26 @@ describe('pageText', () => {
   });
 });
 
+describe('pageText: cases found in review', () => {
+  it('reads short aligned columns written one after the other as columns, not as a table', () => {
+    const left = ['CONTACT', 'Alex Example', 'alex@example.com', 'Kyiv', 'SKILLS', 'Go, SQL'];
+    const right = [
+      'EXPERIENCE',
+      'Acme Corp',
+      'Engineer, 2020 – 2024',
+      'Built the billing service',
+      'Ran the on-call',
+      'Wrote the export tool',
+    ];
+    // The producer wrote the left column first, then the right one.
+    const items = [
+      ...left.map((text, i) => at(text, 40, 20 + 15 * i)),
+      ...right.map((text, i) => at(text, 250, 20 + 15 * i)),
+    ];
+    expect(lines(pageText(items))).toEqual([...left, ...right]);
+  });
+});
+
 describe('pageText on hard pages', () => {
   const words = (text: string) => text.split(/\s+/).filter(Boolean).sort();
 

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Invented person and companies. One column; each entry has "Company, Title" on the left and its
+     location, dates and duration stacked in a narrow right-hand column; long bullets wrap and one entry has
+     nested bullets; contact items carry icon glyphs; skills in labelled rows; a page footer. -->
+    <style>
+      @page {
+        size: A4;
+        margin: 14mm 16mm;
+      }
+      body {
+        margin: 0;
+        font:
+          10.5pt/1.4 Helvetica,
+          Arial,
+          sans-serif;
+        color: #222;
+      }
+      h1 {
+        text-align: center;
+        font-size: 26pt;
+        color: #1b4f8a;
+        margin: 0 0 2mm;
+      }
+      .contacts {
+        text-align: center;
+        color: #1b4f8a;
+        font-size: 10pt;
+      }
+      .contacts span {
+        margin: 0 3mm;
+      }
+      h2 {
+        color: #1b4f8a;
+        font-size: 14pt;
+        border-bottom: 1px solid #1b4f8a;
+        margin: 6mm 0 2mm;
+      }
+      .entry {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4mm;
+        page-break-inside: avoid;
+      }
+      .what {
+        width: 140mm;
+      }
+      .when {
+        width: 36mm;
+        text-align: right;
+      }
+      ul {
+        margin: 0;
+        padding-left: 5mm;
+      }
+      ul ul {
+        padding-left: 5mm;
+      }
+      .footer {
+        text-align: center;
+        color: #888;
+        font-size: 9pt;
+        margin-top: 6mm;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Jonas Brandt</h1>
+    <div class="contacts">
+      <span>⌂ Hamburg, Germany</span><span>✉ jonas.brandt@example.com</span
+      ><span>☎ +00 40 1234 5678</span><span>🔗 jbrandt.example.dev</span>
+    </div>
+    <h2>Experience</h2>
+    <div class="entry">
+      <div class="what">
+        <b>Tidewater Robotics</b>, Head of Platform Engineering
+        <ul>
+          <li>
+            Built the fleet telemetry platform that ingests 1.2 billion sensor readings a day from
+            3,000 warehouse robots, with 99.95% monthly availability
+          </li>
+          <li>
+            Grew the platform team from 4 to 15 engineers across observability, deployment and data
+            infrastructure
+          </li>
+          <li>
+            Reduced cloud spend by 31% by moving cold telemetry to object storage with a query layer
+            on top
+          </li>
+        </ul>
+      </div>
+      <div class="when">Hamburg, Germany<br />Apr 2021 – present<br />4 years 7 months</div>
+    </div>
+    <div class="entry">
+      <div class="what">
+        <b>Meridian Mobility</b>, Senior Software Engineer
+        <ul>
+          <li>Designed the trip-pricing service used in 11 cities</li>
+          <li>
+            Led the migration of the dispatch system to an event log
+            <ul>
+              <li>Moved 60 consumers with no downtime</li>
+              <li>Wrote the replay tooling used for incident analysis</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+      <div class="when">Berlin, Germany<br />Jan 2018 – Mar 2021<br />3 years 3 months</div>
+    </div>
+    <div class="entry">
+      <div class="what">
+        <b>Kestrel Labs</b>, Software Engineer
+        <ul>
+          <li>
+            Implemented the offline sync engine of the field-service app, used by 8,000 technicians,
+            with conflict resolution for concurrent edits made without network
+          </li>
+        </ul>
+      </div>
+      <div class="when">Bremen, Germany<br />Sep 2015 – Dec 2017<br />2 years 4 months</div>
+    </div>
+    <h2>Education</h2>
+    <div class="entry">
+      <div class="what">
+        <b>BSc</b> Hamburg University of Technology, Computer Science
+        <ul>
+          <li>Thesis: Scheduling heuristics for multi-robot pick routes</li>
+        </ul>
+      </div>
+      <div class="when">Hamburg, Germany<br />Oct 2011 – Jul 2015</div>
+    </div>
+    <h2>Projects</h2>
+    <div class="entry">
+      <div class="what">
+        <b>tracewire</b><br />Library that adds structured tracing to embedded devices, published as
+        open source
+        <ul>
+          <li>Adopted by 2 robotics vendors, 1,900 GitHub stars</li>
+        </ul>
+      </div>
+      <div class="when">Jan 2022 – present</div>
+    </div>
+    <h2>Skills</h2>
+    <div><b>Languages:</b> Go, Rust, Python, C++</div>
+    <div><b>Infrastructure:</b> Kubernetes, Terraform, Kafka, ClickHouse, Prometheus</div>
+    <div class="footer">Jonas Brandt – 1/1</div>
+  </body>
+</html>

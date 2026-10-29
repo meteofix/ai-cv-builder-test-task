@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Invented person and companies. A full-width header band, then two columns: a narrow left one
+     (education, links, coursework, skills) and a wide right one (experience as "COMPANY | TITLE" with the
+     dates on the next line, awards in a three-column table). -->
+    <style>
+      @page {
+        size: Letter;
+        margin: 0;
+      }
+      body {
+        margin: 0;
+        font:
+          10pt/1.35 Georgia,
+          serif;
+        color: #222;
+      }
+      .top {
+        text-align: center;
+        padding: 10mm 12mm 4mm;
+        border-bottom: 1px solid #999;
+        position: relative;
+      }
+      .updated {
+        position: absolute;
+        right: 10mm;
+        top: 6mm;
+        font-size: 8pt;
+        color: #888;
+      }
+      h1 {
+        font-size: 30pt;
+        font-weight: 300;
+        margin: 0;
+      }
+      .cols {
+        display: flex;
+        padding: 4mm 12mm;
+        gap: 8mm;
+      }
+      .left {
+        width: 58mm;
+      }
+      .right {
+        flex: 1;
+      }
+      h2 {
+        font-size: 16pt;
+        font-weight: 300;
+        margin: 4mm 0 1mm;
+      }
+      h3 {
+        font-size: 11pt;
+        margin: 2mm 0 0;
+        text-transform: uppercase;
+      }
+      .sub {
+        font-size: 9pt;
+        color: #555;
+      }
+      ul {
+        margin: 0;
+        padding-left: 6mm;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      td {
+        padding: 0 5mm 0 0;
+        vertical-align: top;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <div class="updated">Revised 3 March 2025</div>
+      <h1>Priya Raman</h1>
+      <div>priyaraman.example.com | pr.example/link</div>
+      <div>priya.raman@example.com | 555.010.2233 | p.raman@university.example.edu</div>
+    </div>
+    <div class="cols">
+      <div class="left">
+        <h2>EDUCATION</h2>
+        <h3>Lakeside University</h3>
+        <div>MS in Computer Science</div>
+        <div class="sub">May 2021 | Lakeside, WA</div>
+        <h3>Lakeside University</h3>
+        <div>BS in Computer Science</div>
+        <div class="sub">May 2019 | Lakeside, WA</div>
+        <div>Cum. GPA: 3.78 / 4.0</div>
+        <h2>LINKS</h2>
+        <div>GitHub:// praman-dev</div>
+        <div>LinkedIn:// priya-raman-dev</div>
+        <h2>COURSEWORK</h2>
+        <h3>Graduate</h3>
+        <div>Distributed Systems</div>
+        <div>Advanced Databases</div>
+        <div>Program Analysis</div>
+        <h3>Undergraduate</h3>
+        <div>Operating Systems</div>
+        <div>Computer Networks</div>
+        <h2>SKILLS</h2>
+        <h3>Programming</h3>
+        <div class="sub">Proficient:</div>
+        <div>Go • Rust • Python • SQL</div>
+        <div class="sub">Familiar:</div>
+        <div>Kotlin • Swift • Haskell</div>
+      </div>
+      <div class="right">
+        <h2>EXPERIENCE</h2>
+        <h3>Harborview Systems <span style="font-weight: normal">| Software Engineer II</span></h3>
+        <div class="sub">Jul 2021 - Present | Seattle, WA</div>
+        <ul>
+          <li>
+            Own the rate limiter in front of the public API, which serves 40k requests per second at
+            peak.
+          </li>
+          <li>
+            Cut p99 latency of the billing service from 900 ms to 180 ms by batching ledger writes.
+          </li>
+        </ul>
+        <h3>Quillstone <span style="font-weight: normal">| Software Engineering Intern</span></h3>
+        <div class="sub">Jun 2020 – Sep 2020 | Portland, OR</div>
+        <ul>
+          <li>
+            Built a search index for 2 million help-center articles with typo-tolerant queries.
+          </li>
+          <li>Wrote the load tests that the team still runs before every release.</li>
+        </ul>
+        <h3>Lakeside Systems Lab <span style="font-weight: normal">| Research Assistant</span></h3>
+        <div class="sub">Jan 2019 – May 2021 | Lakeside, WA</div>
+        <div>
+          Worked with Prof. Ana Ortiz on a static checker for data races in Go programs; the tool
+          found 14 confirmed races in open-source projects.
+        </div>
+        <h2>AWARDS</h2>
+        <table>
+          <tr>
+            <td>2020</td>
+            <td>1st/80</td>
+            <td>University Hackathon, Lakeside</td>
+          </tr>
+          <tr>
+            <td>2019</td>
+            <td>Finalist</td>
+            <td>Regional Programming Contest</td>
+          </tr>
+        </table>
+        <h2>PUBLICATIONS</h2>
+        <div>
+          [1] P. Raman and A. Ortiz. Finding data races in Go with lightweight static analysis.
+          Workshop on Program Analysis, 2021.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

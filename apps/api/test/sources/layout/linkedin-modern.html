@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Invented person and companies. A modern LinkedIn "Save to PDF" layout: a light sidebar (Contact, Top
+     Skills, Languages, Certifications), a company with two positions and a total duration, durations in
+     brackets, a page footer. -->
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      body {
+        margin: 0;
+        font:
+          10.5pt/1.4 Arial,
+          sans-serif;
+        color: #222;
+      }
+      .page {
+        display: flex;
+        width: 210mm;
+        min-height: 297mm;
+      }
+      .side {
+        width: 60mm;
+        background: #e9eef3;
+        padding: 14mm 6mm;
+        font-size: 9.5pt;
+      }
+      .main {
+        flex: 1;
+        padding: 14mm 10mm;
+      }
+      .side h3 {
+        font-size: 11pt;
+        margin: 6mm 0 2mm;
+      }
+      h1 {
+        font-size: 24pt;
+        margin: 0;
+      }
+      .headline {
+        font-size: 12pt;
+        margin: 1mm 0;
+      }
+      .loc {
+        color: #777;
+      }
+      h2 {
+        font-size: 14pt;
+        margin: 7mm 0 2mm;
+      }
+      .company {
+        font-size: 12pt;
+        margin-top: 4mm;
+      }
+      .grey {
+        color: #777;
+      }
+      .title {
+        font-size: 11pt;
+        margin-top: 2mm;
+      }
+      p {
+        margin: 1mm 0;
+      }
+      .footer {
+        position: absolute;
+        bottom: 8mm;
+        left: 140mm;
+        color: #999;
+        font-size: 9pt;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <aside class="side">
+        <h3>Contact</h3>
+        <div>mateusz.wrona@example.com</div>
+        <div>www.linkedin.com/in/mateusz-wrona-design (LinkedIn)</div>
+        <h3>Top Skills</h3>
+        <div>Design Systems</div>
+        <div>User Research</div>
+        <div>Prototyping</div>
+        <h3>Languages</h3>
+        <div>Polish (Native or Bilingual)</div>
+        <div>English (Full Professional)</div>
+        <h3>Certifications</h3>
+        <div>Accessibility Specialist (Level 1)</div>
+        <div>Service Design Fundamentals</div>
+      </aside>
+      <main class="main">
+        <h1>Mateusz Wrona</h1>
+        <div class="headline">Lead Product Designer at Brightwave Studio</div>
+        <div class="loc">Kraków, Lesser Poland, Poland</div>
+        <h2>Summary</h2>
+        <p>
+          Product designer who turns research into shipped interfaces. I lead a team of four
+          designers and run the design system used by six product squads.
+        </p>
+        <h2>Experience</h2>
+        <div class="company">Brightwave Studio</div>
+        <div class="grey">4 years 3 months</div>
+        <div class="title">Lead Product Designer</div>
+        <div class="grey">January 2023 - Present (2 years 11 months)</div>
+        <div class="grey">Kraków, Lesser Poland, Poland</div>
+        <p>Lead a team of four designers across onboarding, payments and settings.</p>
+        <p>Rebuilt the design system on tokens; six squads adopted it within two quarters.</p>
+        <div class="title">Senior Product Designer</div>
+        <div class="grey">March 2021 - November 2022 (1 year 9 months)</div>
+        <p>Redesigned the checkout flow; abandoned carts fell by 18% in the first month.</p>
+        <div class="company">Pixel &amp; Co</div>
+        <div class="title">Product Designer</div>
+        <div class="grey">June 2018 - February 2021 (2 years 9 months)</div>
+        <div class="grey">Wrocław, Poland</div>
+        <p>Designed mobile banking screens for two regional banks and ran 40 usability sessions.</p>
+        <div class="company">Atelier Nord</div>
+        <div class="title">Junior Designer</div>
+        <div class="grey">September 2016 - May 2018 (1 year 9 months)</div>
+        <h2>Education</h2>
+        <div class="company">Jagiellonian University</div>
+        <div>Master's degree, Cognitive Science · (2013 - 2015)</div>
+        <div class="company">Academy of Fine Arts in Kraków</div>
+        <div>Bachelor's degree, Graphic Design · (2010 - 2013)</div>
+      </main>
+      <div class="footer">Page 1 of 1</div>
+    </div>
+  </body>
+</html>

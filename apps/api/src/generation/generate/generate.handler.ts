@@ -1,15 +1,15 @@
 import { EntityManager } from '@mikro-orm/postgresql';
 import { Inject, Injectable } from '@nestjs/common';
-import { cvDocumentSchema, LOCALES, type Locale } from '@cv/shared';
+import { cvDocumentSchema } from '@cv/shared';
 import type { Logger } from 'pino';
 import { ROOT_LOGGER } from '../../config/tokens.js';
 import { Cv, CvQuestion, CvSource, type ICv } from '../../db/entities.js';
-import { instructionFragments, uncoveredLines, verifyFacts } from '../../grounding/index.js';
 import { LlmClient } from '../../llm/llm-client.js';
 import { Clock } from '../clock.js';
 import type { JobHandler, JobRun } from '../job-handler.js';
 import { LeaseLostError } from '../job-errors.js';
-import { EXTRACTOR_SYSTEM, extractorInput, WRITER_SYSTEM, writerInput } from './prompts.js';
+import { countBy, extractSourceFacts } from './extract-step.js';
+import { WRITER_SYSTEM, writerInput } from './prompts.js';
 import {
   currentClaims,
   isCurrentClaim,
@@ -20,7 +20,6 @@ import {
 import { checkProse } from './prose-checks.js';
 import { buildQuestions } from './questions.js';
 import {
-  extractorOutputSchema,
   judgeResultSchema,
   writeResultSchema,
   writerOutputSchema,
@@ -69,35 +68,9 @@ export class GenerateHandler implements JobHandler {
   }
 
   private async extract(run: JobRun, text: string): Promise<SourceFacts> {
-    const output = await this.llm.parse({
-      role: 'extractor',
-      system: EXTRACTOR_SYSTEM,
-      input: extractorInput(text),
-      schema: extractorOutputSchema,
-      job: run.job,
-      signal: run.signal,
-    });
-    const locale: Locale = LOCALES.find((known) => known === output.locale) ?? 'en';
-    const instructionSpans = instructionFragments(text, output.ignoredInstructions);
-    const { facts, dropped } = verifyFacts(text, output.facts, instructionSpans);
-    const stored: SourceFacts = {
-      locale,
-      facts,
-      sectionHeadings: output.sectionHeadings,
-      instructionSpans,
-      uncoveredLines: uncoveredLines(
-        text,
-        [...facts.map((fact) => fact.span), ...instructionSpans],
-        output.sectionHeadings,
-      ),
-      answers: [],
-    };
-    const counters = {
-      kept: facts.length,
-      dropped: countBy(dropped.map((fact) => fact.reason)),
-      instructionLines: instructionSpans.length,
-      uncoveredLines: stored.uncoveredLines.length,
-    };
+    const { stored, counters } = await extractSourceFacts(text, (request) =>
+      this.llm.parse({ ...request, role: 'extractor', job: run.job, signal: run.signal }),
+    );
     this.log.info({ jobId: run.job.id, step: 'extract', ...counters }, 'facts verified');
     await run.saveStep('extract', counters, 'write', async (tx) => {
       await tx.nativeUpdate(CvSource, { cv: run.job.cvId }, { facts: stored });
@@ -229,10 +202,4 @@ function passingProse(written: WriteResult, rejected: ReadonlySet<string>): Pros
     order: written.order,
     skills: written.skills,
   };
-}
-
-function countBy(values: readonly string[]): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const value of values) counts[value] = (counts[value] ?? 0) + 1;
-  return counts;
 }

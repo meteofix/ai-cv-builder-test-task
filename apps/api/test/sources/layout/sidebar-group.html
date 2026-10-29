@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Invented person and companies. Two columns with a dark sidebar, one company with three positions
+     and shared bullets under topic sub-headings that continue on page 2, a section above Experience that
+     names the company, multi-line side projects. -->
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          10.5pt/1.45 Helvetica,
+          Arial,
+          sans-serif;
+        color: #e8e8e8;
+        background: #171b22;
+      }
+      .page {
+        display: flex;
+        width: 210mm;
+        height: 297mm;
+        page-break-after: always;
+        overflow: hidden;
+      }
+      .side {
+        width: 62mm;
+        padding: 14mm 7mm;
+        background: #222831;
+        color: #b9c0c9;
+        font-size: 9.5pt;
+      }
+      .main {
+        flex: 1;
+        padding: 12mm 10mm;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24pt;
+        color: #fff;
+      }
+      .headline {
+        margin: 2mm 0;
+        font-size: 12pt;
+        color: #fff;
+      }
+      .contacts {
+        font-size: 9pt;
+      }
+      h2 {
+        font-size: 10pt;
+        letter-spacing: 1.5px;
+        color: #fff;
+        border-bottom: 1px solid #555;
+        padding-bottom: 1mm;
+        margin: 6mm 0 3mm;
+      }
+      .side h2 {
+        color: #6cc4e8;
+        border: 0;
+      }
+      h3 {
+        font-size: 10pt;
+        color: #fff;
+        margin: 4mm 0 1mm;
+      }
+      h4 {
+        font-size: 11pt;
+        color: #fff;
+        margin: 5mm 0 2mm;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+      }
+      .dates {
+        color: #6cc4e8;
+        font-size: 9.5pt;
+        white-space: nowrap;
+      }
+      .muted {
+        color: #9aa3ad;
+        font-size: 9.5pt;
+      }
+      ul {
+        margin: 0;
+        padding-left: 5mm;
+        list-style: none;
+      }
+      li {
+        margin-bottom: 2mm;
+      }
+      li::before {
+        content: '-';
+        color: #6cc4e8;
+        margin-left: -4mm;
+        margin-right: 2mm;
+      }
+      .running {
+        display: flex;
+        justify-content: space-between;
+        font-weight: bold;
+        color: #fff;
+        border-bottom: 2px solid #555;
+        padding-bottom: 2mm;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <aside class="side">
+        <h2>SKILLS</h2>
+        <h3>Data Engineering</h3>
+        <div>
+          Batch and streaming pipelines, Apache Airflow, dbt, Apache Kafka, Spark Structured
+          Streaming, change data capture, data contracts
+        </div>
+        <h3>Analytics</h3>
+        <div>
+          SQL window functions, cohort analysis, experiment design, Looker, Metabase, product
+          metrics
+        </div>
+        <h3>Languages &amp; Platforms</h3>
+        <div>
+          Python, Scala, PostgreSQL, ClickHouse, Snowflake, Terraform, Kubernetes, GCP (BigQuery,
+          Pub/Sub, Dataflow)
+        </div>
+        <h2>EDUCATION</h2>
+        <h3>MSc in Applied Mathematics</h3>
+        <div class="muted">Ivan Franko National University of Lviv</div>
+        <div class="muted">Sep 2014 — Jun 2016</div>
+        <h3>BSc in Mathematics</h3>
+        <div class="muted">Ivan Franko National University of Lviv</div>
+        <div class="muted">Jun 2014</div>
+        <h2>LANGUAGES</h2>
+        <div>Ukrainian — native</div>
+        <div>English — C1</div>
+      </aside>
+      <main class="main">
+        <h1>Olena Marchenko</h1>
+        <div class="headline">Data Engineer · Analytics Lead</div>
+        <div class="contacts">
+          Lviv, Ukraine · +00 (000) 11-22-333 · olena.marchenko@example.com ·
+          github.com/omarchenko-dev · linkedin.com/in/omarchenko-dev
+        </div>
+        <h2>SUMMARY</h2>
+        <p>
+          Data engineer with 9 years of experience building batch and streaming pipelines for
+          logistics and retail. I own data platforms end to end, from ingestion contracts to the
+          dashboards that operations teams use every morning.
+        </p>
+        <p>5 years at Larkspur Freight: Data Analyst → Data Engineering Lead, 4 direct reports.</p>
+        <h2>KEY PROJECTS · LARKSPUR FREIGHT · 2023–2025</h2>
+        <p class="muted">Systems I designed and shipped; each one replaced a manual process.</p>
+        <ul>
+          <li>
+            <b>Route cost model.</b> Built a nightly model that prices 14,000 delivery routes from
+            fuel, toll and driver-hour data; dispatchers now plan from it instead of a spreadsheet
+            maintained by hand.
+          </li>
+          <li>
+            <b>Warehouse event stream.</b> Replaced hourly CSV exports with a Kafka stream of 2.3M
+            scanner events a day, cutting the delay of the stock dashboard from 60 minutes to under
+            2.
+          </li>
+        </ul>
+        <h2>EXPERIENCE</h2>
+        <div class="row">
+          <span style="font-size: 15pt; color: #fff"
+            ><b>Larkspur Freight</b> (formerly Westbridge Cargo)</span
+          ><span class="dates">Mar 2020 — Jun 2025</span>
+        </div>
+        <div class="muted">Full-time · Remote · 5 yrs 4 mos</div>
+        <div class="row" style="margin-top: 3mm">
+          <b>Data Engineering Lead</b><span class="dates">Jan 2024 — Jun 2025</span>
+        </div>
+        <div class="row">
+          <span class="muted">Senior Data Engineer</span
+          ><span class="muted">Feb 2022 — Jan 2024</span>
+        </div>
+        <div class="row">
+          <span class="muted">Data Analyst</span><span class="muted">Mar 2020 — Feb 2022</span>
+        </div>
+        <h4>Data platform</h4>
+        <ul>
+          <li>
+            Migrated 140 Airflow DAGs from a single VM to Kubernetes executors, removing the nightly
+            queue that delayed morning reports.
+          </li>
+          <li>
+            Introduced data contracts between the warehouse and three product teams; schema breaks
+            reached production 0 times in the following year.
+          </li>
+        </ul>
+      </main>
+    </div>
+    <div class="page">
+      <aside class="side">
+        <h2>SKILLS</h2>
+        <h3>Practices</h3>
+        <div>Code review, on-call rotation, incident reviews, technical writing, mentoring</div>
+        <h2>COURSES</h2>
+        <h3>Streaming Systems Workshop</h3>
+        <div class="muted">Data Guild · Oct 2023</div>
+      </aside>
+      <main class="main">
+        <div class="running"><span>Olena Marchenko</span><span>2 / 2</span></div>
+        <h4>Data platform <span class="muted">cont.</span></h4>
+        <ul>
+          <li>
+            Cut the monthly warehouse bill by 35% by partitioning the five largest tables and
+            expiring raw snapshots after 90 days.
+          </li>
+          <li>
+            Wrote the runbook for late-arriving data and trained the on-call rotation to use it.
+          </li>
+        </ul>
+        <h4>Team</h4>
+        <ul>
+          <li>
+            Hired and onboarded 3 data engineers; ran weekly 1:1s and quarterly growth plans for 4
+            direct reports.
+          </li>
+          <li>
+            Started a fortnightly analytics review with operations managers, which became the main
+            channel for new dashboard requests.
+          </li>
+        </ul>
+        <div class="row" style="margin-top: 5mm">
+          <span style="font-size: 12pt; color: #fff"><b>Freelance — Data Analyst</b></span
+          ><span class="dates">Sep 2016 — Feb 2020</span>
+        </div>
+        <p class="muted">
+          Built reporting for small online shops: sales dashboards, stock forecasts and marketing
+          attribution in spreadsheets and Metabase.
+        </p>
+        <h2>SIDE PROJECTS</h2>
+        <p>
+          <b>Tram delay tracker</b> (Python, PostgreSQL, Grafana) — collects public tram positions
+          every 30 seconds, computes delays per stop and publishes a weekly report that the city
+          transport office cited in its 2024 timetable review.
+        </p>
+        <p>
+          <b>Board game library</b> (Django) — a lending catalogue for a local club with
+          reservations, waiting lists and overdue reminders.
+        </p>
+      </main>
+    </div>
+  </body>
+</html>

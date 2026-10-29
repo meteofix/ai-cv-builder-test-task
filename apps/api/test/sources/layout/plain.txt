@@ -1,0 +1,32 @@
+Hanna Kowalczyk
+Customer Support Team Lead
+hanna.kowalczyk@example.com | +00 22 555 0199 | Gdańsk, Poland
+
+PROFILE
+Support lead with seven years in SaaS customer service. I build calm, well-documented support teams.
+
+EXPERIENCE
+Team Lead, Customer Support — Harbourline Software (Gdańsk)
+Feb 2022 – Present
+- Lead a team of 9 agents across email, chat and phone in two time zones
+- Cut the first-response time from 6 hours to 45 minutes by introducing triage tags and an on-call rota
+- Wrote the 120-article internal knowledge base the team works from
+
+Senior Support Specialist — Harbourline Software
+Jun 2019 – Jan 2022
+- Handled escalations for the 40 largest accounts
+- Ran onboarding calls for new enterprise customers
+
+Support Specialist, Bluefin Payments, Sopot
+Mar 2017 – May 2019
+- Answered merchant questions about payouts, chargebacks and API errors
+
+EDUCATION
+University of Gdańsk — BA in English Philology, 2013 – 2017
+
+SKILLS
+Zendesk, Intercom, Jira Service Management, SQL basics, Looker dashboards,
+macros and automations, knowledge-base writing, coaching
+
+LANGUAGES
+Polish (native), English (C2), German (B1)

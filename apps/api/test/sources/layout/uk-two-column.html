@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Вигадана людина і компанії. Українське двоколонкове резюме: основна колонка ліворуч, вузька праворуч
+     (контакти, навички, мови); «Посада, Компанія» в одному рядку, дати з крапками. -->
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      body {
+        margin: 0;
+        font:
+          10.5pt/1.45 Arial,
+          sans-serif;
+        color: #1d2430;
+      }
+      .page {
+        display: flex;
+        width: 210mm;
+        min-height: 297mm;
+      }
+      .main {
+        flex: 1;
+        padding: 14mm 9mm 14mm 14mm;
+      }
+      .side {
+        width: 64mm;
+        padding: 14mm 9mm;
+        background: #f2efe8;
+        font-size: 9.5pt;
+      }
+      h1 {
+        font-size: 22pt;
+        margin: 0;
+      }
+      .headline {
+        font-size: 12pt;
+        color: #8a5a2b;
+        margin: 1mm 0 4mm;
+      }
+      h2 {
+        font-size: 11pt;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #8a5a2b;
+        margin: 6mm 0 2mm;
+      }
+      .entry {
+        margin-bottom: 4mm;
+      }
+      .head {
+        font-weight: bold;
+      }
+      .dates {
+        color: #666;
+        font-size: 9.5pt;
+      }
+      ul {
+        margin: 1mm 0 0;
+        padding-left: 5mm;
+      }
+      li {
+        margin-bottom: 1mm;
+      }
+      .side div {
+        margin-bottom: 1mm;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <main class="main">
+        <h1>Тарас Гнатюк</h1>
+        <div class="headline">Фронтенд-розробник</div>
+        <h2>Про мене</h2>
+        <p>
+          Фронтенд-розробник з 2017 року. Будую інтерфейси для внутрішніх систем логістики й обліку:
+          від макета до продакшену та підтримки.
+        </p>
+        <h2>Досвід роботи</h2>
+        <div class="entry">
+          <div class="head">Старший фронтенд-розробник, ТОВ «Сонячні Системи»</div>
+          <div class="dates">09.2021 – дотепер · Київ</div>
+          <ul>
+            <li>
+              Переписав модуль складського обліку з jQuery на React; час завантаження сторінки
+              зменшився з 6 до 1,5 секунди.
+            </li>
+            <li>
+              Запровадив Storybook і візуальні регресійні тести для 120 компонентів дизайн-системи.
+            </li>
+            <li>Наставник для двох молодших розробників.</li>
+          </ul>
+        </div>
+        <div class="entry">
+          <div class="head">Фронтенд-розробник, ПП «Карпатський Код»</div>
+          <div class="dates">03.2019 – 08.2021 · Львів</div>
+          <ul>
+            <li>
+              Розробив кабінет клієнта для служби доставки: відстеження посилок, оплата, історія
+              замовлень.
+            </li>
+            <li>Налаштував CI для фронтенду в GitLab, збірка скоротилася з 14 до 4 хвилин.</li>
+          </ul>
+        </div>
+        <div class="entry">
+          <div class="head">Молодший веб-розробник, ФОП Литвин О. М.</div>
+          <div class="dates">07.2017 – 02.2019</div>
+          <ul>
+            <li>Верстав і підтримував сайти для малого бізнесу на WordPress.</li>
+          </ul>
+        </div>
+        <h2>Освіта</h2>
+        <div class="head">Національний університет «Львівська політехніка»</div>
+        <div>Бакалавр, комп'ютерні науки · 2013 – 2017</div>
+      </main>
+      <aside class="side">
+        <h2>Контакти</h2>
+        <div>Київ, Україна</div>
+        <div>+00 (000) 765-43-21</div>
+        <div>taras.hnatiuk@example.com</div>
+        <div>github.com/thnatiuk-dev</div>
+        <h2>Навички</h2>
+        <div>
+          TypeScript, React, Redux Toolkit, Next.js, Storybook, Jest, Playwright, CSS Modules,
+          Webpack, Vite, GitLab CI, REST, GraphQL
+        </div>
+        <h2>Мови</h2>
+        <div>Українська — рідна</div>
+        <div>Англійська — B2</div>
+        <h2>Сертифікати</h2>
+        <div>Meta Front-End Developer Certificate, 2022</div>
+      </aside>
+    </div>
+  </body>
+</html>

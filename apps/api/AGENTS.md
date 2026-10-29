@@ -14,6 +14,7 @@ NestJS 12 on Fastify 5, MikroORM 7 on PostgreSQL 17. Read the root `AGENTS.md` f
   - `OwnedCvs.findOwned(id, userId, em?)` — the only way to load a CV;
   - `GenerationQueue` — `enqueue(em, cv, input)` in the caller's transaction (limits, one active job), `getLatestJob()` → the `Job` DTO, `hasActiveJob()`, `retry(em, cv)`; `toJobDto` is the one mapper;
   - `ApiError(code, detail?)` and the global `ProblemFilter` (installed in `bootstrap.ts`).
+- `eval/` — the corpus eval script (`eval-cli.ts`, not a Nest module): extract-only through the real `LlmClient` and the shared `extractSourceFacts`, or full generation through a running app. The corpus and the expectations live outside the repository (real people's CVs); never commit them or copy their text into code, prompts or tests.
 - `grounding` and `@cv/shared` are pure TypeScript. The Anthropic SDK is imported only in `llm/anthropic-transport.ts`, behind the `LlmTransport` port; `LlmClient` owns retries, the call budget and re-asks.
 
 ## Conventions

@@ -6,6 +6,12 @@ import {
   type TransportResult,
 } from '../../src/llm/llm-transport.js';
 
+/** The text of the first user turn of a request, its blocks joined. */
+export function userText(request: TransportRequest<unknown>): string {
+  const content = request.messages[0]?.content ?? '';
+  return typeof content === 'string' ? content : content.map((block) => block.text).join('\n');
+}
+
 /**
  * One scripted answer: model output (validated by the request's schema like the real transport does), an
  * HTTP status, a refusal, or a function that decides per request and may wait (to change the world while
@@ -17,7 +23,7 @@ export type FakeAnswer =
   | { refusal: true }
   | ((request: TransportRequest<unknown>, signal: AbortSignal) => Promise<FakeAnswer> | FakeAnswer);
 
-const USAGE = { input: 100, output: 50 };
+const USAGE = { input: 100, output: 50, cacheRead: 0, cacheWrite: 0 };
 
 /**
  * The scripted model of the tests. It replaces only the transport, so the client's retries, re-asks and
@@ -41,7 +47,15 @@ export class FakeLlmClient extends LlmTransport {
   inputs(role: LlmRole): string[] {
     return this.requests
       .filter((request) => request.role === role)
-      .map((request) => request.messages.map((message) => message.content).join('\n'));
+      .map((request) =>
+        request.messages
+          .flatMap((message) =>
+            typeof message.content === 'string'
+              ? [message.content]
+              : message.content.map((block) => block.text),
+          )
+          .join('\n'),
+      );
   }
 
   async send<T>(request: TransportRequest<T>, signal: AbortSignal): Promise<TransportResult<T>> {

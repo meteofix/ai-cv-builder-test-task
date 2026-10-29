@@ -27,7 +27,12 @@ export function answer(
       content: [{ type: 'text', text: options.text ?? JSON.stringify(output) }],
       stop_reason: options.stopReason ?? 'end_turn',
       stop_sequence: null,
-      usage: { input_tokens: 12, output_tokens: 7 },
+      usage: {
+        input_tokens: 12,
+        output_tokens: 7,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+      },
     },
   };
 }

@@ -1,13 +1,6 @@
-import { randomUUID } from 'node:crypto';
-import { checkNumbers, checkReferences, selectSkills, type Fact } from '../../grounding/index.js';
-import type { ProseItem, RemovedItem, WriteResult, WriterOutput } from './schemas.js';
+import { checkNumbers, checkReferences, type Fact } from '../../grounding/index.js';
+import type { ProseItem, RemovedItem } from './schemas.js';
 import { verbatim } from './skeleton.js';
-
-export interface ProseCheck {
-  result: WriteResult;
-  /** For counters: writer output that named a position that does not exist. */
-  unknownPositions: number;
-}
 
 /**
  * A check of one written item against the facts it cites and the source: it records a failing item in
@@ -38,48 +31,4 @@ export function quotesOf(facts: readonly Fact[], source: string) {
       const fact = byId.get(id);
       return fact ? [verbatim(source, fact)] : [];
     });
-}
-
-/**
- * The mechanical checks of the writer's output (docs/specs/grounding.md §4): an item that fails is
- * removed and remembered with its class, so it becomes a question and shows in "Not in your CV".
- */
-export function checkProse(
-  output: WriterOutput,
-  facts: readonly Fact[],
-  source: string,
-): ProseCheck {
-  const { passes, removed } = proseChecker(facts, source);
-
-  const summary = output.summary
-    .map((sentence, i) => ({ id: `s${i + 1}`, ...sentence }))
-    .filter((sentence) => passes(sentence, null));
-
-  const positionIds = facts.filter((fact) => fact.kind === 'position').map((fact) => fact.id);
-  const known = new Set(positionIds);
-  let unknownPositions = 0;
-  const positions: WriteResult['positions'] = [];
-  for (const { positionId, bullets } of output.positions) {
-    // Bullets for a position that does not exist have nowhere to go and no item to ask about.
-    if (!known.has(positionId) || positions.some((entry) => entry.positionId === positionId)) {
-      unknownPositions++;
-      continue;
-    }
-    positions.push({
-      positionId,
-      bullets: bullets
-        .map((bullet) => ({ id: randomUUID(), ...bullet }))
-        .filter((bullet) => passes(bullet, positionId)),
-    });
-  }
-
-  return {
-    result: {
-      summary,
-      positions,
-      skills: selectSkills(output.skills, facts),
-      removed,
-    },
-    unknownPositions,
-  };
 }

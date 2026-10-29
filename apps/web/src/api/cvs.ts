@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type Query } from '@tanstack/react-query';
-import { ACTIVE_JOB_STATUSES, type CvListResponse, type Job, type JobStep } from '@cv/shared';
+import { ACTIVE_JOB_STATUSES, type CvListResponse, type Job } from '@cv/shared';
 import { api } from './client';
 import { ApiError } from './errors';
 import { queryKeys } from './keys';
@@ -48,7 +48,7 @@ export function useDeleteCv() {
   return useMutation({
     mutationFn: (id: string) => api('deleteCv', { params: { id } }),
     onSuccess: (_data, id) => {
-      for (const key of [queryKeys.cv(id), queryKeys.job(id), queryKeys.draft(id)]) {
+      for (const key of [queryKeys.cv(id), queryKeys.job(id)]) {
         client.removeQueries({ queryKey: key });
       }
     },
@@ -106,21 +106,6 @@ export function useJob(id: string, enabled = true, known?: Job | null) {
       if (!isJobActive(current)) return false;
       return query.state.status === 'error' ? refetchAfterError(query.state) : POLL_MS;
     },
-  });
-}
-
-/** The extractor has finished once the job is past `extract`: from then on the API can build the draft. */
-const STEPS_WITH_DRAFT: readonly JobStep[] = ['write', 'judge', 'finalize'];
-
-/** Fetched once and never again: the draft only matters until the finished document replaces it. */
-export function useDraft(id: string, job: Job | null | undefined) {
-  const ready = job?.step != null && STEPS_WITH_DRAFT.includes(job.step);
-  return useQuery({
-    queryKey: queryKeys.draft(id),
-    queryFn: () => api('getDraft', { params: { id } }),
-    enabled: ready,
-    staleTime: Infinity,
-    select: (data) => data.draft,
   });
 }
 

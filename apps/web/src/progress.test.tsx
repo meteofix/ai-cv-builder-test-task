@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Job } from '@cv/shared';
-import { CV_ID, cvDetail, cvDocument, job, mockRoute, problem, USER } from './test/mock-api';
+import { CV_ID, cvDetail, job, mockRoute, problem, USER } from './test/mock-api';
 import { renderApp } from './test/render';
 import { server } from './test/server';
 
@@ -16,8 +16,6 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const draft = cvDocument({ summary: { text: '', factIds: [] } });
-
 function previewText(): string {
   return document.querySelector('iframe')?.contentDocument?.body.textContent ?? '';
 }
@@ -31,17 +29,15 @@ function currentStep(): string {
 }
 
 describe('generation progress', () => {
-  it('WEB-5 — the stepper follows the job, the draft is fetched once, then the CV is shown', async () => {
+  it('WEB-5 — the stepper follows the job, then the CV is shown', async () => {
     useFakeClock();
     const sequence: Job[] = [
       job({ status: 'queued', step: null }),
-      job({ status: 'running', step: 'extract' }),
       job({ status: 'running', step: 'write' }),
       job({ status: 'running', step: 'judge' }),
       job({ status: 'succeeded', step: 'finalize' }),
     ];
     let jobRequests = 0;
-    let draftRequests = 0;
     let cvRequests = 0;
     server.use(
       mockRoute('me', () => USER),
@@ -53,52 +49,27 @@ describe('generation progress', () => {
           : cvDetail();
       }),
       mockRoute('getJob', () => sequence[Math.min(jobRequests++, sequence.length - 1)] ?? job()),
-      mockRoute('getDraft', () => {
-        draftRequests += 1;
-        return { draft };
-      }),
     );
     renderApp(`/cvs/${CV_ID}`);
 
     await vi.waitFor(() => {
-      expect(currentStep()).toContain('Reading your CV');
-    });
-    expect(screen.getAllByRole('listitem')).toHaveLength(4);
-
-    await vi.advanceTimersByTimeAsync(1500);
-    await vi.waitFor(() => {
-      expect(currentStep()).toContain('Reading your CV');
-      expect(jobRequests).toBe(2);
-    });
-    expect(draftRequests).toBe(0);
-
-    await vi.advanceTimersByTimeAsync(1500);
-    await vi.waitFor(() => {
       expect(currentStep()).toContain('Writing');
-      expect(draftRequests).toBe(1);
     });
-    await vi.waitFor(() => {
-      expect(previewText()).toContain('Iryna Kovalenko');
-      expect(previewText()).toContain('Writing…');
-    });
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
 
-    const frame = document.querySelector('iframe');
-    const shellBefore = frame?.getAttribute('srcdoc');
-    expect(frame?.getAttribute('sandbox')).toBe('allow-same-origin');
-
+    await vi.advanceTimersByTimeAsync(1500);
     await vi.advanceTimersByTimeAsync(1500);
     await vi.waitFor(() => {
       expect(currentStep()).toContain('Checking facts');
     });
-    // Reading and Writing are done, Checking facts is running, Finishing has not started.
+    // Writing is done, Checking facts is running, Finishing has not started.
     expect(stepClasses()).toEqual([
-      'stepper__step stepper__step--done',
       'stepper__step stepper__step--done',
       'stepper__step stepper__step--active',
       'stepper__step',
     ]);
-    // The page of the preview is set once; only its body follows the draft.
-    expect(document.querySelector('iframe')?.getAttribute('srcdoc')).toBe(shellBefore);
+    // There is no draft before the CV is written.
+    expect(document.querySelector('iframe')).toBeNull();
 
     await vi.advanceTimersByTimeAsync(1500);
     await vi.waitFor(() => {
@@ -106,7 +77,6 @@ describe('generation progress', () => {
       // The editor shows the finished document.
       expect(screen.getByLabelText('Full name')).toHaveValue('Iryna Kovalenko');
     });
-    expect(draftRequests).toBe(1);
     expect(cvRequests).toBeGreaterThanOrEqual(2);
 
     // Polling stopped with the job.
@@ -115,20 +85,33 @@ describe('generation progress', () => {
     expect(jobRequests).toBe(settled);
   });
 
-  it('a reload shows the same state: a job already past extract fetches the draft at once', async () => {
+  it('a reload shows the same step', async () => {
     server.use(
       mockRoute('me', () => USER),
       mockRoute('getCv', () =>
         cvDetail({ document: null, job: job({ status: 'running', step: 'judge' }) }),
       ),
       mockRoute('getJob', () => job({ status: 'running', step: 'judge' })),
-      mockRoute('getDraft', () => ({ draft })),
     );
     renderApp(`/cvs/${CV_ID}`);
 
     await vi.waitFor(() => {
       expect(currentStep()).toContain('Checking facts');
-      expect(previewText()).toContain('Iryna Kovalenko');
+    });
+  });
+
+  it('a job stored before v2 at its extract step shows the first step', async () => {
+    server.use(
+      mockRoute('me', () => USER),
+      mockRoute('getCv', () =>
+        cvDetail({ document: null, job: job({ status: 'running', step: 'extract' }) }),
+      ),
+      mockRoute('getJob', () => job({ status: 'running', step: 'extract' })),
+    );
+    renderApp(`/cvs/${CV_ID}`);
+
+    await vi.waitFor(() => {
+      expect(currentStep()).toContain('Writing');
     });
   });
 
@@ -165,7 +148,6 @@ describe('generation progress', () => {
               },
             }),
       ),
-      mockRoute('getDraft', () => ({ draft })),
       mockRoute('retryJob', () => {
         retried += 1;
         return job({ status: 'queued', step: 'write' });
@@ -176,13 +158,8 @@ describe('generation progress', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'The AI service is unavailable right now.',
     );
-    await vi.waitFor(() => {
-      expect(previewText()).toContain('Iryna Kovalenko');
-    });
-    expect(screen.getByText('Read-only')).toBeInTheDocument();
-    // The step that failed is marked, the one before it is done.
+    // The step that failed is marked, the ones after it have not started.
     expect(stepClasses()).toEqual([
-      'stepper__step stepper__step--done',
       'stepper__step stepper__step--failed',
       'stepper__step',
       'stepper__step',
@@ -206,7 +183,7 @@ describe('generation progress', () => {
           document: null,
           job: job({
             status: 'failed',
-            step: 'extract',
+            step: 'write',
             error: { code: 'AI_UNAVAILABLE', message: 'The AI service is unavailable right now.' },
           }),
         }),
@@ -215,7 +192,7 @@ describe('generation progress', () => {
         jobRequests += 1;
         return job({
           status: 'failed',
-          step: 'extract',
+          step: 'write',
           error: { code: 'AI_UNAVAILABLE', message: 'The AI service is unavailable right now.' },
         });
       }),
@@ -239,7 +216,7 @@ describe('generation progress', () => {
   ] as const)('a refused Retry (%s) says why next to the job error', async (code, message) => {
     const failed = job({
       status: 'failed',
-      step: 'extract',
+      step: 'write',
       error: { code: 'AI_UNAVAILABLE', message: 'The AI service is unavailable right now.' },
     });
     server.use(

@@ -20,7 +20,18 @@ export interface LlmRequest<T> {
   system: string;
   /** The user turn; source text only inside `<cv_source>…</cv_source>`. */
   input: string;
+  /**
+   * Text sent before `input` and marked for prompt caching: the source. A re-ask sends it again word for
+   * word and reads it from the cache; the other role has another system prompt and cannot.
+   */
+  cached?: string;
   schema: z.ZodType<T>;
+  /**
+   * What the schema sent to the service cannot say (ids that must exist, sizes after kept text is filled
+   * in): the problems, or null. A problem is asked again like a schema error. Kept out of the schema
+   * because a refined schema compiles to a grammar the service refuses as too large.
+   */
+  check?: (output: T) => string | null;
   /** For the call budget and fencing. */
   job: BudgetedJob;
   /** Lost lease or shutdown. */
@@ -34,9 +45,16 @@ export type LlmSleep = (ms: number, signal: AbortSignal) => Promise<void>;
 const TRANSPORT_ATTEMPTS = 3;
 const DEFAULT_WAITS_MS = [1_000, 2_000] as const;
 const MAX_RETRY_AFTER_MS = 30_000;
-const SCHEMA_REASKS = 2;
-const MAX_TOKENS = 16_000;
-const EFFORT: Record<LlmRole, LlmEffort> = { extractor: 'low', writer: 'medium', judge: 'high' };
+// One re-ask with the validation error; a second invalid answer fails the step (v2: at most four calls).
+const SCHEMA_REASKS = 1;
+// The author writes the whole document after thinking about it; the other roles answer much less.
+const MAX_TOKENS: Record<LlmRole, number> = {
+  extractor: 16_000,
+  writer: 16_000,
+  judge: 16_000,
+  author: 32_000,
+  reviewer: 16_000,
+};
 
 const UNUSABLE_ANSWER = 'The AI returned an answer we could not use.';
 
@@ -48,6 +66,7 @@ const UNUSABLE_ANSWER = 'The AI returned an answer we could not use.';
 @Injectable()
 export class LlmClient {
   private readonly models: Record<LlmRole, string>;
+  private readonly effort: Record<LlmRole, LlmEffort>;
   private readonly log: Logger;
 
   constructor(
@@ -61,13 +80,22 @@ export class LlmClient {
       extractor: config.EXTRACTOR_MODEL,
       writer: config.WRITER_MODEL,
       judge: config.JUDGE_MODEL,
+      author: config.AUTHOR_MODEL,
+      reviewer: config.REVIEWER_MODEL,
+    };
+    this.effort = {
+      extractor: 'low',
+      writer: 'medium',
+      judge: 'high',
+      author: config.AUTHOR_EFFORT,
+      reviewer: config.REVIEWER_EFFORT,
     };
     this.log = logger.child({ module: 'llm' });
   }
 
   async parse<T>(request: LlmRequest<T>): Promise<T> {
     const model = this.models[request.role];
-    let messages: LlmMessage[] = [{ role: 'user', content: request.input }];
+    let messages: LlmMessage[] = [turn(request, request.input)];
     let transportFailures = 0;
     let invalidAnswers = 0;
     for (;;) {
@@ -80,8 +108,8 @@ export class LlmClient {
           {
             role: request.role,
             model,
-            effort: EFFORT[request.role],
-            maxTokens: MAX_TOKENS,
+            effort: this.effort[request.role],
+            maxTokens: MAX_TOKENS[request.role],
             system: request.system,
             messages,
             schema: request.schema,
@@ -113,17 +141,28 @@ export class LlmClient {
           usage: result.usage,
         };
       }
+      const problem = result.kind === 'output' ? (request.check?.(result.output) ?? null) : null;
+      if (result.kind === 'output' && problem !== null) {
+        result = {
+          kind: 'invalid',
+          error: problem,
+          stopReason: result.stopReason,
+          usage: result.usage,
+        };
+      }
       this.logAttempt(request, model, started, {
         outcome: result.kind,
         stopReason: result.stopReason,
         inputTokens: result.usage?.input,
         outputTokens: result.usage?.output,
+        cacheReadTokens: result.usage?.cacheRead,
+        cacheWriteTokens: result.usage?.cacheWrite,
       });
       if (result.kind === 'output') return result.output;
       if (result.kind === 'refusal') throw new JobError('AI_REFUSED');
       invalidAnswers++;
       if (invalidAnswers > SCHEMA_REASKS) throw new JobError('INTERNAL', UNUSABLE_ANSWER);
-      messages = [{ role: 'user', content: reask(request.input, result.error) }];
+      messages = [turn(request, reask(request.input, result.error))];
     }
   }
 
@@ -133,8 +172,8 @@ export class LlmClient {
   }
 
   /** One line per HTTP attempt: never the prompt, the source, facts or the answer. */
-  private logAttempt(
-    request: LlmRequest<unknown>,
+  private logAttempt<T>(
+    request: LlmRequest<T>,
     model: string,
     started: number,
     fields: Record<string, unknown>,
@@ -150,6 +189,11 @@ export class LlmClient {
       'llm call',
     );
   }
+}
+
+function turn<T>(request: LlmRequest<T>, input: string): LlmMessage {
+  if (request.cached === undefined) return { role: 'user', content: input };
+  return { role: 'user', content: [{ text: request.cached, cached: true }, { text: input }] };
 }
 
 /** The original input plus why the last answer was refused, so the model can correct itself. */

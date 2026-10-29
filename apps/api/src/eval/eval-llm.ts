@@ -2,7 +2,6 @@ import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
 import pino from 'pino';
 import type { AppConfig } from '../config/env.js';
-import type { AskExtractor } from '../generation/generate/extract-step.js';
 import { AnthropicTransport, createAnthropicSdk } from '../llm/anthropic-transport.js';
 import { LlmCallBudget } from '../llm/llm-budget.js';
 import { LlmClient } from '../llm/llm-client.js';
@@ -10,6 +9,7 @@ import {
   LlmTransport,
   TransportError,
   type TransportRequest,
+  type TokenUsage,
   type TransportResult,
 } from '../llm/llm-transport.js';
 
@@ -20,6 +20,8 @@ export interface CallRecord {
   latencyMs: number;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
   outcome: string;
 }
 
@@ -33,18 +35,23 @@ class RecordingTransport extends LlmTransport {
 
   async send<T>(request: TransportRequest<T>, signal: AbortSignal): Promise<TransportResult<T>> {
     const started = performance.now();
-    const record = (outcome: string, usage: { input: number; output: number } | null) =>
+    const record = (outcome: string, usage: TokenUsage | null) =>
       this.calls.push({
         role: request.role,
         model: request.model,
         latencyMs: Math.round(performance.now() - started),
         inputTokens: usage?.input ?? 0,
         outputTokens: usage?.output ?? 0,
+        cacheReadTokens: usage?.cacheRead ?? 0,
+        cacheWriteTokens: usage?.cacheWrite ?? 0,
         outcome,
       });
     try {
       const result = await this.inner.send(request, signal);
-      record(result.kind, result.usage);
+      record(
+        result.kind === 'invalid' ? `invalid: ${result.error.slice(0, 300)}` : result.kind,
+        result.usage,
+      );
       return result;
     } catch (error) {
       // A failed attempt is a call too (the client retries it); the client handles the error itself.
@@ -66,9 +73,9 @@ class UnmeteredBudget extends LlmCallBudget {
 
 /**
  * The real `LlmClient` (retries and re-asks as in production) on the real Anthropic transport, for the
- * extract-only eval. Logs stay silent: the report records each call instead.
+ * eval. Logs stay silent: the report records each call instead.
  */
-export function evalLlm(config: AppConfig) {
+export function evalClient(config: AppConfig) {
   const transport = new RecordingTransport(new AnthropicTransport(createAnthropicSdk(config)));
   const client = new LlmClient(
     transport,
@@ -77,8 +84,5 @@ export function evalLlm(config: AppConfig) {
     config,
     pino({ level: 'silent' }),
   );
-  const job = { id: 'eval', lockedBy: 'eval' };
-  const ask: AskExtractor = (request) =>
-    client.parse({ ...request, role: 'extractor', job, signal: new AbortController().signal });
-  return { ask, calls: transport.calls };
+  return { client, calls: transport.calls };
 }

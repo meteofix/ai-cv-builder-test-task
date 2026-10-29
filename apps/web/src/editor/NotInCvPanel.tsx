@@ -2,10 +2,9 @@ import { NOT_IN_CV_REASONS, type NotInCvItem } from '@cv/shared';
 import { Icon } from '../components/Icon';
 
 const GROUP_TITLES: Record<NotInCvItem['reason'], string> = {
-  unverified: "Couldn't verify",
-  unused: 'Not used',
+  not_included: 'Left out',
+  not_placed: 'Not placed anywhere',
   ignored: 'Ignored (looked like an instruction)',
-  not_recognized: 'Not recognized',
 };
 
 /** What the generation left out of the CV and why, so nothing the person wrote disappears silently. */

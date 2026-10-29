@@ -1,5 +1,5 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import type { Answer, QuestionTarget } from '@cv/shared';
+import { LIMITS, type Answer, type QuestionTarget } from '@cv/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Cv, CvQuestion, CvSource, GenerationJob, type IUser } from '../src/db/entities.js';
 import { sourceFactsSchema } from '../src/generation/generate/schemas.js';
@@ -197,15 +197,19 @@ describe('apply_answer', () => {
     });
 
     it('never cuts the user’s own bullet when the regenerated ones fill the cap', async () => {
-      const six = ['One.', 'Two.', 'Three.', 'Four.', 'Five.', 'Six.'];
-      fake.on('writer', bullets(six)).on('judge', judgeAnswer());
+      // Letters, not numbers: a number the source does not contain would fail the number check.
+      const full = Array.from(
+        { length: LIMITS.maxBulletsPerPosition },
+        (_, i) => `Thing ${String.fromCharCode(65 + i)}.`,
+      );
+      fake.on('writer', bullets(full)).on('judge', judgeAnswer());
       const { cv, question } = await answered(
         { section: 'experience', itemId: POSITION_A },
-        { type: 'text', text: 'I did six things.' },
+        { type: 'text', text: 'I did many things.' },
       );
       await run();
       expect((await positionOf(cv.id, POSITION_A)).bullets.map((bullet) => bullet.text)).toEqual([
-        ...six.slice(0, 5),
+        ...full.slice(0, -1),
         'Wrote the onboarding guide.',
       ]);
       expect((await questionRow(question.id)).applyStatus).toBe('partial');

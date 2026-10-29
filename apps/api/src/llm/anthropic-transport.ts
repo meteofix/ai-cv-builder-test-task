@@ -55,7 +55,17 @@ export class AnthropicTransport extends LlmTransport {
           model: request.model,
           max_tokens: request.maxTokens,
           system: request.system,
-          messages: request.messages,
+          messages: request.messages.map((message) => ({
+            role: message.role,
+            content:
+              typeof message.content === 'string'
+                ? message.content
+                : message.content.map((block) => ({
+                    type: 'text' as const,
+                    text: block.text,
+                    ...(block.cached ? { cache_control: { type: 'ephemeral' as const } } : {}),
+                  })),
+          })),
           output_config: { effort: request.effort, format },
         },
         { signal },
@@ -63,7 +73,12 @@ export class AnthropicTransport extends LlmTransport {
     } catch (error) {
       throw toTransportError(error) ?? error;
     }
-    const usage = { input: message.usage.input_tokens, output: message.usage.output_tokens };
+    const usage = {
+      input: message.usage.input_tokens,
+      output: message.usage.output_tokens,
+      cacheRead: message.usage.cache_read_input_tokens ?? 0,
+      cacheWrite: message.usage.cache_creation_input_tokens ?? 0,
+    };
     const stopReason = message.stop_reason;
     if (stopReason === 'refusal') return { kind: 'refusal', stopReason, usage };
     if (stopReason === 'max_tokens') {

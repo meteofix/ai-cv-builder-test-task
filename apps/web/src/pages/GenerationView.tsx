@@ -1,21 +1,18 @@
 import { useQueryClient } from '@tanstack/react-query';
 import type { CvDetail } from '@cv/shared';
 import { useEffect } from 'react';
-import { useDraft, useJob, useRetryJob } from '../api/cvs';
+import { useJob, useRetryJob } from '../api/cvs';
 import { errorMessage } from '../api/errors';
 import { queryKeys } from '../api/keys';
 import { AppHeader } from '../components/AppHeader';
-import { CvPreview } from '../components/CvPreview';
 import { Icon } from '../components/Icon';
-import { LanguageBadge } from '../components/LanguageBadge';
 import { Stepper } from '../components/Stepper';
 
-/** The CV has no document yet: the job writes it (progress) or has failed (message, Retry). */
+/** The CV has no document yet: the job writes it (its steps) or has failed (message, Retry). */
 export function GenerationView({ cv }: { cv: CvDetail }) {
   const client = useQueryClient();
   const jobQuery = useJob(cv.id, true, cv.job);
   const job = jobQuery.data ?? cv.job;
-  const draft = useDraft(cv.id, job);
   const retry = useRetryJob(cv.id);
   const succeeded = job?.status === 'succeeded';
 
@@ -27,10 +24,7 @@ export function GenerationView({ cv }: { cv: CvDetail }) {
   const failed = job?.status === 'failed';
   return (
     <>
-      <AppHeader
-        role={cv.targetRole}
-        badge={draft.data ? <LanguageBadge locale={draft.data.locale} /> : undefined}
-      />
+      <AppHeader role={cv.targetRole} />
       <main className="generation">
         {jobQuery.isError ? <p role="alert">{errorMessage(jobQuery.error)}</p> : null}
         {failed ? (
@@ -63,17 +57,6 @@ export function GenerationView({ cv }: { cv: CvDetail }) {
                 You can close this page — generation continues.
               </p>
             )}
-          </section>
-        ) : null}
-        {draft.data ? (
-          <section className="draft" aria-label="Draft">
-            <div className="draft__head">
-              <h2 className="draft__title">Draft</h2>
-              {failed ? <span className="badge">Read-only</span> : null}
-            </div>
-            <div className="preview__frame">
-              <CvPreview document={draft.data} writing />
-            </div>
           </section>
         ) : null}
       </main>

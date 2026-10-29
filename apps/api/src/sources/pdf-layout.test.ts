@@ -274,6 +274,22 @@ describe('PDF text with layout (invented fixtures rendered by Chromium)', () => 
     ).toBe(false);
   });
 
+  it('keeps a left column of dates and company just above the title and bullets of its entry', async () => {
+    const text = await textOf('left-dates-company.pdf');
+    const entry = block(
+      text,
+      '2020 – 2022',
+      'Moved card refunds from a cron script to a queue consumer with retries.',
+    );
+    expect(entry).toEqual([
+      '2020 – 2022',
+      'Tallowgate Systems',
+      'Odesa',
+      'Backend Engineer',
+      'Moved card refunds from a cron script to a queue consumer with retries.',
+    ]);
+  });
+
   it('reads a full-width header band first, then each column', async () => {
     const text = await textOf('banded-two-column.pdf');
     expect(text.indexOf('Priya Raman')).toBeLessThan(text.indexOf('EDUCATION'));

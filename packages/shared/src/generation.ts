@@ -1,29 +1,33 @@
 import { z } from 'zod';
 import { cvDocumentSchema } from './document.js';
+import { cvSectionSchema } from './questions.js';
 
-/** Built on the fly from the extracted facts while `document` is still empty; null otherwise. */
+/** Always null since v2: the author writes the whole CV in one step (decision 035). */
 export const draftResponseSchema = z.object({ draft: cvDocumentSchema.nullable() });
 export type DraftResponse = z.infer<typeof draftResponseSchema>;
 
 /**
- * Why a piece of the source is not in the CV: `unused` — a verified fact the writer left out;
- * `unverified` — removed because a check failed (it also became a question); `ignored` — text that looked
- * like an instruction to the model; `not_recognized` — a source line no extracted fact covers.
+ * Why a piece of the source is not in the CV (decision 035): `not_included` — the author left it out on
+ * purpose and says why; `not_placed` — no part of the CV cites it and the author gave no reason (usually
+ * none); `ignored` — text that looked like an instruction to the model, never shown to one.
  */
-export const NOT_IN_CV_REASONS = ['unused', 'unverified', 'ignored', 'not_recognized'] as const;
+export const NOT_IN_CV_REASONS = ['not_included', 'not_placed', 'ignored'] as const;
 
 export const notInCvItemSchema = z.object({
+  /** The source text, word for word. */
   text: z.string(),
   reason: z.enum(NOT_IN_CV_REASONS),
-  /** Where it came from, for example the position a fact belongs to. */
+  /** The author's reason for `not_included`. */
   context: z.string().optional(),
+  /** Where the text belongs, for "Add": the section, and the position or group inside it. */
+  section: cvSectionSchema.optional(),
+  itemId: z.string().max(64).optional(),
 });
 export type NotInCvItem = z.infer<typeof notInCvItemSchema>;
 
 /**
- * How much of the source the extraction could read: content lines (with a letter, not a heading) and how
- * many of them no fact covers. `low` asks the editor to say so (decision 034). Optional: added later,
- * and absent before the facts exist.
+ * How much of the source reached the CV: content segments (with a letter, not an instruction) and how many
+ * of them nothing cites. `low` asks the editor to say so (decision 034). Absent before a generation ends.
  */
 export const sourceCoverageSchema = z.object({
   contentLines: z.number().int().nonnegative(),

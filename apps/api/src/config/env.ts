@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { LIMITS } from '@cv/shared';
 import { z } from 'zod';
+import { LLM_EFFORTS } from '../llm/llm-transport.js';
 import { detectWorktree, resolveStream, STREAMS } from './worktree.js';
 
 const flag = z.enum(['true', 'false']).transform((value) => value === 'true');
@@ -21,8 +22,13 @@ export const envSchema = z.object({
   EXTRACTOR_MODEL: z.string().default('claude-haiku-5-5'),
   WRITER_MODEL: z.string().default('claude-sonnet-5-5'),
   JUDGE_MODEL: z.string().default('claude-opus-5-5'),
-  LLM_TIMEOUT_MS: positiveInt.default(180_000),
-  LLM_CALL_BUDGET: positiveInt.default(12),
+  AUTHOR_MODEL: z.string().default('claude-opus-5-5'),
+  AUTHOR_EFFORT: z.enum(LLM_EFFORTS).default('medium'),
+  REVIEWER_MODEL: z.string().default('claude-opus-5-5'),
+  REVIEWER_EFFORT: z.enum(LLM_EFFORTS).default('medium'),
+  // The author writes a whole CV in one answer; on a long CV that takes minutes, not seconds.
+  LLM_TIMEOUT_MS: positiveInt.default(300_000),
+  LLM_CALL_BUDGET: positiveInt.default(15),
 
   GENERATIONS_PER_USER_PER_DAY: positiveInt.default(30),
   GENERATIONS_TOTAL: positiveInt.default(300),

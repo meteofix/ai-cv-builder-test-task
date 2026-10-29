@@ -18,6 +18,12 @@ const INSTRUCTION_PATTERNS: readonly RegExp[] = [
   /<\/?\s*(cv_source|system|assistant|user|instructions?)\s*>/i,
 ];
 
+/** Whether a piece of the source reads as an instruction to the model (after level-1 normalization). */
+export function isInstruction(text: string): boolean {
+  const normalized = normalizeText(text);
+  return INSTRUCTION_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 export interface SourceLine {
   span: Span;
   /** The line without its line break, untrimmed. */
@@ -57,8 +63,7 @@ export function instructionFragments(
     .filter(
       ({ span, text }) =>
         span[0] < span[1] &&
-        (INSTRUCTION_PATTERNS.some((pattern) => pattern.test(normalizeText(text))) ||
-          ignored.some((quote) => overlaps(span, quote))),
+        (isInstruction(text) || ignored.some((quote) => overlaps(span, quote))),
     )
     .map(({ span }) => span);
 }

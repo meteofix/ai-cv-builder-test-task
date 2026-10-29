@@ -4,6 +4,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
   cvDetailSchema,
   cvListResponseSchema,
+  LIMITS,
   problemSchema,
   ROUTES,
   routePath,
@@ -215,13 +216,13 @@ describe('cvs', () => {
     it.each([
       ['an unsupported locale', (d: CvDocument) => ({ ...d, locale: 'fr' })],
       [
-        'more than six bullets in a position',
+        'more bullets in a position than the limit',
         (d: CvDocument) => ({
           ...d,
           experience: [
             {
               ...d.experience[0]!,
-              bullets: Array.from({ length: 7 }, (_, i) => ({
+              bullets: Array.from({ length: LIMITS.maxBulletsPerPosition + 1 }, (_, i) => ({
                 id: `b${i}`,
                 text: 'x',
                 factIds: [],

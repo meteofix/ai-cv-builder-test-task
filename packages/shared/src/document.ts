@@ -4,7 +4,7 @@ import { localeSchema } from './locale.js';
 
 const id = z.string().min(1).max(64);
 const field = z.string().max(LIMITS.maxFieldChars);
-const factIds = z.array(id).max(20);
+const factIds = z.array(id).max(LIMITS.maxFactIds);
 
 /** `YYYY` or `YYYY-MM`; a missing date is `null`, never an empty string. */
 export const dateSchema = z

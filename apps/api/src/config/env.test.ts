@@ -11,7 +11,12 @@ describe('loadConfig', () => {
   it('applies the defaults of the plan', () => {
     const config = loadConfig({ CV_STREAM: 'auth', ANTHROPIC_API_KEY: 'k' });
     expect(config).toMatchObject({
-      LLM_CALL_BUDGET: 12,
+      LLM_CALL_BUDGET: 15,
+      LLM_TIMEOUT_MS: 300_000,
+      AUTHOR_MODEL: 'claude-opus-5-5',
+      AUTHOR_EFFORT: 'medium',
+      REVIEWER_MODEL: 'claude-opus-5-5',
+      REVIEWER_EFFORT: 'medium',
       GENERATIONS_PER_USER_PER_DAY: 30,
       WORKER_ENABLED: true,
     });

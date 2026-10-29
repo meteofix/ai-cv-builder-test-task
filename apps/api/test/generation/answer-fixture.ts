@@ -5,6 +5,7 @@ import { buildSkeleton } from '../../src/generation/generate/skeleton.js';
 import type { SourceFacts } from '../../src/generation/generate/schemas.js';
 import { verifyFacts, type ExtractedFact } from '../../src/grounding/index.js';
 import type { TransportRequest } from '../../src/llm/llm-transport.js';
+import { userText } from './fake-llm.js';
 import { createCv, createJob, createQuestion } from '../support/factories.js';
 
 /**
@@ -161,8 +162,8 @@ export async function answeredCv(
 
 /** The facts the writer was given, read back from its request. */
 export function writerFacts(request: TransportRequest<unknown>): { id: string; quote: string }[] {
-  const input = request.messages[0]?.content ?? '';
-  const json = /<cv_source>\n([\s\S]*)\n<\/cv_source>/.exec(input)?.[1] ?? '{"facts":[]}';
+  const json =
+    /<cv_source>\n([\s\S]*)\n<\/cv_source>/.exec(userText(request))?.[1] ?? '{"facts":[]}';
   return (JSON.parse(json) as { facts: { id: string; quote: string }[] }).facts;
 }
 

@@ -24,6 +24,7 @@ import {
   summaryRewriteSchema,
   withAnswers,
   type ProseItem,
+  sourceFactsSchema,
   type SourceFacts,
 } from './schemas.js';
 import { loadSource, requiredFacts } from './source-facts.js';
@@ -78,7 +79,10 @@ export class ApplyAnswerHandler implements JobHandler {
       const value = answer.text.trim().slice(0, LIMITS.maxFieldChars);
       return this.apply(run, questionId, target, { kind: 'field', field: target.field, value });
     }
-    const facts = requiredFacts(source.facts);
+    const parsed = sourceFactsSchema.safeParse(source.facts);
+    // A CV written by the author has no facts for this flow until V2-Z3: a failure a retry cannot fix.
+    if (!parsed.success) throw new JobError('INTERNAL', undefined, { retryable: false });
+    const facts = parsed.data;
     if (job.step === 'write') {
       const regenerates = targetExists(cv, target);
       if (!regenerates) return this.apply(run, questionId, target, null);
@@ -257,7 +261,7 @@ function targetExists(cv: ICv, target: QuestionTarget): boolean {
 /** Later answers to the same position build on this one, so the fact is stored with the source facts. */
 async function keepAnswerFact(tx: EntityManager, cvId: string, fact: Fact): Promise<void> {
   const source = await loadSource(tx, cvId);
-  const facts = requiredFacts(source?.facts ?? null);
+  const facts = requiredFacts(source?.facts);
   await tx.nativeUpdate(
     CvSource,
     { cv: cvId },

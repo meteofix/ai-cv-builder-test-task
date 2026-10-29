@@ -28,7 +28,6 @@ describe('recovering from a failed request', () => {
         if (requests === 1) return problem('INTERNAL');
         return requests === 2 ? running : job({ status: 'succeeded', step: 'finalize' });
       }),
-      mockRoute('getDraft', () => ({ draft: editorDocument() })),
     );
     fakeClock();
     renderApp(`/cvs/${CV_ID}`);
@@ -131,7 +130,6 @@ describe('recovering from a failed request', () => {
         return cvDetail({ document: editorDocument() });
       }),
       mockRoute('getJob', () => job()),
-      mockRoute('getDraft', () => ({ draft: null })),
       mockRoute('getNotInCv', () => ({ items: [] })),
     );
     fakeClock();

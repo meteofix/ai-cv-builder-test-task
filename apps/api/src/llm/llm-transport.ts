@@ -1,12 +1,19 @@
 import type { z } from 'zod';
 
-export const LLM_ROLES = ['extractor', 'writer', 'judge'] as const;
+export const LLM_ROLES = ['extractor', 'writer', 'judge', 'author', 'reviewer'] as const;
 export type LlmRole = (typeof LLM_ROLES)[number];
-export type LlmEffort = 'low' | 'medium' | 'high';
+export const LLM_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type LlmEffort = (typeof LLM_EFFORTS)[number];
+
+/** A block of the user turn; `cached` marks the end of the prefix the service may cache. */
+export interface LlmBlock {
+  text: string;
+  cached?: boolean;
+}
 
 export interface LlmMessage {
   role: 'user';
-  content: string;
+  content: string | LlmBlock[];
 }
 
 /** One HTTP attempt as the client builds it. */
@@ -21,8 +28,11 @@ export interface TransportRequest<T> {
 }
 
 export interface TokenUsage {
+  /** Input tokens billed at the full price (not read from or written to the cache). */
   input: number;
   output: number;
+  cacheRead: number;
+  cacheWrite: number;
 }
 
 /**

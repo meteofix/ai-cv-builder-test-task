@@ -169,7 +169,6 @@ type PositionFact = Extract<Fact, { kind: 'position' }>;
 /** Enough context to see a missed heading, without sending a whole unrecognized section. */
 const MAX_LINES_BETWEEN = 3;
 const MAX_LINE_CHARS = 200;
-const CURRENT_CLAIM = 'current:';
 const HAS_LETTER = /\p{L}/u;
 
 /**
@@ -179,30 +178,6 @@ const HAS_LETTER = /\p{L}/u;
 function positionDescription(position: PositionFact): string {
   const { start, end } = position.position;
   return `${positionLabel(position.position)} (${start ?? '?'} – ${end ?? '?'})`;
-}
-
-/**
- * A position marked current is a claim nothing mechanical can check (the code has no words for
- * "present"), so it goes to the judge with the position's own quote; a rejection turns it into a dates
- * question (generation.md §3.3).
- */
-export function currentClaims(
-  facts: readonly Fact[],
-  evidence: (factIds: readonly string[]) => Evidence[],
-): ItemToJudge[] {
-  return facts
-    .filter((fact): fact is PositionFact => fact.kind === 'position' && fact.position.current)
-    .map((fact) => ({
-      id: `${CURRENT_CLAIM}${fact.id}`,
-      text: `Still works in this role: the job "${positionLabel(fact.position)}" has not ended.`,
-      destination: positionDescription(fact),
-      evidence: evidence([fact.id]),
-      positionId: fact.id,
-    }));
-}
-
-export function isCurrentClaim(item: { itemId: string }): boolean {
-  return item.itemId.startsWith(CURRENT_CLAIM);
 }
 
 /**

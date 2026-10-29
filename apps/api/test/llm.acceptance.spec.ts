@@ -105,15 +105,17 @@ describe('LLM client against a fake Anthropic API (docs/specs/generation.md §2)
   const llmCalls = async (on = app) =>
     (await entityManager(on).findOneOrFail(GenerationJob, job.id)).llmCalls;
   const sentMessages = () =>
-    server.requests.map((sent) => sent.body.messages as { role: string; content: string }[]);
+    server.requests.map((sent) => sent.body.messages as { role: string; content: unknown }[]);
 
   it.each([
-    ['extractor', 'claude-haiku-5-5', 'low'],
-    ['writer', 'claude-sonnet-5-5', 'medium'],
-    ['judge', 'claude-opus-5-5', 'high'],
+    ['extractor', 'claude-haiku-5-5', 'low', 16_000],
+    ['writer', 'claude-sonnet-5-5', 'medium', 16_000],
+    ['judge', 'claude-opus-5-5', 'high', 16_000],
+    ['author', 'claude-opus-5-5', 'medium', 32_000],
+    ['reviewer', 'claude-opus-5-5', 'medium', 16_000],
   ] as const)(
     'sends a %s call to %s with effort %s, structured output and no temperature',
-    async (role, model, effort) => {
+    async (role, model, effort, maxTokens) => {
       await expect(app.get(LlmClient).parse(request({ role }))).resolves.toEqual({
         summary: 'Engineer.',
       });
@@ -122,7 +124,7 @@ describe('LLM client against a fake Anthropic API (docs/specs/generation.md §2)
       expect(server.requests[0]!.path).toBe('/v1/messages');
       expect(body).toMatchObject({
         model,
-        max_tokens: 16_000,
+        max_tokens: maxTokens,
         system: 'You write CV summaries.',
         messages: [{ role: 'user', content: request().input }],
         output_config: { effort, format: { type: 'json_schema' } },
@@ -132,18 +134,42 @@ describe('LLM client against a fake Anthropic API (docs/specs/generation.md §2)
     },
   );
 
-  it('GEN-9 — re-asks twice with the original input and the validation error, then fails with INTERNAL', async () => {
+  it('GEN-9 — re-asks once with the original input and the validation error, then fails with INTERNAL', async () => {
     server.reply(answer({ headline: 'not a summary' }));
     await rejectsWithCode(app.get(LlmClient).parse(request()), 'INTERNAL');
-    const [first, second, third] = sentMessages();
+    const [first, reask] = sentMessages();
+    expect(sentMessages()).toHaveLength(2);
     expect(sentMessages().every((messages) => messages.length === 1)).toBe(true);
     expect(first?.[0]?.content).toBe(request().input);
-    for (const reask of [second, third]) {
-      expect(reask?.[0]?.content).toContain(request().input);
-      expect(reask?.[0]?.content).toContain('<previous_answer_error>');
-      expect(reask?.[0]?.content).toContain('summary');
+    expect(reask?.[0]?.content).toContain(request().input);
+    expect(reask?.[0]?.content).toContain('<previous_answer_error>');
+    expect(reask?.[0]?.content).toContain('summary');
+    expect(await llmCalls()).toBe(2);
+  });
+
+  it("GEN-9 — re-asks when the request's check finds a problem the schema cannot express", async () => {
+    server.reply(answer({ summary: 'Engineer.' }), answer({ summary: 'Engineer at Acme.' }));
+    const check = (output: { summary: string }) =>
+      output.summary.includes('Acme') ? null : 'Name the employer';
+    await expect(app.get(LlmClient).parse({ ...request(), check })).resolves.toEqual({
+      summary: 'Engineer at Acme.',
+    });
+    expect(sentMessages()[1]?.[0]?.content).toContain('Name the employer');
+  });
+
+  it('sends a cached prefix as its own block marked for caching, also in the re-ask', async () => {
+    server.reply(answer({ headline: 'not a summary' }), answer({ summary: 'Engineer.' }));
+    await app.get(LlmClient).parse({ ...request(), cached: '<cv_source>\nS1: x\n</cv_source>' });
+    for (const messages of sentMessages()) {
+      expect(messages[0]?.content).toEqual([
+        {
+          type: 'text',
+          text: '<cv_source>\nS1: x\n</cv_source>',
+          cache_control: { type: 'ephemeral' },
+        },
+        expect.objectContaining({ type: 'text' }),
+      ]);
     }
-    expect(await llmCalls()).toBe(3);
   });
 
   it.each([

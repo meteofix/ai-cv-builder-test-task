@@ -100,6 +100,7 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 - One call from source to CV, validated against the raw text afterwards — cheapest, but invented fields are caught after the fact and facts moved between jobs pass.
 
 **Decision.** Two steps. Companies, titles, dates, institutions, skills and contacts are copied by the server from verified facts; the writer's output schema has no fields for them, so they cannot be invented. Steps are persisted, so a crash resumes from the last completed step.
+**Revision.** Verified facts → an author and a reviewer, because the rules, not the model, lost content on real CVs (decision 035).
 
 ## 007. Hallucination guard: mechanical checks, LLM judge, questions
 
@@ -115,6 +116,7 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 - Was: a deterministic validator with an optional judge → the judge became a mandatory second layer, because semantic exaggeration ("was on the team" → "led the development") is invisible to string checks.
 - Was: tech and claim lexicons, a capitalized-word heuristic, computed years of experience, month dictionaries in two languages → now: only the mechanical checks above, because broad heuristics produced false questions on clean CVs and duplicated what the judge does better. If evals show the judge missing technology keywords, a deterministic lexicon is the next step.
 - Was: numbers after a product name ("Next.js 14", "Python 3") exempt from checks → now: no exemption, because it would let an invented version pass when the source says only "Next.js".
+  **Revision.** Code now checks only contacts against the source; the reviewer checks every item of the CV, and what it cannot confirm becomes a fix or a question (decision 035).
 
 ## 008. Model roles
 
@@ -268,8 +270,17 @@ This log keeps the decisions that involved a real trade-off. Smaller choices (JS
 
 **Context.** The writer ordered the positions by relevance to the target role, so a CV's chronology broke and grouped positions of one company could be split.
 **Decision.** The writer chooses bullets and their order, not the order of the jobs; the document lists positions as the source does. The writer's output has no order field and the server has no order to check. Owner's decision, 2026-10-29 (task R0-ORDER).
+**Revision.** The author lists jobs newest first and may put an older job first only with a reason the editor shows (decision 035).
 
 ## 034. Say when much of the CV could not be read
 
 **Context.** A CV whose text came out garbled or half skipped ended up with dozens of "Not recognized" lines and no sign that half of it was lost.
 **Decision.** `GET /not-in-cv` gains an optional `sourceCoverage` field (content lines, lines not recognized, `low`); the editor shows a warning with a link to "Not in your CV" and the hint to paste the text when more than a quarter of the content lines were not recognized. The threshold comes from the dev corpus: after the extraction fixes every CV there is at or below 15 %, while the failures before them were at 35–75 %. Additive API change; owner's decision, 2026-10-29 (task R0-SIGNAL).
+
+## 035. v2: an author and a reviewer instead of verified facts
+
+**Context.** The task says the AI may rephrase and restructure but must not invent facts. The fact-grounded flow (006, 007, 027–031) enforced that with a deterministic validator our own brief added: every fact had to be quoted, every structural value found in its quote, every sentence judged against the quotes it cited. On real CVs the losses came from these rules, not from the model: a misquoted position took its bullets with it, a company on its own line above three titles was erased, a flat fact list lost skill groups and projects, and about half of the judge's rejections were faithful rewrites (R0 report, 2026-10-29). Owner's plan v2, 2026-10-29.
+**Options.** A) Keep the facts and loosen the rules one by one. B) Two calls: an author that reads the whole source and writes the CV, citing source segments, and a reviewer that sees the whole CV against the source and returns only problems; code keeps the contracts, the contacts and the accounting. C) One call that writes and checks itself.
+**Decision.** B. The source becomes numbered segments (lines, or sentences of a long line); instruction-like segments are cut before any model sees them. The author keeps a good item word for word (`text: null`, the server copies the segments) and rewrites only where it helps, citing its evidence; it also says what it left out and why, what to ask, and why an older job leads when it does. The reviewer answers with `fix` (preferred) or `ask` per item, and judges nothing but support: not relevance, selection, order, style or length. Code: segments, schemas plus checks with one re-ask, exact contacts (email, phone and links must be in the source), the kept text, the review applied, the accounting of every content segment ("Not in your CV"), the safeguard limits. Nothing over a limit is cut, and nothing the source says disappears without showing in the CV or the panel. C was not tried: one call cannot be asked to doubt what it has just written.
+**Measured (dev: 11 CVs + the owner's CV as AI Engineer + 5 free-text inputs; Opus for both roles, effort medium).** Blind pairwise against main, judged by Opus in both orders: v2 better overall on 17 of 17, never worse on faithfulness (8 better, 9 equal); claims the judge found unsupported: 6 in v2 (all the headline: the target role for a person from another profession, the planned rule), 33 in main. Reviewer test (six kinds of planted inventions: technology, inflated scope, date, a bullet moved to another job, a number, a changed unit or qualifier): 59 of 59 found; on the untouched answers 1 finding over 563 items. No re-ask in the last round. One generation: 9–60 s (main 15–62 s), about $0.05–0.24 (main about $0.04, mostly cheaper models).
+**Costs.** A generation costs more (two Opus calls instead of Haiku, Sonnet and Opus). Nothing mechanical checks the content any more: faithfulness rests on the reviewer, measured by the evals, not proven by code. The structured-output grammar has a size limit, so the schema sent to the service is plain and the checks that need the source (ids, sizes after kept text, date formats) run in code and come back as a re-ask.

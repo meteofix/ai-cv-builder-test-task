@@ -1,18 +1,11 @@
 import type { EntityManager } from '@mikro-orm/postgresql';
-import { CvSource, GenerationJob } from '../../db/entities.js';
-import { isCurrentClaim } from './judge-step.js';
-import {
-  judgeResultSchema,
-  sourceFactsSchema,
-  writeResultSchema,
-  type RemovedItem,
-  type SourceFacts,
-} from './schemas.js';
+import { CvSource } from '../../db/entities.js';
+import { sourceFactsSchema, type SourceFacts } from './schemas.js';
 
 export interface LoadedSource {
   text: string;
-  /** Null until the extract step has stored them. */
-  facts: SourceFacts | null;
+  /** As stored: facts of the flow before v2, the analysis of a v2 generation, or null. */
+  facts: unknown;
 }
 
 /** The source of a CV whose ownership the caller has checked (or the worker holds the job of). */
@@ -21,31 +14,12 @@ export async function loadSource(em: EntityManager, cvId: string): Promise<Loade
   if (!source) return null;
   return {
     text: source.text,
-    // Written only by the extract step through the same schema; a mismatch is a bug, not user input.
-    facts: source.facts === null ? null : sourceFactsSchema.parse(source.facts),
+    // Read through a schema only where a step needs facts: dates and named fields need none (V2-Z3).
+    facts: source.facts,
   };
 }
 
-/** Prose the checks removed during the latest generation: for questions' context and "Not in your CV". */
-export async function removedProse(em: EntityManager, cvId: string): Promise<RemovedItem[]> {
-  const job = await em.findOne(
-    GenerationJob,
-    { cv: cvId, kind: 'generate' },
-    { orderBy: { createdAt: 'desc', id: 'desc' } },
-  );
-  if (!job) return [];
-  // A step that has not run yet has no result; a result that does not parse is a bug and surfaces.
-  const write = job.state.write === undefined ? null : writeResultSchema.parse(job.state.write);
-  const judge = job.state.judge === undefined ? null : judgeResultSchema.parse(job.state.judge);
-  // A rejected "still in this role" is not text that was left out: it shows as a dates question.
-  return [
-    ...(write?.removed ?? []),
-    ...(judge?.removed ?? []).filter((item) => !isCurrentClaim(item)),
-  ];
-}
-
-export function requiredFacts(facts: SourceFacts | null): SourceFacts {
-  // The extract step writes them before any later step can run; their absence is a bug.
-  if (!facts) throw new Error('The facts of the CV are missing after the extract step');
-  return facts;
+/** The facts a content answer of the flow before v2 builds on; a v2 CV has none until V2-Z3. */
+export function requiredFacts(facts: unknown): SourceFacts {
+  return sourceFactsSchema.parse(facts);
 }

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Invented person and companies. A two-column table per entry: dates, company and city in a narrow
+     left column, the title and its bullets in the right one; two consecutive titles at one company (a
+     promotion); section headings with spaced-out letters; a profile link that wraps onto a second line. -->
+    <style>
+      @page {
+        size: A4;
+        margin: 15mm 16mm;
+      }
+      body {
+        margin: 0;
+        font:
+          10.5pt/1.4 Helvetica,
+          Arial,
+          sans-serif;
+        color: #1d1d1d;
+      }
+      h1 {
+        font-size: 24pt;
+        margin: 0;
+      }
+      .role {
+        font-size: 12pt;
+        color: #555;
+        margin: 1mm 0 2mm;
+      }
+      .contacts {
+        width: 70mm;
+        font-size: 9.5pt;
+      }
+      h2 {
+        font-size: 11pt;
+        border-bottom: 1px solid #999;
+        margin: 6mm 0 2mm;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      td {
+        vertical-align: top;
+        padding: 0 0 4mm;
+      }
+      td.side {
+        width: 42mm;
+        padding-right: 6mm;
+        color: #444;
+      }
+      td.side b {
+        display: block;
+        color: #1d1d1d;
+      }
+      .title {
+        font-weight: bold;
+      }
+      ul {
+        margin: 1mm 0 0;
+        padding-left: 5mm;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sofiia Prylutska</h1>
+    <div class="role">Backend Engineer</div>
+    <div class="contacts">
+      sofiia.prylutska@example.com · +00 44 555 0193 · Odesa<br />
+      linkedin.com/in/sofiia-prylutska-<br />backend
+    </div>
+
+    <h2>S U M M A R Y</h2>
+    <p>
+      Backend engineer with seven years of Java and Kotlin work on payment and ledger services. I
+      like turning slow batch jobs into small services that are easy to operate.
+    </p>
+
+    <h2>E X P E R I E N C E</h2>
+    <table>
+      <tr>
+        <td class="side">2022 – present<b>Tallowgate Systems</b>Odesa</td>
+        <td>
+          <div class="title">Senior Backend Engineer</div>
+          <ul>
+            <li>
+              Split the nightly ledger batch into three Kotlin services; month-end close went from
+              two days to five hours.
+            </li>
+            <li>Introduced contract tests between the ledger and the invoicing team.</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td class="side">2020 – 2022<b>Tallowgate Systems</b>Odesa</td>
+        <td>
+          <div class="title">Backend Engineer</div>
+          <ul>
+            <li>Moved card refunds from a cron script to a queue consumer with retries.</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td class="side">2018 – 2020<b>Ironbark Labs</b>Remote</td>
+        <td>
+          <div class="title">Junior Java Developer</div>
+          <ul>
+            <li>
+              Maintained the reporting module of a logistics platform (Java 8, Spring, MySQL).
+            </li>
+            <li>Wrote the first integration tests for the order export.</li>
+          </ul>
+        </td>
+      </tr>
+      <tr>
+        <td class="side">2017 – 2018<b>Quayside Games</b>Odesa</td>
+        <td>
+          <div class="title">QA Intern</div>
+          <ul>
+            <li>Tested release builds of two mobile games and filed crash reports.</li>
+          </ul>
+        </td>
+      </tr>
+    </table>
+
+    <h2>E D U C A T I O N</h2>
+    <table>
+      <tr>
+        <td class="side">2014 – 2018<b>Odesa Polytechnic University</b></td>
+        <td><div class="title">BSc Software Engineering</div></td>
+      </tr>
+    </table>
+
+    <h2>S K I L L S</h2>
+    <p>Kotlin, Java, Spring Boot, PostgreSQL, MySQL, RabbitMQ, Docker, contract testing</p>
+
+    <h2>L A N G U A G E S</h2>
+    <p>Ukrainian (native), English (C1), Polish (B1)</p>
+  </body>
+</html>

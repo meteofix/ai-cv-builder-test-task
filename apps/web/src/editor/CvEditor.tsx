@@ -1,13 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { cvDocumentSchema, type CvDetail, type CvDocument } from '@cv/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import { useBlocker } from 'react-router';
 import { isJobActive, useJob } from '../api/cvs';
 import { useNotInCv } from '../api/questions';
 import { errorMessage } from '../api/errors';
 import { queryKeys } from '../api/keys';
 import { AppHeader } from '../components/AppHeader';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CvPreview } from '../components/CvPreview';
 import { LanguageBadge } from '../components/LanguageBadge';
 import { AdditionalSection } from './AdditionalSection';
@@ -31,7 +33,7 @@ import { useIsDesktop } from './useIsDesktop';
 function useLatestJob(cv: CvDetail) {
   const client = useQueryClient();
   const active = isJobActive(cv.job);
-  const polled = useJob(cv.id, active);
+  const polled = useJob(cv.id, active, cv.job);
   // The cache of the job may hold an earlier job of this CV (the generation): only its own answer counts.
   const answer = polled.data?.id === cv.job?.id ? polled.data : undefined;
   const job = answer ?? cv.job;
@@ -59,6 +61,29 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
     document,
     version: cv.version,
   });
+  const client = useQueryClient();
+  const [leaveAsk, setLeaveAsk] = useState(false);
+  // Leaving the editor with edits the server does not have first tries to save them; when that cannot be
+  // done the person decides. After the session has ended there is nobody to save for: no questions asked.
+  const blocker = useBlocker(
+    () => saver.hasUnsaved() && client.getQueryData(queryKeys.me) !== null,
+  );
+  // The newest blocker: a second navigation may be blocked while the first flush is still running.
+  const latestBlocker = useRef(blocker);
+  useEffect(() => {
+    latestBlocker.current = blocker;
+  });
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    void saver.flush().then((result) => {
+      const current = latestBlocker.current;
+      if (current.state !== 'blocked') return;
+      if (client.getQueryData(queryKeys.me) === null || result === 'saved') current.proceed();
+      // A conflict loaded the server's document: stay, where the notice about it is.
+      else if (result === 'replaced') current.reset();
+      else setLeaveAsk(true);
+    });
+  }, [blocker, saver, client]);
   const job = useLatestJob(cv);
   // Editable again only when the refetched CV says so: until then the form still holds the old document.
   const readOnly = isJobActive(cv.job);
@@ -94,6 +119,23 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
           ) : undefined
         }
         isStatic={!desktop}
+        beforeLogout={async () => (await saver.flush()) === 'saved'}
+      />
+      <ConfirmDialog
+        open={leaveAsk}
+        title="Leave without saving?"
+        message="Your latest changes could not be saved."
+        confirmLabel="Leave"
+        // The dialog also calls `onCancel` when it closes after a confirm; by then the blocker is no longer
+        // `blocked`, so the check keeps that call harmless.
+        onCancel={() => {
+          setLeaveAsk(false);
+          if (blocker.state === 'blocked') blocker.reset();
+        }}
+        onConfirm={() => {
+          setLeaveAsk(false);
+          if (blocker.state === 'blocked') blocker.proceed();
+        }}
       />
       {desktop ? null : <SectionBar questions={cv.questions} />}
       <div className="editor">
@@ -116,7 +158,7 @@ export function CvEditor({ cv, document }: { cv: CvDetail; document: CvDocument 
               <QuestionsBlock
                 cvId={cv.id}
                 questions={cv.questions}
-                flush={() => saver.flush()}
+                flush={async () => (await saver.flush()) === 'saved'}
                 compact={!desktop}
               />
               <ContactsSection updating={updating('contacts')} />

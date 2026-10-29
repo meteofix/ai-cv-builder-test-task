@@ -33,9 +33,17 @@ export function forgetUserData(client: QueryClient): void {
   client.removeQueries({ predicate: (query) => query.queryKey[0] !== queryKeys.me[0] });
 }
 
-function endSessionOn(client: QueryClient, error: Error): void {
-  if (error instanceof ApiError && error.code === 'UNAUTHENTICATED') {
-    forgetUserData(client);
-    client.setQueryData(queryKeys.me, null);
-  }
+/**
+ * The client side of a finished session: no cached data, no user. `deliberate` marks a logout the person asked
+ * for: the route guard then sends them to a plain `/login`, while an expired session keeps "come back to this
+ * page". The mark lives in the cache so that signing in (which clears everything but the user) removes it.
+ */
+export function finishSession(client: QueryClient, deliberate = false): void {
+  forgetUserData(client);
+  if (deliberate) client.setQueryData(queryKeys.leftOnPurpose, true);
+  client.setQueryData(queryKeys.me, null);
+}
+
+export function endSessionOn(client: QueryClient, error: unknown): void {
+  if (error instanceof ApiError && error.code === 'UNAUTHENTICATED') finishSession(client);
 }

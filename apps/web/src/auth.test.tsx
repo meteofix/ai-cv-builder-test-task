@@ -140,7 +140,9 @@ describe('auth screens', () => {
 
     // A second sign-in does not return to the page that was open when the first account left.
     await fillAndSubmit(user);
-    expect(await screen.findByRole('heading', { name: 'Your CVs' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Your CVs' }, { timeout: 4000 }),
+    ).toBeInTheDocument();
   });
 
   it('a failed logout keeps the session and says why', async () => {

@@ -3,8 +3,10 @@ import { cvDocumentSchema, type CvDetail, type CvDocument } from '@cv/shared';
 import { api } from '../api/client';
 import { ApiError, errorMessage } from '../api/errors';
 import { queryKeys } from '../api/keys';
+import { endSessionOn } from '../api/query-client';
 import { prepareDocument, serialize } from './prepare';
 
+export type FlushResult = 'saved' | 'unsaved' | 'replaced';
 export type SaveStatus = 'saved' | 'saving' | 'failed' | 'invalid';
 export interface SaveSnapshot {
   status: SaveStatus;
@@ -46,6 +48,7 @@ export class Autosaver {
   private failures = 0;
   /** Counts the documents adopted from the server: a save that started before one must not overwrite it. */
   private epoch = 0;
+  private replaced = false;
 
   constructor(private readonly source: Source) {
     this.version = source.version;
@@ -89,20 +92,26 @@ export class Autosaver {
     this.schedule(DEBOUNCE_MS);
   }
 
-  /** Saves now, and again for whatever was typed meanwhile. Resolves true when the server has everything. */
-  async flush(): Promise<boolean> {
+  /**
+   * Saves now, and again for whatever was typed meanwhile. `saved`: the server has everything. `replaced`: a
+   * conflict loaded the server's document over the edits (the notice says so). `unsaved`: it could not be saved.
+   */
+  async flush(): Promise<FlushResult> {
     clearTimeout(this.timer);
+    if (this.running === null) this.replaced = false;
     this.running ??= this.drain().finally(() => {
       this.running = null;
     });
     await this.running;
-    return !this.isDirty();
+    if (this.replaced) return 'replaced';
+    return this.isDirty() ? 'unsaved' : 'saved';
   }
 
   /** The document came from the server (after a conflict, or an AI job finished): it is the new baseline. */
   adopt(document: CvDocument, version: number, notice: string | null = null): void {
     clearTimeout(this.timer);
     this.epoch += 1;
+    this.replaced = true;
     this.version = version;
     this.synced = serialize(document);
     this.failures = 0;
@@ -172,6 +181,12 @@ export class Autosaver {
 
   private async fail(error: unknown): Promise<void> {
     const { client, cvId } = this.source;
+    // Autosave calls the API directly, not through a query: it ends an expired session like any request.
+    if (error instanceof ApiError && error.code === 'UNAUTHENTICATED') {
+      // The session is over and the editor is about to unmount: no notice, no retry, nobody left to tell.
+      endSessionOn(client, error);
+      return;
+    }
     if (error instanceof ApiError && error.code === 'VERSION_CONFLICT') {
       try {
         const latest = await client.query({
@@ -197,7 +212,7 @@ export class Autosaver {
     }
     // No answer or a server fault may pass by itself; a refusal (400, 403, 404) will not.
     const retryable = error instanceof ApiError && (error.status === 0 || error.status >= 500);
-    if (retryable) this.retryLater(this.snapshot.notice);
+    if (retryable) this.retryLater(errorMessage(error));
     else this.set({ status: 'failed', notice: errorMessage(error) });
   }
 

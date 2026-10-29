@@ -33,11 +33,12 @@ export function useSignIn(mode: 'login' | 'signup') {
 }
 
 /**
- * The session ends on the client only once the server confirmed it (or said there was none): after a failed
- * request the cookie may still be valid, and showing the login page would suggest otherwise.
+ * Logging out is two steps the caller orders: the server confirms (or says there was no session), then the
+ * caller navigates to `/login` and only after that calls `finishSession`. Clearing the user first would let
+ * the route guard send the person to `/login` carrying "come back to this page", which a logout must not.
+ * After a failed request the cookie may still be valid, so nothing is cleared.
  */
 export function useLogout() {
-  const client = useQueryClient();
   return useMutation({
     mutationFn: async () => {
       try {
@@ -45,10 +46,6 @@ export function useLogout() {
       } catch (error) {
         if (!(error instanceof ApiError && error.code === 'UNAUTHENTICATED')) throw error;
       }
-    },
-    onSuccess: () => {
-      forgetUserData(client);
-      client.setQueryData(queryKeys.me, null);
     },
   });
 }

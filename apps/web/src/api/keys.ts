@@ -4,6 +4,7 @@
  */
 export const queryKeys = {
   me: ['me'] as const,
+  leftOnPurpose: ['left-on-purpose'] as const,
   cvs: ['cvs'] as const,
   cv: (id: string) => ['cv', id] as const,
   job: (id: string) => ['cv-job', id] as const,

@@ -49,7 +49,8 @@ beforeAll(() => {
 afterEach(async () => {
   cleanup();
   // Leaving a page sends what is still unsaved; let that request finish against this test's handlers, not the next one's.
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  // A request needs a few ticks before MSW sees it start; a short wait first, then wait for what is in flight.
+  await new Promise((resolve) => setTimeout(resolve, 25));
   for (const deadline = Date.now() + 2000; inFlight > 0 && Date.now() < deadline;) {
     await new Promise((resolve) => setTimeout(resolve, 5));
   }

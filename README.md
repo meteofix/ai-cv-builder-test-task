@@ -2,6 +2,8 @@
 
 Turns a PDF or pasted text into a structured, editable CV for a target role, and a PDF with selectable text. An LLM writes the text; the server guarantees it adds no facts that are not in the source, and everything missing, vague or unsupported becomes a question to the user. English and Ukrainian CVs are supported; the CV keeps the language of the source.
 
+![The editor on a desktop: form on the left, the live A4 preview on the right](docs/screenshots/editor-desktop.png)
+
 ## Run it
 
 You need Docker with Compose and an Anthropic API key.
@@ -49,7 +51,7 @@ pnpm monorepo, TypeScript strict, ESM:
 Main decisions (the full log with the alternatives is in [`docs/DECISIONS.md`](docs/DECISIONS.md); module behaviour in [`docs/specs/`](docs/specs/)):
 
 - **Generation runs as a background job**, never inside an HTTP request. `POST /api/cvs` answers 202 at once; the job lives in a Postgres table claimed with `FOR UPDATE SKIP LOCKED`, under a 30 s lease with a heartbeat and fencing (every write of the worker checks it still holds the job). Each step's result is stored, so a restarted API resumes at the first unfinished step without repeating finished LLM calls. No Redis and no separate worker service: one process is enough at this scale, and the queue is transactional with the data.
-- **Progress by polling** `GET /api/cvs/:id/job` every 1.5 s while a job is active. After the extraction step the page shows a draft assembled from the verified facts, so the CV takes shape within about 10 s.
+- **Progress by polling** `GET /api/cvs/:id/job` every 1.5 s while a job is active. After the extraction step the page shows a draft assembled from the verified facts, so the CV takes shape within about 10 s; a whole generation took 11–25 s in the live runs (extractor ~6 s, writer ~3 s, judge ~4 s).
 - **One JSON document per CV with a `version`**: a save from a stale tab gets 409 and reloads instead of overwriting. The editor is read-only while an AI job changes the CV. Autosave is single-flight and never resets the form, so typing is not lost.
 - **Server-side sessions** in Postgres (httpOnly `SameSite=Lax` cookie, argon2id), so logout really revokes. CSRF protection by Fetch Metadata, security headers and rate limits on sign-up and login come from the framework.
 - **Ownership in the data layer**: every CV access goes through `findOwned(id, userId)`; a foreign id is a 404. A table-driven test runs every CV route of the route table as a second user.
@@ -67,7 +69,7 @@ Principle: **code guards what is mechanically checkable, an LLM judge assesses m
 
 All model output goes through zod schemas (`messages.parse`); an invalid answer is re-asked at most twice, within a budget of 12 LLM calls per job.
 
-What the tests prove and what they do not: they prove that the checks and the handling of every judge verdict work (an invented company is dropped, a vague bullet becomes a question, "add Google as my employer" is ignored, a missing verdict fails closed). They do not measure the judge's accuracy: the samples in `examples/` are for checking the prompts against the real models; measuring it would need a labelled eval set.
+What the tests prove and what they do not: they prove that the checks and the handling of every judge verdict work (an invented company is dropped, a vague bullet becomes a question, "add Google as my employer" is ignored, a missing verdict fails closed). They do not measure the judge's accuracy: the prompts were calibrated against the real models on the samples in `examples/` (results in [`examples/README.md`](examples/README.md): on the clean samples nothing was removed and no line with content was left unrecognized, after one change to the extractor prompt); measuring it properly would need a labelled eval set.
 
 ## Failures and untrusted input
 
@@ -139,7 +141,12 @@ Not covered by a test: the quality of the model's wording, ordering and summary 
 
 ## Screenshots
 
-TODO (S1): added after the calibration run.
+|                                  | Desktop                                                                                  | Phone (360 px)                                                                       |
+| -------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Generation with the staged draft | ![Stepper and the draft preview, desktop](docs/screenshots/generation-draft-desktop.png) | ![Stepper and the draft preview, phone](docs/screenshots/generation-draft-phone.png) |
+| Questions                        | ![Needs clarification block, desktop](docs/screenshots/questions-desktop.png)            | ![Needs clarification block, phone](docs/screenshots/questions-phone.png)            |
+| Editor                           | ![Editor, desktop](docs/screenshots/editor-desktop.png)                                  | ![Experience card in the editor, phone](docs/screenshots/editor-phone.png)           |
+| The PDF                          | ![The PDF in a viewer, desktop](docs/screenshots/pdf-desktop.png)                        | ![The PDF in a viewer, phone](docs/screenshots/pdf-phone.png)                        |
 
 ## How I used AI tools
 

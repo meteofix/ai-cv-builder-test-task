@@ -43,12 +43,20 @@ export function indexText(original: string): QuoteIndex {
  * digits; at both levels a match must not cut a token of the original text. No fuzzy matching.
  */
 export function findQuote(source: string | QuoteIndex, quote: string): Span | null {
+  return matchQuote(source, quote)?.span ?? null;
+}
+
+/** Like `findQuote`, and says which level matched: 2 means only the letters and digits are equal. */
+export function matchQuote(
+  source: string | QuoteIndex,
+  quote: string,
+): { span: Span; level: 1 | 2 } | null {
   const index = typeof source === 'string' ? indexText(source) : source;
   const needle = indexText(quote);
-  return (
-    firstWholeTokenMatch(index, index.level1, needle.level1.text) ??
-    firstWholeTokenMatch(index, index.level2, needle.level2.text)
-  );
+  const exact = firstWholeTokenMatch(index, index.level1, needle.level1.text);
+  if (exact) return { span: exact, level: 1 };
+  const loose = firstWholeTokenMatch(index, index.level2, needle.level2.text);
+  return loose ? { span: loose, level: 2 } : null;
 }
 
 /** NFKC, typographic quotes and dashes to ASCII, whitespace runs to one space, trimmed. */

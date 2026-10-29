@@ -137,7 +137,6 @@ describe('verifyFacts', () => {
       'Mail: iryna-k@example.com',
       'iryna-k@example.com',
     ],
-    ['a name in other case', 'fullName', 'IRYNA KOVALENKO', 'Iryna Kovalenko', 'Iryna Kovalenko'],
   ] as const)(
     'stores %s as written in the source, not as the model spelled it',
     (_case, field, value, quote, stored) => {
@@ -148,16 +147,17 @@ describe('verifyFacts', () => {
     },
   );
 
-  it('stores company and skill names as written in the source', () => {
-    const quote = 'Engineer, ACME Corp., Node.js';
+  it('keeps the model’s spelling of a display value that matches only by letters and digits', () => {
+    const quote = 'I R Y N A  K O V A L E N K O, ACME Corp., Node.js';
     const { facts } = verifyFacts(quote, [
+      { id: 'n', kind: 'contact', quote, contact: { field: 'fullName', value: 'Iryna Kovalenko' } },
       {
         id: 'p',
         kind: 'position',
         quote,
         position: {
           company: 'Acme Corp',
-          title: 'engineer',
+          title: '',
           location: null,
           start: null,
           end: null,
@@ -168,21 +168,115 @@ describe('verifyFacts', () => {
     ]);
     expect(
       facts.map((fact) =>
-        fact.kind === 'position'
-          ? fact.position.company
-          : fact.kind === 'skill'
-            ? fact.skill.name
-            : null,
+        JSON.stringify(
+          fact.kind === 'contact'
+            ? fact.contact
+            : fact.kind === 'position'
+              ? fact.position.company
+              : fact.kind === 'skill'
+                ? fact.skill
+                : null,
+        ),
       ),
-    ).toEqual(['ACME Corp', 'Node.js']);
+    ).toEqual([
+      JSON.stringify({ field: 'fullName', value: 'Iryna Kovalenko' }),
+      JSON.stringify('Acme Corp'),
+      JSON.stringify({ name: 'nodejs' }),
+    ]);
+  });
+
+  it('stores the source’s text for a display value it has exactly', () => {
+    const quote = 'Senior  Engineer at Acme';
+    const { facts } = verifyFacts(quote, [
+      {
+        id: 'p',
+        kind: 'position',
+        quote,
+        position: {
+          company: 'Acme',
+          title: 'Senior Engineer',
+          location: null,
+          start: null,
+          end: null,
+          current: false,
+        },
+      },
+    ]);
+    expect(facts[0]).toMatchObject({ position: { title: 'Senior Engineer', company: 'Acme' } });
+  });
+
+  it('does not find a value whose source text is longer than a field may be', () => {
+    const composed = 'é'.repeat(150);
+    const quote = `${composed.normalize('NFD')} Ltd`;
+    const { facts } = verifyFacts(quote, [
+      {
+        id: 'p',
+        kind: 'position',
+        quote,
+        position: {
+          company: composed,
+          title: '',
+          location: null,
+          start: null,
+          end: null,
+          current: false,
+        },
+      },
+    ]);
+    expect(facts[0]).toMatchObject({ position: { company: '' } });
   });
 
   it.each([
     [
-      'a verified end date wins over "current"',
+      'an e-mail that is the end of a longer one',
+      'email',
+      'k@example.com',
+      'Mail: iryna.k@example.com',
+    ],
+    [
+      'an e-mail inside a longer domain',
+      'email',
+      'iryna@example.com',
+      'Mail: iryna@example.com.ua',
+    ],
+    [
+      'a link that is the start of a longer one',
+      'link',
+      'https://github.com/iryna',
+      'Code: https://github.com/iryna-k',
+    ],
+    ['a phone that is the end of a longer number', 'phone', '123 45 67', 'Tel: +380 50 123 45 67'],
+  ] as const)('drops %s', (_case, field, value, quote) => {
+    const { facts, dropped } = verifyFacts(quote, [
+      { id: 'c', kind: 'contact', quote, contact: { field, value } },
+    ]);
+    expect(facts).toEqual([]);
+    expect(dropped).toEqual([{ id: 'c', kind: 'contact', reason: 'field_not_in_quote' }]);
+  });
+
+  it.each([
+    ['followed by a full stop', 'email', 'Write to iryna@example.com.', 'iryna@example.com'],
+    ['in brackets', 'link', 'Site (https://iryna.example.org), blog', 'https://iryna.example.org'],
+    ['in quotes', 'email', 'Mail "iryna@example.com"', 'iryna@example.com'],
+  ] as const)('keeps an address %s', (_case, field, quote, value) => {
+    const { facts } = verifyFacts(quote, [
+      { id: 'c', kind: 'contact', quote, contact: { field, value } },
+    ]);
+    expect(facts[0]).toMatchObject({ contact: { value } });
+  });
+
+  it.each([
+    [
+      '"current" and a verified end date become a question',
       'Engineer, Acme, 2020 - 2021',
       '2021',
-      { end: '2021', current: false },
+      { end: null, current: false },
+    ],
+    [
+      'a promotion year is not taken for an end date',
+      'Engineer, Acme, 2018 – present (promoted 2021)',
+      '2021',
+      { end: null, current: false },
     ],
     [
       '"current" stays without an end date',

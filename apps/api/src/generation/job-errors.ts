@@ -30,13 +30,3 @@ export class LeaseLostError extends Error {
     this.name = 'LeaseLostError';
   }
 }
-
-/**
- * Failures on the model's side that cost only an optional request (the extractor's repair and second
- * pass): what the first extraction found stands. The call budget and a lost lease still stop the job.
- */
-export const OPTIONAL_REQUEST_FAILURES: ReadonlySet<string> = new Set([
-  'INTERNAL',
-  'AI_REFUSED',
-  'AI_UNAVAILABLE',
-]);

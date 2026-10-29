@@ -35,16 +35,19 @@ export class ProblemFilter implements ExceptionFilter {
     const problem = this.toProblem(exception, request);
 
     if (problem.status >= 500) {
-      // Name, code and stack only: driver errors can carry row values in other fields.
-      const error = exception instanceof Error ? exception : new Error(String(exception));
+      // Name, message, code and stack, and no other field: driver errors can carry row values in `detail` and
+      // the like. A thrown value that is not an Error could be anything, so only its type is logged.
       request.log.error(
         {
-          err: {
-            name: error.name,
-            message: error.message,
-            code: codeOf(error),
-            stack: error.stack,
-          },
+          err:
+            exception instanceof Error
+              ? {
+                  name: exception.name,
+                  message: exception.message,
+                  code: codeOf(exception),
+                  stack: exception.stack,
+                }
+              : { name: 'NonError', type: typeof exception },
         },
         'Request failed',
       );

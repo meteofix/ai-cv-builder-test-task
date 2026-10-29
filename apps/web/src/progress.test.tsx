@@ -60,14 +60,15 @@ describe('generation progress', () => {
     await vi.advanceTimersByTimeAsync(1500);
     await vi.advanceTimersByTimeAsync(1500);
     await vi.waitFor(() => {
-      expect(currentStep()).toContain('Checking facts');
+      expect(currentStep()).toContain('Checking the text');
     });
-    // Writing is done, Checking facts is running, Finishing has not started.
+    // Writing is done, Checking the text is running, Finishing has not started.
     expect(stepClasses()).toEqual([
       'stepper__step stepper__step--done',
       'stepper__step stepper__step--active',
       'stepper__step',
     ]);
+    expect(screen.getByText(/It usually takes under a minute\./)).toBeTruthy();
     // There is no draft before the CV is written.
     expect(document.querySelector('iframe')).toBeNull();
 
@@ -96,11 +97,11 @@ describe('generation progress', () => {
     renderApp(`/cvs/${CV_ID}`);
 
     await vi.waitFor(() => {
-      expect(currentStep()).toContain('Checking facts');
+      expect(currentStep()).toContain('Checking the text');
     });
   });
 
-  it('a job stored before v2 at its extract step shows the first step', async () => {
+  it('a job at the retired extract step shows the first step', async () => {
     server.use(
       mockRoute('me', () => USER),
       mockRoute('getCv', () =>

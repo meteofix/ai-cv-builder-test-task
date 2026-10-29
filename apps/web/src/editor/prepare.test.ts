@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { editorDocument } from './../test/fixtures';
-import { prepareDocument, serialize } from './prepare';
+import { newId, prepareDocument, serialize } from './prepare';
 
 const line = (id: string, text: string) => ({ id, text, factIds: [] });
 const group = (id: string, title: string | null, items: ReturnType<typeof line>[]) => ({
@@ -110,5 +110,20 @@ describe('prepareDocument', () => {
       ],
     });
     expect(prepareDocument(prepareDocument(doc))).toEqual(prepareDocument(doc));
+  });
+});
+
+describe('newId', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('builds a v4 UUID from random bytes where randomUUID is missing (plain HTTP)', () => {
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+    const ids = Array.from({ length: 50 }, newId);
+    for (const id of ids) {
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    }
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

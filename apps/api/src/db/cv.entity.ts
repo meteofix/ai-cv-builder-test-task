@@ -13,7 +13,7 @@ export const Cv = defineEntity({
       .onCreate(() => randomUUID()),
     user: () => p.manyToOne(User).ref().deleteRule('cascade'),
     targetRole: p.string().length(200),
-    // Null until the first generation finishes; the staged draft is built from the facts instead.
+    // Null until the first generation finishes.
     document: p.json<CvDocument>().nullable(),
     // Changes only together with `document`; the generation status lives in the latest job.
     version: p.integer().default(0),
@@ -36,7 +36,8 @@ export const CvSource = defineEntity({
     cv: () => p.oneToOne(Cv).primary().owner().ref().deleteRule('cascade'),
     kind: p.enum(['pdf', 'text']),
     text: p.text(),
-    // Facts with verbatim quotes and spans; the grounding module owns their shape.
+    // The source analysis the generation stores (what the CV leaves out, coverage, the order reason, the user's text
+    // answers); its schema is `sourceAnalysisSchema` in generation/compose. The column name predates decision 035.
     facts: p.json<Record<string, unknown>>().nullable(),
     createdAt: p.datetime().onCreate(() => new Date()),
   },

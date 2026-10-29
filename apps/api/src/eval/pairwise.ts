@@ -171,8 +171,8 @@ export async function comparePair(
 
 /**
  * The cross-judge outcome (decision 036): a win or a loss counts only when every vote of every judge,
- * in both orders, agrees; anything else is split. Main is written mostly by Sonnet, so a Sonnet judge, if
- * biased, favours main, and an Opus judge may favour v2: agreement of both is the claim we make.
+ * in both orders, agrees; anything else is split. The baseline was written mostly by Sonnet, so a Sonnet judge, if
+ * biased, favours it, and an Opus judge may favour the new pipeline: agreement of both is the claim we make.
  */
 export function agreed(
   results: readonly PairResult[],

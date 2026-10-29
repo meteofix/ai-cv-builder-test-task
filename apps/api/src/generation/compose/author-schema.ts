@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { verbatim, type SegmentIndex } from './verbatim.js';
 
 /*
- * The author answers through a tool call that the service does not hold to this schema (decision 036):
- * it began on the structured-output grammar, whose size cap it outgrew, so it stays lean — "" means
- * none, parts are fresh instances from functions, and only the hints the prompt does not give are
- * described. Every rule beyond the shape is in `authorSchema` (author-checks.ts), checked with a re-ask.
+ * The author answers through a tool call that the service does not hold to this schema (decision 036), so
+ * the schema stays lean — "" means none, parts are fresh instances from functions, and only the hints the
+ * prompt does not give are described. Every rule beyond the shape is in `authorSchema` (author-checks.ts),
+ * checked with a re-ask.
  */
 // "" and 0 mean none, so an omitted string or number is read as none rather than re-asked: in the tool
 // mode the service does not hold the model to the required fields (decision 036).

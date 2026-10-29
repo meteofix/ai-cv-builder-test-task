@@ -122,7 +122,7 @@ export function authorSchema(index: SegmentIndex) {
       ]);
       dates(['education', i], entry);
     });
-    // What the document would drop must not be cited: its segments would count as placed (decision 035).
+    // What the document would drop must not be cited: its segments would count as placed (decision 036).
     output.skills.forEach((group, i) => {
       cites(['skills', i], group.segments);
       if (group.segments.length === 0) issue(['skills', i], 'Cite at least one segment');

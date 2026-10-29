@@ -31,7 +31,7 @@ export class DraftController {
   ): Promise<NotInCvResponse> {
     const cv = await this.cvs.findOwned(id, user.id);
     const source = await this.em.findOne(CvSource, { cv: cv.id });
-    // Nothing before the first generation ends; a CV generated before v2 kept no analysis to show.
+    // Nothing before the first generation ends; a CV with no stored analysis has nothing to show.
     const analysis = sourceAnalysisSchema.safeParse(source?.facts);
     if (!analysis.success) return { items: [] };
     const { notInCv, coverage, orderReason } = analysis.data;

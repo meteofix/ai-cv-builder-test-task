@@ -48,7 +48,7 @@ export type LlmSleep = (ms: number, signal: AbortSignal) => Promise<void>;
 const TRANSPORT_ATTEMPTS = 3;
 const DEFAULT_WAITS_MS = [1_000, 2_000] as const;
 const MAX_RETRY_AFTER_MS = 30_000;
-// One re-ask with the validation error; a second invalid answer fails the step (v2: at most four calls).
+// One re-ask with the validation error; a second invalid answer fails the step (at most four calls).
 const SCHEMA_REASKS = 1;
 // The author writes the whole document after thinking about it; the other roles answer much less.
 const MAX_TOKENS: Record<LlmRole, number> = {
@@ -174,7 +174,7 @@ export class LlmClient {
     return DEFAULT_WAITS_MS[Math.min(failures, DEFAULT_WAITS_MS.length) - 1] ?? DEFAULT_WAITS_MS[0];
   }
 
-  /** One line per HTTP attempt: never the prompt, the source, facts or the answer. */
+  /** One line per HTTP attempt: never the prompt, the source or the answer. */
   private logAttempt<T>(
     request: LlmRequest<T>,
     model: string,

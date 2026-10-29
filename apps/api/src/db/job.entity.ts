@@ -60,7 +60,7 @@ export const GenerationJob = defineEntity({
 export type IGenerationJob = InferEntity<typeof GenerationJob>;
 
 /**
- * One row per started generation (a new CV or a retry). The daily limits count these rows; they are not
+ * One row per started generation or text answer (a new CV, a text answer, or the retry of either). The daily limits count these rows; they are not
  * tied to the CV, so deleting a CV does not give the quota back.
  */
 export const GenerationUsage = defineEntity({

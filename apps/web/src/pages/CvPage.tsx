@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router';
 import { useCv } from '../api/cvs';
 import { errorMessage } from '../api/errors';
 import { AppHeader } from '../components/AppHeader';
+import { CrashBoundary } from '../components/CrashBoundary';
 import { Spinner } from '../components/Icon';
 import { CvEditor } from '../editor/CvEditor';
 import { GenerationView } from './GenerationView';
@@ -35,5 +36,9 @@ export function CvPage() {
   }
   const detail = cv.data;
   if (detail.document === null) return <GenerationView cv={detail} />;
-  return <CvEditor key={detail.id} cv={detail} document={detail.document} />;
+  return (
+    <CrashBoundary key={detail.id}>
+      <CvEditor cv={detail} document={detail.document} />
+    </CrashBoundary>
+  );
 }

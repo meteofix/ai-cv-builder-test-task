@@ -8,5 +8,5 @@ export * from './job.entity.js';
 export * from './question.entity.js';
 export * from './user.entity.js';
 
-/** Every entity of the schema; the one migration in `migrations/` creates exactly these tables. */
+/** Every entity of the schema; the schema migration in `migrations/` creates these tables (the later ones only move data). */
 export const ENTITIES = [User, Session, Cv, CvSource, CvQuestion, GenerationJob, GenerationUsage];

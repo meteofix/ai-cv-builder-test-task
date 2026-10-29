@@ -31,6 +31,15 @@ export type EnqueueInput =
 /** Any constant works; it only has to be the same for every process that charges the quota. */
 const QUOTA_LOCK_KEY = 4_211_028;
 const DAY_MS = 24 * 60 * 60 * 1000;
+/**
+ * A text answer is a model call (up to the call budget), so it spends a unit of the daily limits like a
+ * generation; a dates answer is applied without a model and is free. Without this a failed application
+ * could be answered or retried again and again at the price of the model calls alone.
+ */
+function chargesQuota(payload: ApplyAnswerPayload | null): boolean {
+  return payload === null || payload.answer.type === 'text';
+}
+
 /** The partial unique index on `generation_jobs (cv_id) WHERE status IN ('queued', 'running')`. */
 const ACTIVE_JOB_INDEX = 'generation_jobs_one_active_per_cv';
 
@@ -57,22 +66,22 @@ export class GenerationQueue {
 
   /**
    * Queues a job for the CV. Pass the caller's transactional `em` so the job commits together with the CV
-   * or the answer. `generate` counts against the daily limits; a second active job is 409 JOB_ACTIVE.
+   * or the answer. A `generate` job and a `text` answer count against the daily limits; a second active job
+   * is 409 JOB_ACTIVE.
    */
   async enqueue(em: EntityManager, cv: ICv, input: EnqueueInput): Promise<Job> {
     return this.guardActive(() =>
       em.transactional(async (tx) => {
         if (await this.hasActiveJob(cv.id, tx)) throw new ApiError('JOB_ACTIVE');
-        if (input.kind === 'generate') await this.charge(tx, cv.user.id);
+        const payload =
+          input.kind === 'apply_answer' ? applyAnswerPayloadSchema.parse(input.payload) : null;
+        if (chargesQuota(payload)) await this.charge(tx, cv.user.id);
         const job = tx.create(GenerationJob, {
           cv,
           user: cv.user,
           kind: input.kind,
           ...(input.kind === 'apply_answer'
-            ? {
-                target: jobTargetSchema.parse(input.target),
-                payload: applyAnswerPayloadSchema.parse(input.payload),
-              }
+            ? { target: jobTargetSchema.parse(input.target), payload }
             : {}),
         });
         await tx.flush();
@@ -96,7 +105,7 @@ export class GenerationQueue {
 
   /**
    * Continues the latest failed job: finished steps are kept, attempts and the LLM call budget start over.
-   * A retried `generate` counts against the daily limits, like a new CV.
+   * A retried `generate` or text answer counts against the daily limits again, like a new one.
    */
   async retry(em: EntityManager, cv: ICv): Promise<Job> {
     return this.guardActive(() =>
@@ -116,7 +125,9 @@ export class GenerationQueue {
           throw new ApiError('JOB_ACTIVE');
         }
         if (job?.status !== 'failed') throw new ApiError('JOB_NOT_RETRYABLE');
-        if (job.kind === 'generate') await this.charge(tx, cv.user.id);
+        const payload =
+          job.kind === 'apply_answer' ? applyAnswerPayloadSchema.parse(job.payload) : null;
+        if (chargesQuota(payload)) await this.charge(tx, cv.user.id);
 
         Object.assign(job, {
           status: 'queued',
@@ -128,11 +139,10 @@ export class GenerationQueue {
           errorCode: null,
           errorMessage: null,
         } satisfies Partial<IGenerationJob>);
-        if (job.kind === 'apply_answer') {
-          const { questionId } = applyAnswerPayloadSchema.parse(job.payload);
+        if (payload) {
           await tx.nativeUpdate(
             CvQuestion,
-            { id: questionId, cv: cv.id },
+            { id: payload.questionId, cv: cv.id },
             { applyStatus: 'applying', applyNote: null },
           );
         }

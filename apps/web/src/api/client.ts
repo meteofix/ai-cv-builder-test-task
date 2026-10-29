@@ -2,6 +2,7 @@ import { ROUTES, routePath, type RouteName } from '@cv/shared';
 import type { z } from 'zod';
 import { setApiReachable } from './connection';
 import { ApiError, readApiError } from './errors';
+import { fileNameOf } from './file-name';
 
 type Route<N extends RouteName> = (typeof ROUTES)[N];
 type BodyOf<N extends RouteName> =
@@ -82,6 +83,5 @@ export async function downloadPdf(
   const response = await send(url, init);
   if (!response.ok) throw await readApiError(response);
   const disposition = response.headers.get('content-disposition') ?? '';
-  const fileName = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? 'cv.pdf';
-  return { blob: await response.blob(), fileName };
+  return { blob: await response.blob(), fileName: fileNameOf(disposition, 'cv.pdf') };
 }

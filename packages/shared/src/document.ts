@@ -4,6 +4,7 @@ import { localeSchema } from './locale.js';
 
 const id = z.string().min(1).max(64);
 const field = z.string().max(LIMITS.maxFieldChars);
+/** Evidence segment ids (`S1`, `A1`); the name predates decision 035. An empty list marks text the user wrote. */
 const factIds = z.array(id).max(LIMITS.maxFactIds);
 
 /** `YYYY` or `YYYY-MM`; a missing date is `null`, never an empty string. */

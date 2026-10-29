@@ -18,9 +18,13 @@ const INSTRUCTION_PATTERNS: readonly RegExp[] = [
   /<\/?\s*(cv_source|system|assistant|user|instructions?)\s*>/i,
 ];
 
+// Invisible format characters (zero-width spaces and joiners, the soft hyphen, bidi marks) are common in
+// PDF text and would split a keyword; they are dropped from the matching copy only, never from the text.
+const FORMAT_CHARS = /\p{Cf}/gu;
+
 /** Whether a piece of the source reads as an instruction to the model (after level-1 normalization). */
 export function isInstruction(text: string): boolean {
-  const normalized = normalizeText(text);
+  const normalized = normalizeText(text.replace(FORMAT_CHARS, ''));
   return INSTRUCTION_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 

@@ -483,7 +483,7 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
     const { cv, job } = await queued();
     await entityManager(app).nativeUpdate(GenerationJob, job.id, {
       step: 'judge',
-      state: { write: { bullets: ['an answer of the Z1 shape'] } },
+      state: { write: { bullets: ['an answer of an earlier shape'] } },
     });
     await engine.processNext();
     expect(await jobRow(job.id)).toMatchObject({ status: 'succeeded', step: 'finalize' });

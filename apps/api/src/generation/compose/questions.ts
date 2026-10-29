@@ -188,7 +188,7 @@ export function buildQuestions(
 
 /**
  * Where the answer to a doubtful item lands: its group (a job's `p1-g2`, an entry's `a1-e1-g1`), so the
- * answer rewrites that group only (§5), at the item's place (V2-Q6); the summary as a whole; a section
+ * answer rewrites that group only (§5), at the item's place; the summary as a whole; a section
  * otherwise.
  */
 function findingTarget(place: Place): QuestionTarget {

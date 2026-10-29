@@ -66,7 +66,7 @@ describe('CV template', () => {
     expect(printed[1]).toBe('Jan 2021 – Feb 2023');
     // The position without dates has no dates element: the next dates belong to the education entries.
     expect(printed).toContain('2017 – 2019');
-    // Seven dated entries since the reference shows a company with two positions (owner's decision R0-GROUP).
+    // Seven dated entries since the reference shows a company with two positions (a company block with two positions).
     expect(printed).toHaveLength(7);
   });
 

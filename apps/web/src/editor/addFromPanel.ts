@@ -166,12 +166,12 @@ function inFallback(document: CvDocument, text: string): CvDocument {
 }
 
 /**
- * The document with the item's text added word for word where it belongs (decision 035): a bullet in the
- * last untitled group of its position (of a company block's first position when the block shares its bullets), a
- * sentence of the summary, the names of its skill group (or a new group), a line of its extra entry or
- * section — or, without a place of its own or room there, a line of an extra section. Null when no place can take it within the document's limits: the panel then says
- * so instead of saving a document the server would refuse. Text that looked like an instruction is never
- * added.
+ * The document with the item's text added word for word where it belongs (decision 036): a bullet in the
+ * last untitled group of its position (of a company block's first position when the block shares its
+ * bullets), a sentence of the summary, the names of its skill group (or a new group), a line of its extra
+ * entry or section — or, without a place of its own or room there, a line of an extra section. Null when
+ * no place can take it within the document's limits: the panel then says so instead of saving a document
+ * the server would refuse. Text that looked like an instruction is never added.
  */
 export function addFromPanel(document: CvDocument, item: NotInCvItem): CvDocument | null {
   if (item.reason === 'ignored') return null;

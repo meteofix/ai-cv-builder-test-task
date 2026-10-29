@@ -5,10 +5,19 @@ import { previewPages } from '../editor/pages';
 
 /** A4 at 96 dpi: the page is laid out at this width and scaled down to the column. */
 const SHEET_WIDTH = 794;
-/** The one DOM write into the preview page: everything else in it was set once with the shell. */
+/**
+ * The one DOM write into the preview page: everything else in it was set once with the shell. The links stay
+ * in the markup, as in the PDF, but a click on one would navigate the frame away from the preview.
+ */
 function writeBody(frame: HTMLIFrameElement | null, html: string): void {
   const body = frame?.contentDocument?.body;
-  if (body) body.innerHTML = html;
+  if (!body) return;
+  body.innerHTML = html;
+  for (const link of body.querySelectorAll('a')) {
+    link.style.pointerEvents = 'none';
+    // The mouse is blocked above; Tab and Enter would still follow the link.
+    link.tabIndex = -1;
+  }
 }
 
 interface CvPreviewProps {

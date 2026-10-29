@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { cvDocumentSchema } from './document.js';
 import { cvSectionSchema } from './questions.js';
 
-/** Always null since v2: the author writes the whole CV in one step (decision 035). */
+/** Always null: the author writes the whole CV in one step (decision 035). */
 export const draftResponseSchema = z.object({ draft: cvDocumentSchema.nullable() });
 export type DraftResponse = z.infer<typeof draftResponseSchema>;
 

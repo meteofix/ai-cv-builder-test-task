@@ -11,16 +11,18 @@ export function formatDate(value: string | null | undefined, labels: Labels): st
   return [name, year].filter(Boolean).join(' ');
 }
 
-/** `Mar 2023 – Present`; one known side prints alone, nothing known prints nothing. */
+/** `Mar 2023 – Present`; one known side prints alone, and so does a start and end that read the same. */
 export function dateRange(
   start: string | null | undefined,
   end: string | null | undefined,
   current: boolean,
   labels: Labels,
 ): string {
-  return [formatDate(start, labels), current ? labels.present : formatDate(end, labels)]
-    .filter(Boolean)
-    .join(' – ');
+  const from = formatDate(start, labels);
+  const to = current ? labels.present : formatDate(end, labels);
+  // The printed forms are compared, so a year and one of its months (`2021`, `2021-06`) stay a range.
+  if (from === to) return from;
+  return [from, to].filter(Boolean).join(' – ');
 }
 
 interface Dated {

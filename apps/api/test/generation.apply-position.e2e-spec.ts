@@ -10,7 +10,7 @@ import { NO_ISSUES } from './generation/author-answers.js';
 import { pipelineHarness } from './generation/pipeline-harness.js';
 
 /*
- * A bullet the review took out comes back to its place (V2-Q6, docs/specs/generation.md §5): job A's
+ * A bullet the review took out comes back to its place (docs/specs/generation.md §5): job A's
  * first group was [Migrated billing, Ran on-call, Wrote the onboarding guide] and the review took out
  * the first two, asking about each at its index.
  */

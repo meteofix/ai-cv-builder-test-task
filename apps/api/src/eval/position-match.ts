@@ -1,6 +1,6 @@
 import type { Expected } from './expected.js';
 
-/** A position as the eval compares it: from a fact (extraction) or from the document (full run). */
+/** A position as the eval compares it, read from the generated document. */
 export interface FoundPosition {
   id: string;
   company: string;

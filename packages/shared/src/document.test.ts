@@ -119,7 +119,7 @@ describe('ids and dates inside the document', () => {
     expect(result.success).toBe(valid);
   });
 
-  // Lines of an extra entry are capped across its groups like bullets (V2-Q5).
+  // Lines of an extra entry are capped across its groups like bullets.
   it.each([
     [20, true],
     [21, false],

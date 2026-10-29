@@ -1,5 +1,5 @@
 /**
- * Contacts are the one thing code checks against the source (docs/specs/grounding.md §3): a wrong email,
+ * Contacts are the free text the model writes that code compares with the source (docs/specs/grounding.md §3): a wrong email,
  * phone or link cannot be caught by reading, and it costs the person a job. A value the source does not
  * contain whole is dropped and the editor asks for it instead.
  */

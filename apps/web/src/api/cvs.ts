@@ -70,7 +70,6 @@ export function useCreateCv() {
           body: { targetRole: input.targetRole, text: input.text },
         });
       }
-      // The role goes first: the API reads multipart fields in order and needs it before the file.
       const form = new FormData();
       form.append('targetRole', input.targetRole);
       form.append('file', input.file);

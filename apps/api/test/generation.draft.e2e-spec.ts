@@ -48,7 +48,7 @@ describe('draft and not-in-cv endpoints', () => {
     fake.on('author', { output: sampleAuthorAnswer() }).on('reviewer', { output: NO_ISSUES });
     await app.get(JobEngine).processNext();
     expect((await get('getDraft', cv.id)).json()).toEqual({ draft: null });
-    // The sample answer cites every content segment: nothing to warn about (R0-SIGNAL).
+    // The sample answer cites every content segment: nothing to warn about.
     expect((await get('getNotInCv', cv.id)).json()).toMatchObject({
       sourceCoverage: { notRecognized: 0, low: false },
     });
@@ -84,7 +84,7 @@ describe('draft and not-in-cv endpoints', () => {
     expect((await get('getNotInCv', cv.id)).body).not.toContain('page break');
   });
 
-  it('says when most of the source was not recognized (R0-SIGNAL)', async () => {
+  it('says when most of the source was not recognized', async () => {
     const em = entityManager(app);
     const unread = Array.from({ length: 30 }, (_, i) => `Line ${i + 1} nobody cited`).join('\n');
     const cv = await createCv(em, {
@@ -99,7 +99,7 @@ describe('draft and not-in-cv endpoints', () => {
     });
   });
 
-  it('shows nothing left out for a CV generated before v2 (its facts have another shape)', async () => {
+  it('shows nothing left out for a CV whose stored analysis cannot be read', async () => {
     const cv = await createCv(entityManager(app), {
       user: owner.user,
       document: sampleDocument(),

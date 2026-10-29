@@ -35,7 +35,7 @@ function educationUnchanged(stored: CvEducation, edited: CvEducation): boolean {
   );
 }
 
-/** Keeps the stored fact ids of a text the user did not touch; a new or changed text starts with none. */
+/** Keeps the stored segment ids of a text the user did not touch; a new or changed text starts with none. */
 function carryFactIds<T extends { id: string; text: string }>(
   stored: T | undefined,
   edited: T,
@@ -46,9 +46,9 @@ function carryFactIds<T extends { id: string; text: string }>(
 
 /**
  * Applies the server-owned provenance to a document the user edited. `factIds` and `factId` link the
- * CV to the source facts; the client may not set them, so each one is taken from the stored document and
+ * CV to the source segments it cites; the client may not set them, so each one is taken from the stored document and
  * only while the text or fields it vouches for are unchanged. This is how the generation module tells
- * a bullet the user wrote (`factIds: []`) from one the AI wrote and the checks have verified.
+ * a bullet the user wrote (`factIds: []`) from one the AI wrote and the reviewer checked.
  */
 export function withServerProvenance(stored: CvDocument, edited: CvDocument): CvDocument {
   const storedPositions = byId(stored.experience);
@@ -68,8 +68,8 @@ export function withServerProvenance(stored: CvDocument, edited: CvDocument): Cv
       return {
         ...withoutFactId(position),
         ...(before?.factId && positionUnchanged(before, position) ? { factId: before.factId } : {}),
-        // A bullet is looked up inside its own position, in any of its groups: a fact of another job
-        // must not follow it.
+        // A bullet is looked up inside its own position, in any of its groups: the segment ids of another
+        // job must not follow it.
         groups: position.groups.map((group) => ({
           ...group,
           items: group.items.map((bullet) => ({

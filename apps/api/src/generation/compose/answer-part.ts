@@ -1,5 +1,5 @@
 import { LIMITS, type CvDocument, type QuestionTarget } from '@cv/shared';
-import { isInstruction, type Segment } from '../../grounding/index.js';
+import { isInstruction, sourceLines, type Segment } from '../../grounding/index.js';
 import type { PreparedSource } from './compose.js';
 import { indexSegments, type SegmentIndex } from './verbatim.js';
 
@@ -153,7 +153,8 @@ export function answerSegments(answers: readonly string[]): Segment[] {
     id: `A${i + 1}`,
     text: text.trim(),
     span: [0, 0],
-    instruction: isInstruction(text),
+    // Newlines are flattened when matching, so a role prefix on a later line needs a line of its own.
+    instruction: isInstruction(text) || sourceLines(text).some((line) => isInstruction(line.text)),
   }));
 }
 

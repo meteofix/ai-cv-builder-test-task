@@ -160,8 +160,8 @@ describe('generation job lifecycle', () => {
     if (!claimed) throw new Error('nothing claimed');
     const locked = signal();
     const release = signal();
-    // Stands for CvsService.remove (cvs stream): a DELETE of the CV row, which locks it first and then
-    // cascades to its jobs. That endpoint belongs to another stream, so the test takes the same locks.
+    // The same locks as CvsService.remove: the CV row first, then the cascade to its jobs. The test takes
+    // them itself to hold the CV between the two.
     const deletion = entityManager(app).transactional(async (tx) => {
       await tx.execute('select id from cvs where id = ? for update', [cv.id]);
       locked.fire();

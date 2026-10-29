@@ -24,7 +24,7 @@ export const envSchema = z.object({
   REVIEWER_MODEL: z.string().default('claude-opus-5-5'),
   // The reviewer at low effort found as much as at medium and was not worse in the pairwise eval (decision 039).
   REVIEWER_EFFORT: z.enum(LLM_EFFORTS).default('low'),
-  // The author writes a whole CV in one answer; on a long CV that takes minutes, not seconds.
+  // The author writes a whole CV in one answer; a long CV can take over a minute; this is a safety bound.
   LLM_TIMEOUT_MS: positiveInt.default(300_000),
   LLM_CALL_BUDGET: positiveInt.default(15),
 

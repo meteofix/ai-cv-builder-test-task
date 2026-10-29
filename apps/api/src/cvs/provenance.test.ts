@@ -136,7 +136,7 @@ describe('withServerProvenance', () => {
         factIds: [],
       });
     });
-    // Same id and text as a bullet of p1, but a fact of that job must not follow it to p2.
+    // Same id and text as a bullet of p1, but the segment ids of that job must not follow it to p2.
     expect(bulletsOf(result.experience[1]!).at(-1)?.factIds).toEqual([]);
   });
 

@@ -1,6 +1,6 @@
 # AI CV Builder
 
-A web app that turns a PDF or pasted text into a structured, editable CV and a PDF. An LLM writes the text; the server guarantees it adds no facts that are not in the source.
+A web app that turns a PDF or pasted text into a structured, editable CV and a PDF. An LLM (the author) writes the text from the source, citing the source lines; a second LLM call (the reviewer) checks the whole CV against the source; code keeps the contracts, the exact contacts and the accounting of what the CV leaves out. Faithfulness rests on the reviewer and is measured by evals, not proven by code.
 
 Rules for coding agents. Nested `AGENTS.md` files (`apps/api`, `apps/web`, `packages/cv-template`) add package rules. There is no `CLAUDE.md` or `CLAUDE.local.md` in this repository on purpose: Claude Code reads `AGENTS.md` only when no `CLAUDE.md` exists, so never add one. Decisions and their reasons are in `docs/DECISIONS.md`; module behaviour is in `docs/specs/`.
 
@@ -27,7 +27,8 @@ scripts/              worktree:init, zone:check and the logic behind the hooks
 ```
 pnpm install --frozen-lockfile     first step in a fresh clone
 pnpm playwright:install            Chromium headless shell for the PDF and template tests (once)
-docker compose up -d postgres      the one Postgres: dev data and tests (port 5432, localhost only)
+ANTHROPIC_API_KEY=test-placeholder docker compose up -d postgres
+                                   the one Postgres: dev data and tests (port 5432, localhost only; Compose needs the key set for any service)
 pnpm check                         build packages + lint + typecheck + all tests; must be green
 pnpm lint | typecheck | test       the parts of check (typecheck builds the packages first)
 pnpm --filter @cv/api test         one package; add a file name to run one file
@@ -39,8 +40,8 @@ API tests need Postgres: without it they stop with one message that names the co
 ## Rules
 
 - TypeScript strict, no `any`, no `console.log` (use the pino logger), no `@ts-ignore`. Imports in `apps/api` and `packages/*` end with `.js`.
-- Output of an LLM is untrusted input. Consume it only through a zod schema (`messages.parse`); never `JSON.parse` a model answer.
-- **Hallucination guard.** Code checks only what is mechanically checkable (provenance of quotes, names, dates, numbers); an LLM judge assesses meaning; everything else becomes a visible question to the user. Do not add heuristics, lexicons or capitalization rules to the code: they produce false positives on clean input.
+- Output of an LLM is untrusted input. Consume it only through a zod schema (`messages.parse`, or `safeParse` on a tool input); never `JSON.parse` a model answer.
+- **Hallucination guard.** Code checks only what is mechanically checkable (cited segment ids, kept text, contacts, dates, limits, the accounting of source lines); the reviewer model assesses meaning; everything else becomes a visible question to the user. Do not add heuristics, lexicons or capitalization rules to the code: they produce false positives on clean input.
 - Every access to a CV goes through `findOwned(id, userId)`; a foreign or missing id is a 404. New routes get a case in the ownership table test.
 - No secrets and no personal data (CV text, facts, prompts, emails, tokens) in logs or error messages. Never read `.env` files; `.env.example` lists the variables. The hooks and the deny rule that enforce this are a best-effort backstop, not a guarantee: do not look for ways around them.
 - Handle an error where you can do something about it; let everything else reach the global exception filter. No defensive `try/catch`, no swallowed errors.
@@ -50,7 +51,7 @@ API tests need Postgres: without it they stop with one message that names the co
 ## Tests
 
 - Write the acceptance tests first, from the "Acceptance examples" of the module's spec (`*.acceptance.spec.ts`, spec referenced in the test name). A committed acceptance test, or the "Acceptance examples" section of a spec, changes only with a `spec-judge` verdict named in the commit message (`/spec-dispute`).
-- API tests run against real Postgres and a scripted fake LLM; PDF and template tests use real Chromium. Browser-level tests use MSW. Never call the real Anthropic API except under `RUN_LIVE=1`.
+- API tests run against real Postgres and a scripted fake LLM; PDF and template tests use real Chromium. Browser-level tests use MSW. No test calls the real Anthropic API; live calls happen only through the eval CLI, run by hand.
 - Table-driven cases use `test.each`. No `.only` or `.skip` (ESLint fails on them). A test must fail if the code it protects is broken: when unsure, break the code and see.
 - Unit tests sit next to the code (`*.test.ts`); API integration tests are `apps/api/test/<module>.e2e-spec.ts`.
 
@@ -68,6 +69,6 @@ Stop and ask only when: (1) a change is needed in an area only the user changes 
 
 ## Reviewer checklist
 
-The `reviewer` agent and any external review use this list: correctness and concurrency (job leases and fencing, single-flight autosave, version conflicts); security (owner-scoped access, validated input, no secrets in logs, upload limits, session and CSRF); error handling (global filter, problem+json codes as specified); LLM output only through schemas and the writer sees only verified facts; behaviour matches the spec and every acceptance example has a test; tests would fail if the code were broken; the rules above. Findings come as BLOCKING, SHOULD-FIX and NITS.
+The `reviewer` agent and any external review use this list: correctness and concurrency (job leases and fencing, single-flight autosave, version conflicts); security (owner-scoped access, validated input, no secrets in logs, upload limits, session and CSRF); error handling (global filter, problem+json codes as specified); LLM output only through schemas, the author's output checked by the reviewer, source text passed to models only as data; behaviour matches the spec and every acceptance example has a test; tests would fail if the code were broken; the rules above. Findings come as BLOCKING, SHOULD-FIX and NITS.
 
 All review outputs (the reviewer, Codex, spec-judge verdicts, mutation checks, plugin passes) are saved verbatim under `.reviews/` with a status under each finding (fixed with a commit / deferred to <where> / not a problem because <why>); the chat gets only the path and the counts per level. A finding is never dismissed without an explanation.

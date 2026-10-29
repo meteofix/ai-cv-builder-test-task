@@ -1,13 +1,13 @@
 import type { Job, JobStep } from '@cv/shared';
 import { Icon, Spinner } from './Icon';
 
-/** The steps a generation goes through (decision 035); `extract` belongs to jobs from before v2. */
+/** The steps a generation goes through (decision 035): the author, the reviewer, the document. */
 const STEPS = ['write', 'judge', 'finalize'] as const satisfies readonly JobStep[];
 type Step = (typeof STEPS)[number];
 
 const LABELS: Record<Step, string> = {
   write: 'Writing',
-  judge: 'Checking facts',
+  judge: 'Checking the text',
   finalize: 'Finishing',
 };
 
@@ -15,7 +15,7 @@ type StepState = 'done' | 'active' | 'failed' | 'pending';
 
 function stepState(index: number, job: Job): StepState {
   if (job.status === 'succeeded') return 'done';
-  // A job that has not started has no step yet, and an old job's `extract` comes before them all.
+  // A job that has not started has no step yet.
   const current = Math.max(
     0,
     STEPS.findIndex((step) => step === job.step),

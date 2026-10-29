@@ -250,6 +250,18 @@ describe('questions', () => {
     expect(await card.findByRole('alert')).toHaveTextContent(message);
   });
 
+  it('a text answer refused by the daily limit shows the limit message', async () => {
+    const { user } = await mountEditor({ questions: [question()] });
+    const detail = 'You can start 30 generations in 24 hours. Try again later.';
+    server.use(mockRoute('answerQuestion', () => problem('GENERATION_LIMIT_REACHED', { detail })));
+    const card = within(questionCard('When did you work at Brightpath Studio?'));
+
+    await user.selectOptions(card.getByLabelText('Start year'), '2021');
+    await user.click(card.getByRole('button', { name: 'Answer' }));
+
+    expect(await card.findByRole('alert')).toHaveTextContent(detail);
+  });
+
   it('a failed dismissal shows its message and keeps the question', async () => {
     const { user } = await mountEditor({ questions: [question()] });
     server.use(mockRoute('dismissQuestion', () => problem('INTERNAL', { requestId: 'req-9' })));

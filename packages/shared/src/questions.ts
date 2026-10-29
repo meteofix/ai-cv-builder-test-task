@@ -16,7 +16,7 @@ export const cvSectionSchema = z.enum(CV_SECTIONS);
 /** The part of the CV a question (and the job that applies its answer) is about. */
 export const questionTargetSchema = z.object({
   section: cvSectionSchema,
-  /** Id of the position, education entry or bullet in the document. */
+  /** Id of the group, entry or position in the document the question is about. */
   itemId: z.string().max(64).optional(),
   /** Field inside the item, for example `dates`, `company` or `degree`. */
   field: z.string().max(64).optional(),
@@ -33,7 +33,7 @@ export type QuestionTarget = z.infer<typeof questionTargetSchema>;
 export const QUESTION_KINDS = ['missing', 'vague', 'unverified'] as const;
 export const QUESTION_STATUSES = ['open', 'answered', 'dismissed'] as const;
 export const ANSWER_TYPES = ['dates', 'text'] as const;
-/** Outcome of applying an answer: `partial` means a regenerated bullet failed its checks and was left out. */
+/** Outcome of applying an answer: `partial` means new text from the answer was left out (the review took it out, or there was no room). */
 export const APPLY_STATUSES = ['applying', 'applied', 'partial', 'failed'] as const;
 
 /** Dates are applied without an LLM; `current` means "to the present", so `end` must be empty. */

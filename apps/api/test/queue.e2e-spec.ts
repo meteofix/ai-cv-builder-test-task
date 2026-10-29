@@ -95,7 +95,7 @@ describe('GenerationQueue', () => {
       expect(await fresh.count(GenerationUsage, {})).toBe(expected);
     });
 
-    it('carries the target and payload of an apply_answer job and does not charge the quota', async () => {
+    it('carries the target and payload of an apply_answer job; a dates answer makes no model call and is free', async () => {
       const cv = await newCv();
       const question = await createQuestion(entityManager(app), { cv });
       const target = { questionId: question.id, section: 'experience' as const, itemId: 'p1' };
@@ -123,6 +123,25 @@ describe('GenerationQueue', () => {
         queue.enqueue(entityManager(app), await newCv(user), { kind: 'generate' }),
         'GENERATION_LIMIT_REACHED',
       );
+    });
+
+    it.each([
+      ['a text answer', { type: 'text', text: 'Five people.' }, 'GENERATION_LIMIT_REACHED'],
+      ['a dates answer', { type: 'dates', start: '2020', end: null, current: true }, null],
+    ] as const)('at the limit, %s is refused or free', async (_case, answer, code) => {
+      const user = await createUser(entityManager(app));
+      for (let i = 0; i < LIMITS.GENERATIONS_PER_USER_PER_DAY; i++) {
+        await queue.enqueue(entityManager(app), await newCv(user), { kind: 'generate' });
+      }
+      const cv = await newCv(user);
+      const question = await createQuestion(entityManager(app), { cv });
+      const enqueue = queue.enqueue(entityManager(app), cv, {
+        kind: 'apply_answer',
+        target: { questionId: question.id, section: 'experience', itemId: 'p1' },
+        payload: { questionId: question.id, answer },
+      });
+      if (code) await rejectsWith(enqueue, code);
+      else await expect(enqueue).resolves.toMatchObject({ kind: 'apply_answer' });
     });
 
     it('does not give the quota back when a CV is deleted', async () => {
@@ -234,7 +253,54 @@ describe('GenerationQueue', () => {
       await queue.retry(entityManager(app), cv);
       const fresh = await entityManager(app).findOneOrFail(CvQuestion, question.id);
       expect(fresh.applyStatus).toBe('applying');
-      expect(await entityManager(app).count(GenerationUsage, {})).toBe(0);
+      expect(await entityManager(app).count(GenerationUsage, {})).toBe(1);
+    });
+
+    it('retries a failed dates answer for free even at the daily limit', async () => {
+      const user = await createUser(entityManager(app));
+      const cv = await newCv(user);
+      const question = await createQuestion(entityManager(app), { cv, status: 'answered' });
+      await createJob(entityManager(app), {
+        cv,
+        kind: 'apply_answer',
+        status: 'failed',
+        payload: {
+          questionId: question.id,
+          answer: { type: 'dates', start: '2020', end: null, current: true },
+        },
+      });
+      const usage = entityManager(app);
+      for (let i = 0; i < LIMITS.GENERATIONS_PER_USER_PER_DAY; i++) {
+        usage.create(GenerationUsage, { user: user.id });
+      }
+      await usage.flush();
+      await expect(queue.retry(entityManager(app), cv)).resolves.toMatchObject({
+        status: 'queued',
+      });
+      expect(await entityManager(app).count(GenerationUsage, {})).toBe(
+        LIMITS.GENERATIONS_PER_USER_PER_DAY,
+      );
+    });
+
+    it('does not let a failed text answer be retried past the daily limit', async () => {
+      const user = await createUser(entityManager(app));
+      const cv = await newCv(user);
+      const em = entityManager(app);
+      const question = await createQuestion(em, { cv, status: 'answered' });
+      await createJob(entityManager(app), {
+        cv,
+        kind: 'apply_answer',
+        status: 'failed',
+        payload: { questionId: question.id, answer: { type: 'text', text: 'Five people.' } },
+      });
+      const usage = entityManager(app);
+      for (let i = 0; i < LIMITS.GENERATIONS_PER_USER_PER_DAY; i++) {
+        usage.create(GenerationUsage, { user: user.id });
+      }
+      await usage.flush();
+      await rejectsWith(queue.retry(entityManager(app), cv), 'GENERATION_LIMIT_REACHED');
+      const row = await entityManager(app).findOneOrFail(GenerationJob, { cv: cv.id });
+      expect(row.status).toBe('failed');
     });
 
     it.each([

@@ -8,6 +8,7 @@ import { server } from './test/server';
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 async function mountEditor(notInCv: NotInCvResponse = { items: [] }) {
@@ -104,6 +105,17 @@ describe('Not in your CV', () => {
     expect(document?.additional.at(-1)).toMatchObject({
       title: 'Additional information',
       entries: [{ title: '', groups: [{ title: null, items: [{ text: line }] }] }],
+    });
+  });
+
+  it('renders the panel and adds an item on a plain-HTTP origin, where crypto.randomUUID is missing', async () => {
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+    const line = 'Hobbies: sailing';
+    const { user, puts } = await mountEditor({ items: [{ text: line, reason: 'not_placed' }] });
+    const panel = within((await screen.findByText('Not in your CV')).closest('details')!);
+    await user.click(panel.getByRole('button', { name: `Add: ${line}` }));
+    expect((await saved(puts))?.additional.at(-1)).toMatchObject({
+      title: 'Additional information',
     });
   });
 

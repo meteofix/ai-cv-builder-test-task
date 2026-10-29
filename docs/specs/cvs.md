@@ -8,16 +8,16 @@ A signed-in user creates a CV from pasted text or a PDF plus a target role and g
 
 ## Contracts
 
-| Route (`ROUTES.*`)                                           | Success                     | Errors (besides 400, 401, 404 `CV_NOT_FOUND`)                                                     |
-| ------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------- |
-| `createCvFromText` `POST /api/cvs`                           | 202 `{cvId, job}`           | 429 `GENERATION_LIMIT_REACHED`                                                                    |
-| `createCvFromPdf` `POST /api/cvs/from-pdf` (multipart)       | 202 `{cvId, job}`           | 413 `PDF_TOO_LARGE`; 422 `PDF_INVALID`, `PDF_NO_TEXT`, `PDF_ENCRYPTED`, `PDF_TOO_MANY_PAGES`; 429 |
-| `listCvs` `GET /api/cvs`                                     | 200 `{items: CvListItem[]}` | —                                                                                                 |
-| `getCv` `GET /api/cvs/:id`                                   | 200 `CvDetail`              | —                                                                                                 |
-| `updateDocument` `PUT /api/cvs/:id/document`                 | 200 `{document, version}`   | 409 `JOB_ACTIVE`, `DOCUMENT_NOT_READY`, `VERSION_CONFLICT`                                        |
-| `deleteCv` `DELETE /api/cvs/:id`                             | 204                         | —                                                                                                 |
-| `answerQuestion` `POST /api/cvs/:id/questions/:qid/answer`   | 202 `{question, job}`       | 404 `QUESTION_NOT_FOUND`; 409 `QUESTION_CLOSED`, `JOB_ACTIVE`                                     |
-| `dismissQuestion` `POST /api/cvs/:id/questions/:qid/dismiss` | 200 `{question}`            | 404 `QUESTION_NOT_FOUND`; 409 `QUESTION_CLOSED`                                                   |
+| Route (`ROUTES.*`)                                           | Success                     | Errors (besides 400, 401, 404 `CV_NOT_FOUND`)                                                                |
+| ------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `createCvFromText` `POST /api/cvs`                           | 202 `{cvId, job}`           | 429 `GENERATION_LIMIT_REACHED`                                                                               |
+| `createCvFromPdf` `POST /api/cvs/from-pdf` (multipart)       | 202 `{cvId, job}`           | 413 `PDF_TOO_LARGE`; 422 `PDF_INVALID`, `PDF_NO_TEXT`, `PDF_ENCRYPTED`, `PDF_TOO_MANY_PAGES`; 429            |
+| `listCvs` `GET /api/cvs`                                     | 200 `{items: CvListItem[]}` | —                                                                                                            |
+| `getCv` `GET /api/cvs/:id`                                   | 200 `CvDetail`              | —                                                                                                            |
+| `updateDocument` `PUT /api/cvs/:id/document`                 | 200 `{document, version}`   | 409 `JOB_ACTIVE`, `DOCUMENT_NOT_READY`, `VERSION_CONFLICT`                                                   |
+| `deleteCv` `DELETE /api/cvs/:id`                             | 204                         | —                                                                                                            |
+| `answerQuestion` `POST /api/cvs/:id/questions/:qid/answer`   | 202 `{question, job}`       | 404 `QUESTION_NOT_FOUND`; 409 `QUESTION_CLOSED`, `JOB_ACTIVE`; 429 `GENERATION_LIMIT_REACHED` (text answers) |
+| `dismissQuestion` `POST /api/cvs/:id/questions/:qid/dismiss` | 200 `{question}`            | 404 `QUESTION_NOT_FOUND`; 409 `QUESTION_CLOSED`                                                              |
 
 `GET /api/cvs/:id/job`, `POST /api/cvs/:id/job/retry`, `GET /api/cvs/:id/draft` and `GET /api/cvs/:id/not-in-cv` belong to the generation module ([generation.md](generation.md)); `GET /api/cvs/:id/pdf` to [pdf.md](pdf.md).
 
@@ -57,7 +57,7 @@ A signed-in user creates a CV from pasted text or a PDF plus a target role and g
 
 ### Questions
 
-8. **Answer.** Validate `answerQuestionRequestSchema`, then: `findOwned` → the question must belong to this CV, else 404 `QUESTION_NOT_FOUND` (also for a malformed `qid`) → it must be `open`, or `answered` with `applyStatus = 'failed'` (a failed application can be answered again, otherwise the answer would be lost), else 409 `QUESTION_CLOSED` → `answer.type` must equal the question's `answerType`, else 400 `VALIDATION_FAILED`. In one transaction, with the question row locked so that two parallel answers take turns: set `status = 'answered'`, `answer`, `applyStatus = 'applying'`, `applyNote = null`, and `GenerationQueue.enqueue(tx, cv, { kind: 'apply_answer', target: { questionId, section, itemId }, payload: { questionId, answer } })` with `section` and `itemId` from the question's target. An active job makes the queue throw 409 `JOB_ACTIVE`, the transaction rolls back and the question stays open: answers are applied one at a time. 202 `{question, job}`.
+8. **Answer.** Validate `answerQuestionRequestSchema`, then: `findOwned` → the question must belong to this CV, else 404 `QUESTION_NOT_FOUND` (also for a malformed `qid`) → it must be `open`, or `answered` with `applyStatus = 'failed'` (a failed application can be answered again, otherwise the answer would be lost), else 409 `QUESTION_CLOSED` → `answer.type` must equal the question's `answerType`, else 400 `VALIDATION_FAILED`. In one transaction, with the question row locked so that two parallel answers take turns: set `status = 'answered'`, `answer`, `applyStatus = 'applying'`, `applyNote = null`, and `GenerationQueue.enqueue(tx, cv, { kind: 'apply_answer', target: { questionId, section, itemId }, payload: { questionId, answer } })` with `section` and `itemId` from the question's target. An active job makes the queue throw 409 `JOB_ACTIVE`, the transaction rolls back and the question stays open: answers are applied one at a time. A `text` answer is a model call, so the queue charges it to the same daily limits as a generation (429 `GENERATION_LIMIT_REACHED`, the transaction rolls back and the question stays as it was); a `dates` answer is free. A retry of a failed text-answer job is charged again. 202 `{question, job}`.
 9. **Dismiss.** Same lookups and the same row lock; only an `open` question can be dismissed (an answered one is 409 `QUESTION_CLOSED`, a failed application included: a retry of its job would apply the answer the user gave up on); set `status = 'dismissed'`; 200 `{question}`. Allowed while a job runs (it does not touch the document).
 
 ### Ownership

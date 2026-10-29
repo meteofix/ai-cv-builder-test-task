@@ -80,7 +80,7 @@ export class ApplyAnswerHandler implements JobHandler {
     // The answer is the person's statement: it is kept even when its part is gone.
     if (!cv.document || !part) return this.apply(run, questionId, target, null, answer.text);
 
-    // A CV generated before v2 has no stored answers; its answer is the first one.
+    // A CV with no stored analysis has no earlier answers; this one is the first.
     const answers = answerSegments([...storedAnswers(stored.facts), answer.text]);
     const content = {
       source: prepareSource(stored.text),
@@ -191,7 +191,7 @@ async function keepAnswer(
 ): Promise<void> {
   const stored = await tx.findOne(CvSource, { cv: cvId }, { refresh: true });
   const analysis = sourceAnalysisSchema.safeParse(stored?.facts);
-  // A CV generated before v2 has no analysis to add to; its answers are not reused.
+  // A CV with no stored analysis has none to add to; its answers are not reused.
   if (!analysis.success) return;
   const { answers, notInCv } = analysis.data;
   const facts = {

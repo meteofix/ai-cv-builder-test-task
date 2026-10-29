@@ -10,3 +10,8 @@ coverage
 .playwright-mcp/
 examples/local/
 .DS_Store
+.reviews/
+AI_LOG.md
+PLAN.local.md
+BRIEF.md
+ACCEPTANCE.md

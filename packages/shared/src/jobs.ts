@@ -4,7 +4,10 @@ import { cvSectionSchema } from './questions.js';
 
 export const JOB_KINDS = ['generate', 'apply_answer'] as const;
 export const JOB_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const;
-/** Steps in order; the web app shows them as a stepper and loads the draft once `extract` is done. */
+/**
+ * Steps in order, shown by the web app as a stepper. `write` is the author, `judge` the reviewer (the names
+ * predate decision 035); `extract` is no longer entered and stays only in the stored check constraint.
+ */
 export const JOB_STEPS = ['extract', 'write', 'judge', 'finalize'] as const;
 
 export const jobKindSchema = z.enum(JOB_KINDS);

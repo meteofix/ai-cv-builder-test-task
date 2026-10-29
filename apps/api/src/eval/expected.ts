@@ -27,8 +27,6 @@ export const expectedSchema = z.object({
   education: z.number().int().nonnegative(),
   /** Items of extra sections (courses, languages, projects …), roughly. */
   other: z.number().int().nonnegative(),
-  /** Question kinds that are right for this CV: `noBullets`, `title`, `company`, `dates`. */
-  allowedQuestions: z.array(z.string()).default([]),
 });
 export type Expected = z.infer<typeof expectedSchema>;
 

@@ -54,7 +54,7 @@ export function GenerationView({ cv }: { cv: CvDetail }) {
             <Stepper job={job} />
             {failed ? null : (
               <p className="progress-panel__note">
-                You can close this page — generation continues.
+                You can close this page — generation continues. It usually takes under a minute.
               </p>
             )}
           </section>

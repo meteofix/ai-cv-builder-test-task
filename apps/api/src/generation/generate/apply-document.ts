@@ -70,7 +70,7 @@ const patched = (
 
 /**
  * The document with only the answer's target changed. Everything else keeps its object, so it stays byte
- * for byte the same. Verified content is never replaced by nothing, and the user's own text stays.
+ * for byte the same. Reviewed content is never replaced by nothing, and the user's own text stays.
  */
 export function applyPatch(
   document: CvDocument,

@@ -99,7 +99,7 @@ describe('applyPatch — a content answer’s part (docs/specs/generation.md §5
       4,
       ['Migrated billing', 'Ran on-call', 'Wrote the onboarding guide', 'Led billing for 3 teams'],
     ],
-  ])('puts a one-item answer back at the stored position %i (V2-Q6)', (position, texts) => {
+  ])('puts a one-item answer back at the stored position %i', (position, texts) => {
     const result = applyPatch(
       answerDocument(),
       { ...target, position },

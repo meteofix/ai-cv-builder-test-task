@@ -28,7 +28,7 @@ export function createQueryClient(): QueryClient {
   return client;
 }
 
-/** Drops every cached CV, draft and list: the next account on this browser must not see this one's data. */
+/** Drops every cached CV and list: the next account on this browser must not see this one's data. */
 export function forgetUserData(client: QueryClient): void {
   client.removeQueries({ predicate: (query) => query.queryKey[0] !== queryKeys.me[0] });
 }

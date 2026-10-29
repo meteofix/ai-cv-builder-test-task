@@ -211,7 +211,7 @@ function withGroups(dump: unknown): unknown {
   if (!parsed.success) return dump;
   const group = (id: string, items: unknown[]) =>
     items.length === 0 ? [] : [{ id: `${id}-g1`, title: null, items }];
-  // Skills before Z2 were one flat list: one untitled group, as Migration20261029120000 moved them.
+  // A flat list of skills (an older dump) becomes one untitled group, as Migration20261029120000 moved them.
   const flatSkills = parsed.data.skills.some((value) => flatSkill.safeParse(value).success);
   return {
     ...parsed.data,

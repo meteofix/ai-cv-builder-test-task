@@ -9,7 +9,6 @@ import { APP_CONFIG } from './config/tokens.js';
 import { CvsModule } from './cvs/cvs.module.js';
 import { DbModule } from './db/db.module.js';
 import { GenerationModule } from './generation/generation.module.js';
-import { GroundingModule } from './grounding/grounding.module.js';
 import { HealthModule } from './health/health.module.js';
 import { LlmModule } from './llm/llm.module.js';
 import { PdfModule } from './pdf/pdf.module.js';
@@ -26,7 +25,7 @@ export class AppModule {
       module: AppModule,
       imports: [
         AppConfigModule.forRoot(config, logger),
-        // Routes opt in with `@UseGuards(ThrottlerGuard)`; the auth stream applies it to signup and login.
+        // Routes opt in with `@UseGuards(ThrottlerGuard)`; the auth controller applies it to signup and login.
         ThrottlerModule.forRootAsync({
           inject: [APP_CONFIG],
           useFactory: (c: AppConfig) => [{ ttl: 60_000, limit: c.AUTH_RATE_LIMIT_PER_MINUTE }],
@@ -37,7 +36,6 @@ export class AppModule {
         CvsModule,
         SourcesModule,
         GenerationModule,
-        GroundingModule,
         LlmModule,
         PdfModule,
         HealthModule,

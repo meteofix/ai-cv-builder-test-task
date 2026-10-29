@@ -1,6 +1,7 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GenerationJob, type ICv } from '../src/db/entities.js';
+import { Cv, GenerationJob, type ICv } from '../src/db/entities.js';
+import { LeaseLostError } from '../src/generation/job-errors.js';
 import { JobEngine } from '../src/generation/job-engine.js';
 import { JobStore } from '../src/generation/job-store.js';
 import { entityManager, resetDatabase } from './support/db.js';
@@ -149,6 +150,32 @@ describe('generation job lifecycle', () => {
       expect(harness.calls).toEqual([]);
       expect(await row(job.id)).toMatchObject({ status: 'queued', lockedBy: null, attempts: 0 });
     });
+  });
+
+  it('lets a CV delete and a finalization take turns instead of deadlocking', async () => {
+    const cv = await newCv();
+    await createJob(entityManager(app), { cv });
+    const store = app.get(JobStore);
+    const claimed = await store.claim('worker-x', clock.now());
+    if (!claimed) throw new Error('nothing claimed');
+    const locked = signal();
+    const release = signal();
+    // The delete path: the CV row first, then the cascade to its jobs.
+    const deletion = entityManager(app).transactional(async (tx) => {
+      await tx.execute('select id from cvs where id = ? for update', [cv.id]);
+      locked.fire();
+      await release.promise;
+      await tx.execute('delete from cvs where id = ?', [cv.id]);
+    });
+    await locked.promise;
+    const finalize = store.fenced(claimed, { status: 'succeeded' }, async (tx) => {
+      await tx.nativeUpdate(Cv, { id: cv.id }, { targetRole: 'finalized' });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    release.fire();
+    await expect(deletion).resolves.toBeUndefined();
+    await expect(finalize).rejects.toBeInstanceOf(LeaseLostError);
+    expect(await entityManager(app).count(Cv, { id: cv.id })).toBe(0);
   });
 
   it('runs queued jobs in the background when WORKER_ENABLED is true', async () => {

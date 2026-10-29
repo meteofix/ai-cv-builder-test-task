@@ -101,7 +101,9 @@ export class JobStore {
 
   /**
    * Runs `work` in one transaction that first applies `update` to the job under its lease. The fenced
-   * update comes first, so it also locks the row: no other worker can claim the job until the commit.
+   * update also locks the job row: no other worker can claim the job until the commit. When `work` touches
+   * other rows of the CV, the CV row is locked before the job, in the order a CV delete cascades (CV, then
+   * its questions and jobs), so a delete and a finalization never wait for each other in a circle.
    */
   async fenced<T>(
     job: ClaimedJob,
@@ -109,6 +111,7 @@ export class JobStore {
     work?: (tx: EntityManager) => Promise<T>,
   ): Promise<T | undefined> {
     return this.em.fork().transactional(async (tx) => {
+      if (work) await tx.execute('select id from cvs where id = ? for update', [job.cvId]);
       const updated = await tx.nativeUpdate(
         GenerationJob,
         { id: job.id, lockedBy: job.lockedBy, status: 'running' },

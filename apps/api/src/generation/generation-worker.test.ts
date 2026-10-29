@@ -1,3 +1,4 @@
+import { getEventListeners } from 'node:events';
 import { pino } from 'pino';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '../config/env.js';
@@ -56,5 +57,15 @@ describe('GenerationWorker loop', () => {
     await worker.beforeApplicationShutdown();
     await vi.advanceTimersByTimeAsync(10_000);
     expect(engine.processNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not pile up abort listeners while it idles', async () => {
+    vi.useFakeTimers();
+    const { worker } = workerWith([]);
+    worker.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(30_000);
+    const signal = (worker as unknown as { stop: AbortController }).stop.signal;
+    expect(getEventListeners(signal, 'abort').length).toBeLessThanOrEqual(1);
+    await worker.beforeApplicationShutdown();
   });
 });

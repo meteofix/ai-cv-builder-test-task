@@ -16,7 +16,7 @@ import { signIn, type TestSession } from './support/session.js';
 /**
  * Isolation table (spec: docs/specs/cvs.md, "Ownership"): a second account gets 404 CV_NOT_FOUND on every
  * route with a CV id. Bodies are valid, otherwise a 400 from validation would hide a missing owner check.
- * A route that is not registered in this branch yet is reported as such; after the merge every route runs.
+ * Every such route must be registered: a route of the table without a handler fails here, not silently.
  */
 const VALID_BODIES: Partial<Record<RouteName, () => unknown>> = {
   updateDocument: () => ({ document: sampleDocument(), version: 1 }),
@@ -39,10 +39,10 @@ const app: NestFastifyApplication = await createTestApp(
   },
 );
 
-const cvRoutes = Object.entries(ROUTES).filter(([, route]) => route.path.includes(':id')) as [
-  RouteName,
-  ApiRoute,
-][];
+// Any parameter right after /api/cvs/ is a CV id, whatever its name; routePath throws if this table cannot fill it.
+const cvRoutes = Object.entries(ROUTES).filter(([, route]) =>
+  route.path.startsWith('/api/cvs/:'),
+) as [RouteName, ApiRoute][];
 
 describe('ownership: a foreign CV id is 404 CV_NOT_FOUND', () => {
   let attacker: TestSession;
@@ -90,11 +90,7 @@ describe('ownership: a foreign CV id is 404 CV_NOT_FOUND', () => {
   }
 
   it.each(cvRoutes)('%s', async (name, route) => {
-    if (!registered.has(`${route.method} ${route.path}`)) {
-      // Not implemented in this branch; the route table test below keeps this list honest.
-      expect(registered.has(`${route.method} ${route.path}`)).toBe(false);
-      return;
-    }
+    expect([...registered]).toContain(`${route.method} ${route.path}`);
     const body = VALID_BODIES[name]?.();
     const res = await inject(app, {
       method: route.method,
@@ -127,6 +123,13 @@ describe('route table', () => {
         !known.has(key),
     );
     expect(unknown).toEqual([]);
+  });
+
+  it('registers a handler for every route of ROUTES', () => {
+    const missing = Object.values(ROUTES)
+      .map((route) => `${route.method} ${route.path}`)
+      .filter((key) => !registered.has(key));
+    expect(missing).toEqual([]);
   });
 
   it('sees the routes the app registers', () => {

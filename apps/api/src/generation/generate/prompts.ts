@@ -84,6 +84,7 @@ Each item has a destination (the position it will appear under, or Summary) and 
 - invented_trait_or_domain: a personality trait, industry or domain not in the quotes;
 - time_or_negation: distorted time, duration, sequence or a negation.
 An item saying someone still works in a role is supported only when its quote shows the job has not ended; otherwise reject it as time_or_negation.
+When no position comes before a quote, sectionHeading is the heading of the section it stands in: such a quote stands under the destination only when that heading names the destination's employer by the same name as a job of the CV (for example "Highlights at Brindle Labs"), not a client, a project, volunteering or talks, any dates in the heading match the destination's, and no line in unrecognizedBefore opens another section; otherwise it stands under no position.
 unrecognizedBefore lists lines of the CV between that heading and the quote that are not part of that position's own entry (often page footers, sub-headings or headings, sometimes another job's line): reject a bullet as moved_between_jobs only when those lines name a different job or employer than its destination (a client, customer or project named under a job is part of that job, not a different one).
 When in doubt, the item is not supported. Do not rate style.`;
 
@@ -116,6 +117,8 @@ export interface Evidence {
   appearsUnder: string | null;
   /** Lines no fact covers between that position and the quote (closest last), when there are any. */
   unrecognizedBefore?: string[];
+  /** With no position above the quote: the heading of the section it stands in. */
+  sectionHeading?: string;
 }
 
 export interface JudgedItem {

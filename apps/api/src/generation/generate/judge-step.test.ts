@@ -524,3 +524,140 @@ describe('judgeEvidence: what the lines between a job and its bullet show', () =
     expect(evidence?.unrecognizedBefore).toHaveLength(3);
   });
 });
+
+describe('judgeEvidence: a quote above every position', () => {
+  it('carries the heading of its section', () => {
+    const source = [
+      'Highlights at Brindle Labs',
+      'Shipped the routing engine',
+      'Experience',
+      'Lead, Brindle Labs, 2021 – 2024',
+    ].join('\n');
+    const at = (text: string): [number, number] => [
+      source.indexOf(text),
+      source.indexOf(text) + text.length,
+    ];
+    const facts: Fact[] = [
+      {
+        id: 'f1',
+        kind: 'achievement',
+        quote: 'Shipped the routing engine',
+        span: at('Shipped the routing engine'),
+        achievement: { positionId: 'f2' },
+      },
+      {
+        id: 'f2',
+        kind: 'position',
+        quote: 'Lead, Brindle Labs, 2021 – 2024',
+        span: at('Lead, Brindle Labs, 2021 – 2024'),
+        position: {
+          company: 'Brindle Labs',
+          title: 'Lead',
+          location: null,
+          start: '2021',
+          end: '2024',
+          current: false,
+        },
+      },
+    ];
+    const { evidence } = judgeEvidence(
+      facts,
+      source,
+      source.length,
+      [],
+      ['Highlights at Brindle Labs', 'Experience'],
+    );
+    expect(evidence(['f1'], 'f2')).toEqual([
+      {
+        quote: 'Shipped the routing engine',
+        appearsUnder: null,
+        sectionHeading: 'Highlights at Brindle Labs',
+      },
+    ]);
+    // A heading on an instruction line never reaches the judge.
+    const steered = judgeEvidence(
+      facts,
+      source,
+      source.length,
+      [],
+      ['Highlights at Brindle Labs'],
+      [at('Highlights at Brindle Labs')],
+    );
+    expect(steered.evidence(['f1'], 'f2')).toEqual([
+      { quote: 'Shipped the routing engine', appearsUnder: null },
+    ]);
+  });
+});
+
+describe('judgeEvidence: which heading a quote above every position carries', () => {
+  const source = [
+    'Summary',
+    'Highlights at Brindle Labs',
+    'Volunteering',
+    'Taught chess',
+    'Lead, Brindle Labs, 2021 – 2024',
+    'Built the API',
+  ].join('\n');
+  const at = (text: string): [number, number] => [
+    source.indexOf(text),
+    source.indexOf(text) + text.length,
+  ];
+  const facts: Fact[] = [
+    {
+      id: 'f1',
+      kind: 'achievement',
+      quote: 'Taught chess',
+      span: at('Taught chess'),
+      achievement: { positionId: 'f2' },
+    },
+    {
+      id: 'f2',
+      kind: 'position',
+      quote: 'Lead, Brindle Labs, 2021 – 2024',
+      span: at('Lead, Brindle Labs, 2021 – 2024'),
+      position: {
+        company: 'Brindle Labs',
+        title: 'Lead',
+        location: null,
+        start: '2021',
+        end: '2024',
+        current: false,
+      },
+    },
+    {
+      id: 'f3',
+      kind: 'achievement',
+      quote: 'Built the API',
+      span: at('Built the API'),
+      achievement: { positionId: 'f2' },
+    },
+  ];
+
+  it('is the nearest returned heading, and a missed heading after it goes along', () => {
+    const all = judgeEvidence(
+      facts,
+      source,
+      source.length,
+      [],
+      ['Summary', 'Highlights at Brindle Labs', 'Volunteering'],
+    );
+    expect(all.evidence(['f1'], 'f2')[0]).toMatchObject({ sectionHeading: 'Volunteering' });
+    const missed = judgeEvidence(
+      facts,
+      source,
+      source.length,
+      [],
+      ['Summary', 'Highlights at Brindle Labs'],
+    );
+    expect(missed.evidence(['f1'], 'f2')[0]).toMatchObject({
+      sectionHeading: 'Highlights at Brindle Labs',
+      unrecognizedBefore: ['Volunteering'],
+    });
+  });
+
+  it('is absent without a returned heading above, and for a quote below a position', () => {
+    const none = judgeEvidence(facts, source, source.length, [], []);
+    expect(none.evidence(['f1'], 'f2')[0]).toEqual({ quote: 'Taught chess', appearsUnder: null });
+    expect(none.evidence(['f3'], 'f2')[0]).not.toHaveProperty('sectionHeading');
+  });
+});

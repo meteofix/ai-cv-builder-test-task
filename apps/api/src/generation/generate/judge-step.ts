@@ -105,7 +105,32 @@ export function judgeEvidence(
       return { appearsUnder: about ? `the user's answer about ${about}` : "the user's answer" };
     }
     const before = positions.filter((position) => position.span[0] <= fact.span[0]).at(-1);
-    if (!before) return { appearsUnder: null };
+    if (!before) {
+      // No job above: the section heading is the only context the judge can use (a section named after an
+      // employer gives that employer's job its bullets); lines between it and the quote that belong to no
+      // fact may be a heading the extractor missed, so they go along too. A quote below a job keeps the
+      // job as its place; a heading there is not shown (spec §3.3).
+      const heading = lines
+        .filter(
+          ({ span, text: line }) =>
+            span[1] <= fact.span[0] &&
+            headings.has(normalizeText(line).toLowerCase()) &&
+            !instructionSpans.some((instruction) => overlaps(instruction, span)),
+        )
+        .at(-1);
+      if (!heading) return { appearsUnder: null };
+      const after = lines
+        .filter(
+          ({ span, text: line }) =>
+            span[0] >= heading.span[1] && span[1] <= fact.span[0] && foreign(span, line, []),
+        )
+        .map(({ text: line }) => line.trim().slice(0, MAX_LINE_CHARS));
+      return {
+        appearsUnder: null,
+        sectionHeading: heading.text.replace(/\s+/g, ' ').trim().slice(0, MAX_LINE_CHARS),
+        ...(after.length > 0 ? { unrecognizedBefore: after.slice(-MAX_LINES_BETWEEN * 2) } : {}),
+      };
+    }
     const shared = destination !== null && stackedLast.get(before.id)?.has(destination) === true;
     const own = blockOf.get(before.id) ?? [];
     const between = lines

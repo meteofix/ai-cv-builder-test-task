@@ -1,7 +1,7 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Cv, CvQuestion, GenerationJob } from '../src/db/entities.js';
-import { replaceDocument } from '../src/generation/generate/generate.handler.js';
+import { replaceDocument } from '../src/generation/generate/document-write.js';
 import { JobError } from '../src/generation/job-errors.js';
 import { JobEngine } from '../src/generation/job-engine.js';
 import { entityManager, resetDatabase } from './support/db.js';

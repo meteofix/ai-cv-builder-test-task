@@ -8,7 +8,7 @@ import { instructionFragments, uncoveredLines, verifyFacts } from '../../groundi
 import { LlmClient } from '../../llm/llm-client.js';
 import { Clock } from '../clock.js';
 import type { JobHandler, JobRun } from '../job-handler.js';
-import { JobError, LeaseLostError } from '../job-errors.js';
+import { LeaseLostError } from '../job-errors.js';
 import { EXTRACTOR_SYSTEM, extractorInput, WRITER_SYSTEM, writerInput } from './prompts.js';
 import { judgeProse, type ItemToJudge } from './judge-step.js';
 import { checkProse } from './prose-checks.js';
@@ -22,7 +22,8 @@ import {
   type WriteResult,
 } from './schemas.js';
 import { buildSkeleton, verbatim, type Prose } from './skeleton.js';
-import { loadSource } from './source-facts.js';
+import { replaceDocument } from './document-write.js';
+import { loadSource, requiredFacts as required } from './source-facts.js';
 
 /**
  * The `generate` job: extract → write → judge → finalize (docs/specs/generation.md §3). Each step stores
@@ -83,6 +84,7 @@ export class GenerateHandler implements JobHandler {
         [...facts.map((fact) => fact.span), ...instructionSpans],
         output.sectionHeadings,
       ),
+      answers: [],
     };
     const counters = {
       kept: facts.length,
@@ -200,34 +202,6 @@ function passingProse(written: WriteResult, rejected: ReadonlySet<string>): Pros
     order: written.order,
     skills: written.skills,
   };
-}
-
-/**
- * Compare-and-set on `version`; `updated_at` is set here because a native update skips MikroORM's
- * `onUpdate`. A conflict re-queues the job, which finalizes again from the stored step results.
- */
-export async function replaceDocument(
-  tx: EntityManager,
-  cv: ICv,
-  document: ICv['document'],
-  now: Date,
-): Promise<void> {
-  const updated = await tx.nativeUpdate(
-    Cv,
-    { id: cv.id, version: cv.version },
-    { document, version: cv.version + 1, updatedAt: now },
-  );
-  if (updated === 0) {
-    throw new JobError('INTERNAL', 'The CV changed while it was being updated.', {
-      retryable: true,
-    });
-  }
-}
-
-function required(facts: SourceFacts | null): SourceFacts {
-  // The extract step writes them before any later step can run; their absence is a bug.
-  if (!facts) throw new Error('The facts of the CV are missing after the extract step');
-  return facts;
 }
 
 function countBy(values: readonly string[]): Record<string, number> {

@@ -17,21 +17,12 @@ export interface ProseCheck {
 }
 
 /**
- * The mechanical checks of the writer's output (docs/specs/grounding.md §4): an item that fails is
- * removed and remembered with its class, so it becomes a question and shows in "Not in your CV".
+ * A check of one written item against the facts it cites and the source: it records a failing item in
+ * `removed` and returns false.
  */
-export function checkProse(
-  output: WriterOutput,
-  facts: readonly Fact[],
-  source: string,
-): ProseCheck {
+export function proseChecker(facts: readonly Fact[], source: string) {
   const removed: RemovedItem[] = [];
-  const byId = new Map(facts.map((fact) => [fact.id, fact]));
-  const quotes = (ids: readonly string[]) =>
-    ids.flatMap((id) => {
-      const fact = byId.get(id);
-      return fact ? [verbatim(source, fact)] : [];
-    });
+  const quotes = quotesOf(facts, source);
   const passes = (item: ProseItem, positionId: string | null): boolean => {
     if (!checkReferences(item, positionId, facts)) {
       removed.push({ itemId: item.id, text: item.text, positionId, class: 'wrong_reference' });
@@ -43,6 +34,29 @@ export function checkProse(
     }
     return true;
   };
+  return { passes, removed };
+}
+
+/** The source text each cited fact stands on, for the number check and the judge. */
+export function quotesOf(facts: readonly Fact[], source: string) {
+  const byId = new Map(facts.map((fact) => [fact.id, fact]));
+  return (ids: readonly string[]): string[] =>
+    ids.flatMap((id) => {
+      const fact = byId.get(id);
+      return fact ? [verbatim(source, fact)] : [];
+    });
+}
+
+/**
+ * The mechanical checks of the writer's output (docs/specs/grounding.md §4): an item that fails is
+ * removed and remembered with its class, so it becomes a question and shows in "Not in your CV".
+ */
+export function checkProse(
+  output: WriterOutput,
+  facts: readonly Fact[],
+  source: string,
+): ProseCheck {
+  const { passes, removed } = proseChecker(facts, source);
 
   const summary = output.summary
     .map((sentence, i) => ({ id: `s${i + 1}`, ...sentence }))

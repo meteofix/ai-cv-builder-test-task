@@ -36,6 +36,16 @@ You get facts with ids, kinds, quotes and structured fields. Write:
 - "skills": the ids of the skill facts to show, most relevant first.
 Rephrase and condense, but state nothing the quotes do not say: no new technologies, numbers, employers, titles, dates, traits or domains. Keep every number exactly as in the quotes. Write in the CV's language.`;
 
+export const APPLY_BULLETS_SYSTEM = `You rewrite the bullets of one position of a CV after the user answered a question about it.
+${DATA_RULE}
+
+You get the facts of this position only, including a new fact with the user's answer. Write up to ${LIMITS.maxBulletsPerPosition} concise bullets (at most ${LIMITS.maxBulletChars} characters each) for the target role; each lists the factIds it is based on (this position's id or its achievements). Rephrase and condense, but state nothing the quotes do not say; keep every number exactly as in the quotes. Write in the CV's language.`;
+
+export const APPLY_SUMMARY_SYSTEM = `You rewrite the summary of a CV after the user answered a question about it.
+${DATA_RULE}
+
+You get the verified facts of the CV, including a new fact with the user's answer. Write 1–4 sentences for the target role; each lists the factIds it is based on. State nothing the quotes do not say; keep every number exactly as in the quotes. Write in the CV's language.`;
+
 export const JUDGE_SYSTEM = `You check that CV text is supported by the quotes it cites.
 ${DATA_RULE}
 

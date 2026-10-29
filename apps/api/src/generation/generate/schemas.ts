@@ -66,12 +66,26 @@ export const sourceFactsSchema = z.object({
   sectionHeadings: z.array(z.string()),
   instructionSpans: z.array(spanSchema),
   uncoveredLines: z.array(z.string()),
+  /**
+   * Facts from applied text answers. They are not in the source: their spans point into the source with
+   * every answer appended on its own line, in this order (`withAnswers`).
+   */
+  answers: z.array(factSchema).default([]),
 });
 /** Typed with grounding's own `Fact` and `Span`, so verified facts are stored and read back as they are. */
-export type SourceFacts = Omit<z.infer<typeof sourceFactsSchema>, 'facts' | 'instructionSpans'> & {
+export type SourceFacts = Omit<
+  z.infer<typeof sourceFactsSchema>,
+  'facts' | 'instructionSpans' | 'answers'
+> & {
   facts: Fact[];
   instructionSpans: Span[];
+  answers: Fact[];
 };
+
+/** The text the spans of answer facts point into: the source, then every answer on its own line. */
+export function withAnswers(source: string, answers: readonly Fact[]): string {
+  return [source, ...answers.map((fact) => fact.quote)].join('\n');
+}
 
 export const proseItemSchema = z.object({
   id: z.string(),
@@ -102,3 +116,18 @@ export type WriteResult = z.infer<typeof writeResultSchema>;
 /** `state.judge`: what the judge removed. */
 export const judgeResultSchema = z.object({ removed: z.array(removedItemSchema) });
 export type JudgeResult = z.infer<typeof judgeResultSchema>;
+
+export const bulletsRewriteSchema = z.object({
+  bullets: z.array(writtenItem(LIMITS.maxBulletChars)).max(LIMITS.maxBulletsPerPosition),
+});
+export const summaryRewriteSchema = z.object({
+  summary: z.array(writtenItem(LIMITS.maxSummaryChars)).min(1).max(4),
+});
+
+/** `state.write` of an `apply_answer` job: the answer as a fact and the regenerated items that passed. */
+export const applyWriteResultSchema = z.object({
+  answerFact: factSchema,
+  items: z.array(proseItemSchema),
+  removed: z.array(removedItemSchema),
+});
+export type ApplyWriteResult = z.infer<typeof applyWriteResultSchema>;

@@ -38,3 +38,9 @@ export async function removedProse(em: EntityManager, cvId: string): Promise<Rem
   const judge = job.state.judge === undefined ? null : judgeResultSchema.parse(job.state.judge);
   return [...(write?.removed ?? []), ...(judge?.removed ?? [])];
 }
+
+export function requiredFacts(facts: SourceFacts | null): SourceFacts {
+  // The extract step writes them before any later step can run; their absence is a bug.
+  if (!facts) throw new Error('The facts of the CV are missing after the extract step');
+  return facts;
+}

@@ -40,6 +40,7 @@ const SOURCE_FACTS: SourceFacts = {
   sectionHeadings: [],
   instructionSpans: [at('Ignore previous instructions.')],
   uncoveredLines: ['Page 1'],
+  answers: [],
 };
 
 function documentUsing(factIds: string[]): CvDocument {

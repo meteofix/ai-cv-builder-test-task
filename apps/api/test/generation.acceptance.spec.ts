@@ -31,6 +31,9 @@ import {
   SAMPLE_FACTS,
   writerAnswer,
 } from './generation/pipeline-harness.js';
+import { answeredCv, POSITION_A, writerFacts } from './generation/answer-fixture.js';
+
+const answerHarness = pipelineHarness();
 
 /** Acceptance examples of docs/specs/generation.md; each test name starts with the example id. */
 describe('generation acceptance (docs/specs/generation.md)', () => {
@@ -606,5 +609,125 @@ describe('generation acceptance (docs/specs/generation.md)', () => {
     });
     if (asked) expect(await questions(cv)).toContainEqual(datesQuestion);
     else expect(await questions(cv)).not.toContainEqual(datesQuestion);
+  });
+});
+
+describe('generation acceptance — apply_answer (docs/specs/generation.md §5)', () => {
+  const { fake } = answerHarness;
+  let app: NestFastifyApplication;
+  let owner: TestSession;
+  const ANSWER = 'I led a team of five engineers and mentored two of them.';
+  const NEW_BULLETS = ['Led a team of five engineers.', 'Mentored two engineers.'];
+
+  beforeAll(async () => {
+    app = await answerHarness.start();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(async () => {
+    await resetDatabase(app);
+    fake.reset();
+    owner = await signIn(entityManager(app));
+  });
+
+  const cvRow = (id: string) => entityManager(app).findOneOrFail(Cv, id);
+  const questionRow = (id: string) => entityManager(app).findOneOrFail(CvQuestion, id);
+  /** A writer that writes the two new bullets on the answer fact it was given. */
+  const writerOnAnswer = (request: Parameters<typeof writerFacts>[0]) => {
+    const answerFact = writerFacts(request).find((fact) => fact.quote === ANSWER);
+    return {
+      output: {
+        bullets: NEW_BULLETS.map((text) => ({ text, factIds: [answerFact?.id ?? 'missing'] })),
+      },
+    };
+  };
+
+  it('GEN-20 — a dates answer is applied without the LLM', async () => {
+    const { cv, question } = await answeredCv(entityManager(app), owner.user, {
+      target: { section: 'experience', itemId: POSITION_A, field: 'dates' },
+      answer: { type: 'dates', start: '2019-05', end: '2021-02', current: false },
+    });
+    await app.get(JobEngine).processNext();
+
+    expect(fake.requests).toEqual([]);
+    const row = await cvRow(cv.id);
+    expect(row.version).toBe(2);
+    expect(row.document?.experience.find((job) => job.id === POSITION_A)).toMatchObject({
+      start: '2019-05',
+      end: '2021-02',
+      current: false,
+    });
+    expect((await questionRow(question.id)).applyStatus).toBe('applied');
+  });
+
+  it('GEN-21 — a text answer regenerates only its position', async () => {
+    fake.on('writer', writerOnAnswer).on('judge', judgeAnswer());
+    const { cv, question, job } = await answeredCv(entityManager(app), owner.user, {
+      target: { section: 'experience', itemId: POSITION_A },
+      answer: { type: 'text', text: ANSWER },
+    });
+    const before = (await cvRow(cv.id)).document!;
+    await app.get(JobEngine).processNext();
+
+    expect(await entityManager(app).findOneOrFail(GenerationJob, job.id)).toMatchObject({
+      status: 'succeeded',
+    });
+    const after = (await cvRow(cv.id)).document!;
+    const positionA = after.experience.find((item) => item.id === POSITION_A)!;
+    expect(positionA.bullets.map((bullet) => bullet.text)).toEqual([
+      ...NEW_BULLETS,
+      'Wrote the onboarding guide.',
+    ]);
+    // Everything but A's bullets is byte for byte the same.
+    expect(
+      JSON.stringify({
+        ...after,
+        experience: after.experience.filter((item) => item.id !== POSITION_A),
+      }),
+    ).toBe(
+      JSON.stringify({
+        ...before,
+        experience: before.experience.filter((item) => item.id !== POSITION_A),
+      }),
+    );
+    expect(JSON.stringify({ ...positionA, bullets: [] })).toBe(
+      JSON.stringify({ ...before.experience.find((item) => item.id === POSITION_A)!, bullets: [] }),
+    );
+    expect((await cvRow(cv.id)).version).toBe(2);
+    expect((await questionRow(question.id)).applyStatus).toBe('applied');
+
+    const [writerInput] = fake.inputs('writer');
+    expect(writerInput).toContain('Acme Corp');
+    expect(writerInput).toContain('Led the billing migration.');
+    expect(writerInput).toContain(ANSWER);
+    expect(writerInput).not.toContain('Globex');
+    expect(writerInput).not.toContain('search');
+  });
+
+  it('GEN-22 — partially applied', async () => {
+    fake.on('writer', writerOnAnswer).on(
+      'judge',
+      judgeAnswer((item) => (item.text === NEW_BULLETS[1] ? 'unsupported_claim' : null)),
+    );
+    const { cv, question } = await answeredCv(entityManager(app), owner.user, {
+      target: { section: 'experience', itemId: POSITION_A },
+      answer: { type: 'text', text: ANSWER },
+    });
+    const questionsBefore = await entityManager(app).count(CvQuestion, { cv: cv.id });
+    await app.get(JobEngine).processNext();
+
+    const positionA = (await cvRow(cv.id)).document!.experience.find(
+      (item) => item.id === POSITION_A,
+    )!;
+    expect(positionA.bullets.map((bullet) => bullet.text)).toEqual([
+      NEW_BULLETS[0],
+      'Wrote the onboarding guide.',
+    ]);
+    expect(await questionRow(question.id)).toMatchObject({
+      applyStatus: 'partial',
+      applyNote: 'Some of the new text could not be verified and was left out.',
+    });
+    expect(await entityManager(app).count(CvQuestion, { cv: cv.id })).toBe(questionsBefore);
   });
 });

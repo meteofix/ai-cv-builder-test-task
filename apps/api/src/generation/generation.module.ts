@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { LlmModule } from '../llm/llm.module.js';
 import { Clock, SystemClock } from './clock.js';
 import { DraftController } from './draft.controller.js';
+import { ApplyAnswerHandler } from './generate/apply-answer.handler.js';
 import { GenerateHandler } from './generate/generate.handler.js';
 import { GenerationWorker } from './generation-worker.js';
 import { JobEngine } from './job-engine.js';
@@ -15,10 +16,14 @@ import { JobController } from './job.controller.js';
   providers: [
     { provide: Clock, useClass: SystemClock },
     GenerateHandler,
+    ApplyAnswerHandler,
     {
       provide: JOB_HANDLERS,
-      inject: [GenerateHandler],
-      useFactory: (generate: GenerateHandler): JobHandlers => ({ generate }),
+      inject: [GenerateHandler, ApplyAnswerHandler],
+      useFactory: (generate: GenerateHandler, applyAnswer: ApplyAnswerHandler): JobHandlers => ({
+        generate,
+        apply_answer: applyAnswer,
+      }),
     },
     JobStore,
     JobEngine,

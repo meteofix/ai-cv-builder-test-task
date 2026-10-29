@@ -55,6 +55,7 @@ export function verifyFacts(
 
   const companySpans = groupHeaders(source, index, found, instructionSpans);
   const located: Fact[] = [];
+  const seenFacts = new Set<string>();
   for (const { fact, span } of found) {
     const sourceText = source.slice(span[0], span[1]);
     const checked = checkValues(fact, source, span, companySpans.get(fact));
@@ -62,6 +63,16 @@ export function verifyFacts(
       drop(fact, 'field_not_in_quote');
       continue;
     }
+    // A second pass or a repair may quote what an earlier fact already stands for.
+    const identity = sameness(checked, span);
+    const positionAt = `position|${span[0]}|${span[1]}`;
+    const hollow = checked.kind === 'position' && checked.position.title === '';
+    if (seenFacts.has(identity) || (hollow && seenFacts.has(positionAt))) {
+      drop(fact, 'duplicate');
+      continue;
+    }
+    seenFacts.add(identity);
+    if (checked.kind === 'position') seenFacts.add(positionAt);
     // The stored quote is the source's text, so nothing downstream (the writer included) sees the model's copy.
     located.push({ ...checked, quote: sourceText.replace(/\s+/g, ' ').trim(), span });
   }
@@ -136,6 +147,35 @@ function headingLines(source: string, sectionHeadings: readonly string[]): Span[
   return sourceLines(source)
     .filter(({ text }) => headings.has(normalizeText(text).toLowerCase()))
     .map(({ span }) => span);
+}
+
+/**
+ * Two facts are the same when they share the kind, the span and every value: one line may list several
+ * skills, or two degrees of one school. A position whose title was cleared shares the identity of any
+ * position at its span: it is a copy that lost its values, not another job.
+ */
+function sameness(fact: ExtractedFact, span: Span): string {
+  const values =
+    fact.kind === 'skill'
+      ? [fact.skill.name]
+      : fact.kind === 'contact'
+        ? [fact.contact.field, fact.contact.value]
+        : fact.kind === 'position'
+          ? [fact.position.title, fact.position.start, fact.position.end]
+          : fact.kind === 'education'
+            ? [
+                fact.education.institution,
+                fact.education.degree,
+                fact.education.start,
+                fact.education.end,
+              ]
+            : [];
+  return [
+    fact.kind,
+    span[0],
+    span[1],
+    ...values.map((value) => normalizeText(value ?? '').toLowerCase()),
+  ].join('|');
 }
 
 function renumber(facts: Fact[]): Fact[] {

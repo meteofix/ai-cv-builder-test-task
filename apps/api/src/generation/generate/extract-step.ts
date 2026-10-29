@@ -1,6 +1,12 @@
 import { LOCALES, type Locale } from '@cv/shared';
 import type { z } from 'zod';
-import { instructionFragments, uncoveredLines, verifyFacts } from '../../grounding/index.js';
+import {
+  instructionFragments,
+  uncoveredLines,
+  verifyFacts,
+  type ExtractedFact,
+} from '../../grounding/index.js';
+import { repairFacts } from './extract-repair.js';
 import { flattenExtraction } from './flatten-extraction.js';
 import { EXTRACTOR_SYSTEM, extractorInput } from './prompts.js';
 import { extractorOutputSchema, type SourceFacts } from './schemas.js';
@@ -16,6 +22,8 @@ export type AskExtractor = <T>(request: {
 export interface ExtractCounters {
   kept: number;
   dropped: Record<string, number>;
+  /** Misquoted facts sent back to the extractor once, and how many of them passed after that. */
+  repaired: { asked: number; fixed: number };
   /** Achievements moved to another position because theirs was not kept, and those left without one. */
   reattached: number;
   unplaced: number;
@@ -38,12 +46,13 @@ export async function extractSourceFacts(
   });
   const locale: Locale = LOCALES.find((known) => known === output.locale) ?? 'en';
   const instructionSpans = instructionFragments(text, output.ignoredInstructions);
-  const { facts, dropped, headers, reattached, unplaced } = verifyFacts(
-    text,
-    flattenExtraction(output),
-    instructionSpans,
-    output.sectionHeadings,
-  );
+  const verify = (extracted: readonly ExtractedFact[]) =>
+    verifyFacts(text, extracted, instructionSpans, output.sectionHeadings);
+  const first = verify(flattenExtraction(output));
+  const repair = await repairFacts(text, flattenExtraction(output), first.dropped, ask);
+  const { facts, dropped, headers, reattached, unplaced } =
+    repair.asked.length === 0 ? first : verify(repair.facts);
+  const stillDropped = new Set(dropped.map((fact) => fact.id));
   const stored: SourceFacts = {
     locale,
     facts,
@@ -61,6 +70,10 @@ export async function extractSourceFacts(
     counters: {
       kept: facts.length,
       dropped: countBy(dropped.map((fact) => fact.reason)),
+      repaired: {
+        asked: repair.asked.length,
+        fixed: repair.asked.filter((id) => !stillDropped.has(id)).length,
+      },
       reattached,
       unplaced,
       instructionLines: instructionSpans.length,

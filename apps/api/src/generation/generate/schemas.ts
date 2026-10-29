@@ -80,6 +80,16 @@ export const extractorOutputSchema = z.object({
 });
 export type ExtractorOutput = z.infer<typeof extractorOutputSchema>;
 
+/** The extractor's corrections of dropped facts: a new quote (or none) and, for a skill or contact, a value. */
+export const repairOutputSchema = z.object({
+  fixes: z
+    .array(
+      z.object({ key: z.string().max(64), quote: z.string().nullable(), value: field.nullable() }),
+    )
+    .max(500),
+});
+export type RepairOutput = z.infer<typeof repairOutputSchema>;
+
 const writtenItem = (max: number) =>
   z.object({ text: z.string().min(1).max(max), factIds: z.array(z.string()).max(20) });
 

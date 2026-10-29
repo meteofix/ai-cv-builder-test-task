@@ -106,6 +106,7 @@ export const DROP_REASONS = [
   'quote_not_found',
   'field_not_in_quote',
   'instruction',
+  'duplicate',
   'duplicate_id',
 ] as const;
 export type DropReason = (typeof DROP_REASONS)[number];

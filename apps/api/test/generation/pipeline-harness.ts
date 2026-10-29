@@ -1,8 +1,12 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { AppConfig } from '../../src/config/env.js';
 import { Clock } from '../../src/generation/clock.js';
-import type { JudgedItem } from '../../src/generation/generate/prompts.js';
-import type { ExtractorOutput, WriterOutput } from '../../src/generation/generate/schemas.js';
+import { REPAIR_SYSTEM, type JudgedItem } from '../../src/generation/generate/prompts.js';
+import type {
+  ExtractorOutput,
+  RepairOutput,
+  WriterOutput,
+} from '../../src/generation/generate/schemas.js';
 import type { ExtractedFact } from '../../src/grounding/index.js';
 import { LLM_SLEEP } from '../../src/llm/llm-client.js';
 import { LlmTransport, type TransportRequest } from '../../src/llm/llm-transport.js';
@@ -107,17 +111,20 @@ export interface ExtractorScript extends Omit<Partial<ExtractorOutput>, 'facts'>
   facts?: ExtractedFact[];
 }
 
-export function extractorAnswer(overrides: ExtractorScript = {}): FakeAnswer {
+export function extractorAnswer(
+  overrides: ExtractorScript = {},
+  repair: RepairOutput = { fixes: [] },
+): FakeAnswer {
   const { facts = SAMPLE_FACTS, ...rest } = overrides;
-  return {
-    output: {
-      locale: 'en',
-      sectionHeadings: SAMPLE_HEADINGS,
-      ignoredInstructions: [],
-      ...nestFacts(facts),
-      ...rest,
-    } satisfies ExtractorOutput,
-  };
+  const output = {
+    locale: 'en',
+    sectionHeadings: SAMPLE_HEADINGS,
+    ignoredInstructions: [],
+    ...nestFacts(facts),
+    ...rest,
+  } satisfies ExtractorOutput;
+  // The extract step may ask the extractor once more, to fix dropped quotes; by default it fixes none.
+  return (request) => ({ output: request.system === REPAIR_SYSTEM ? repair : output });
 }
 
 /**

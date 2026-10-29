@@ -559,3 +559,52 @@ describe('verifyFacts', () => {
     expect(performance.now() - started).toBeLessThan(1_500);
   });
 });
+
+describe('verifyFacts: the same fact twice', () => {
+  it('drops a later fact with the same kind, span and value, and keeps the skills of one line', () => {
+    const { facts, dropped } = verifyFacts(SOURCE, [
+      achievement,
+      { ...achievement, id: 'again', quote: 'Led the billing migration.' },
+      { id: 's1', kind: 'skill', quote: 'TypeScript, React', skill: { name: 'React' } },
+      { id: 's2', kind: 'skill', quote: 'TypeScript, React', skill: { name: 'TypeScript' } },
+      { id: 's3', kind: 'skill', quote: 'TypeScript, React', skill: { name: 'react' } },
+      position,
+    ]);
+    expect(facts.map((fact) => fact.kind)).toEqual(['position', 'achievement', 'skill', 'skill']);
+    expect(dropped).toEqual([
+      { id: 'again', kind: 'achievement', reason: 'duplicate' },
+      { id: 's3', kind: 'skill', reason: 'duplicate' },
+    ]);
+  });
+
+  it('keeps two degrees of one school on one line, and drops a copy of a position that lost its title', () => {
+    const source = 'Lakeside University, BSc 2015, MSc 2017\nEngineer, Acme Corp, 2019 – 2022';
+    const degree = (id: string, name: string, end: string): ExtractedFact => ({
+      id,
+      kind: 'education',
+      quote: 'Lakeside University, BSc 2015, MSc 2017',
+      education: { institution: 'Lakeside University', degree: name, start: null, end },
+    });
+    const job = (id: string, title: string): ExtractedFact => ({
+      id,
+      kind: 'position',
+      quote: 'Engineer, Acme Corp, 2019 – 2022',
+      position: {
+        company: 'Acme Corp',
+        title,
+        location: null,
+        start: '2019',
+        end: '2022',
+        current: false,
+      },
+    });
+    const { facts, dropped } = verifyFacts(source, [
+      degree('b', 'BSc', '2015'),
+      degree('m', 'MSc', '2017'),
+      job('p', 'Engineer'),
+      job('copy', 'Staff Engineer'),
+    ]);
+    expect(facts.map((fact) => fact.kind)).toEqual(['education', 'education', 'position']);
+    expect(dropped).toEqual([{ id: 'copy', kind: 'position', reason: 'duplicate' }]);
+  });
+});

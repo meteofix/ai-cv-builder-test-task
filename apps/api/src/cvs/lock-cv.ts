@@ -6,7 +6,8 @@ import { Cv, type ICv } from '../db/entities.js';
 /**
  * Locks the CV row for the rest of the transaction and reads it again. Every transaction in this module takes
  * this lock before any other row (questions, jobs), so two of them never wait for each other in a circle; a
- * `DELETE` of the CV, which locks the CV first and then its questions, takes part in the same order. `write`
+ * `DELETE` of the CV, which locks the CV first, then its jobs, then its sources and questions, takes part in
+ * the same order (apps/api/AGENTS.md, docs/specs/generation.md §1.4). `write`
  * keeps everyone else out, `read` lets other readers in but blocks a save or a delete. Call it after
  * `findOwned`, which decides whose CV it is; a CV deleted in between is a plain 404.
  */

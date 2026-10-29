@@ -8,8 +8,12 @@ React 19 single-page app built with Vite 8, styled with Tailwind 4, served by ng
 - All HTTP goes through the typed client built on the route table of `@cv/shared`. Map errors by their `code`, show the `requestId` on 5xx, and handle non-JSON errors from nginx (413, 502).
 - Native elements first (`<dialog>`, `<details>`, `<select>`). English UI, no i18n. No rich text editor.
 - Autosave is single-flight: one `PUT` at a time, changes made meanwhile go in the next one with the new `version`; the form is not reset after a successful save, only on a 409 conflict or after an AI job ends.
+- Do not drop unsaved edits except by the user's choice or an ended session. Use a data router (`createBrowserRouter` in `main.tsx`): only it has `useBlocker`, which the editor uses to save or ask before leaving.
+- A failed refresh of `me` keeps the page mounted (`RequireAuth`), so an outage does not unmount the editor with its form.
+- A 401 from any request ends the session through `endSessionOn` (`api/query-client.ts`); autosave does not go through the query caches, so `editor/autosave.ts` calls it directly.
 - Every screen works at 360 px without horizontal scroll, and with the keyboard.
 - Tests use Testing Library and MSW handlers that follow `@cv/shared` contracts. Check pages in a real browser at 360 px when you change layout.
+- Do not drive fake timers by hand or re-stub `FormData`/`File`: `src/test/setup.ts` already wires Testing Library to Vitest's fake timers and bridges them, and it waits for requests still in flight after each test (up to 2 s), so a handler that never answers slows every test that hits it. `src/test/render.tsx` renders through a data router (`createMemoryRouter`), so `useBlocker` works in tests.
 
 ## Build setup is not yours
 

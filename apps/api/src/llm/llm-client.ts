@@ -154,7 +154,7 @@ export class LlmClient {
 
 /** The original input plus why the last answer was refused, so the model can correct itself. */
 function reask(input: string, error: string): string {
-  return `${input}\n\n<previous_answer_error>\nYour previous answer did not match the required output schema:\n${error}\nAnswer again and follow the schema exactly.\n</previous_answer_error>`;
+  return `${input}\n\n<previous_answer_error>\nYour previous answer could not be used:\n${error}\nAnswer again, following the required output schema exactly.\n</previous_answer_error>`;
 }
 
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;

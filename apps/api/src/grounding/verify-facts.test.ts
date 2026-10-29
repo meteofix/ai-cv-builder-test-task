@@ -186,7 +186,7 @@ describe('verifyFacts', () => {
   });
 
   it('stores the source’s text for a display value it has exactly', () => {
-    const quote = 'Senior  Engineer at Acme';
+    const quote = 'Senior Engineer — Platform at Acme';
     const { facts } = verifyFacts(quote, [
       {
         id: 'p',
@@ -194,7 +194,7 @@ describe('verifyFacts', () => {
         quote,
         position: {
           company: 'Acme',
-          title: 'Senior Engineer',
+          title: 'Senior Engineer - Platform',
           location: null,
           start: null,
           end: null,
@@ -202,7 +202,29 @@ describe('verifyFacts', () => {
         },
       },
     ]);
-    expect(facts[0]).toMatchObject({ position: { title: 'Senior Engineer', company: 'Acme' } });
+    expect(facts[0]).toMatchObject({
+      position: { title: 'Senior Engineer — Platform', company: 'Acme' },
+    });
+  });
+
+  it('trims a model value kept on a letters-and-digits match', () => {
+    const quote = 'A C M E';
+    const { facts } = verifyFacts(quote, [
+      {
+        id: 'p',
+        kind: 'position',
+        quote,
+        position: {
+          company: ' Acme\n',
+          title: '',
+          location: null,
+          start: null,
+          end: null,
+          current: false,
+        },
+      },
+    ]);
+    expect(facts[0]).toMatchObject({ position: { company: 'Acme' } });
   });
 
   it('does not find a value whose source text is longer than a field may be', () => {
@@ -246,6 +268,12 @@ describe('verifyFacts', () => {
       'Code: https://github.com/iryna-k',
     ],
     ['a phone that is the end of a longer number', 'phone', '123 45 67', 'Tel: +380 50 123 45 67'],
+    [
+      'a phone whose groups are split by narrow no-break spaces',
+      'phone',
+      '6 12 34 56 78',
+      'Tel: +33\u202f6\u202f12\u202f34\u202f56\u202f78',
+    ],
   ] as const)('drops %s', (_case, field, value, quote) => {
     const { facts, dropped } = verifyFacts(quote, [
       { id: 'c', kind: 'contact', quote, contact: { field, value } },
@@ -255,14 +283,90 @@ describe('verifyFacts', () => {
   });
 
   it.each([
-    ['followed by a full stop', 'email', 'Write to iryna@example.com.', 'iryna@example.com'],
-    ['in brackets', 'link', 'Site (https://iryna.example.org), blog', 'https://iryna.example.org'],
-    ['in quotes', 'email', 'Mail "iryna@example.com"', 'iryna@example.com'],
-  ] as const)('keeps an address %s', (_case, field, quote, value) => {
+    [
+      'followed by a full stop',
+      'email',
+      'Write to iryna@example.com.',
+      'iryna@example.com',
+      'iryna@example.com',
+    ],
+    [
+      'in brackets',
+      'link',
+      'Site (https://iryna.example.org), blog',
+      'https://iryna.example.org',
+      'https://iryna.example.org',
+    ],
+    ['in quotes', 'email', 'Mail "iryna@example.com"', 'iryna@example.com', 'iryna@example.com'],
+    [
+      'glued to its label',
+      'email',
+      'Email:iryna@example.com',
+      'iryna@example.com',
+      'iryna@example.com',
+    ],
+    ['a phone glued to its label', 'phone', 'Tel:+380501234567', '+380501234567', '+380501234567'],
+    [
+      'a phone with messengers in brackets',
+      'phone',
+      '+380 50 123 45 67 (Viber, Telegram)',
+      '+380501234567',
+      '+380 50 123 45 67',
+    ],
+    [
+      'a phone after a note in brackets',
+      'phone',
+      '(mobile) +380 50 123 45 67',
+      '+380501234567',
+      '+380 50 123 45 67',
+    ],
+    [
+      'after an icon glyph',
+      'email',
+      '\ue0beiryna@example.com',
+      'iryna@example.com',
+      'iryna@example.com',
+    ],
+    [
+      'between bars',
+      'email',
+      'Kyiv | iryna@example.com | +380',
+      'iryna@example.com',
+      'iryna@example.com',
+    ],
+    [
+      'a link the model wrote without its scheme',
+      'link',
+      'https://github.com/iryna-k',
+      'github.com/iryna-k',
+      'https://github.com/iryna-k',
+    ],
+    [
+      'a link the model wrote without www',
+      'link',
+      'https://www.linkedin.com/in/x',
+      'linkedin.com/in/x',
+      'https://www.linkedin.com/in/x',
+    ],
+    [
+      'a link with a final slash in the source',
+      'link',
+      'Code: https://github.com/iryna-k/ and more',
+      'https://github.com/iryna-k',
+      'https://github.com/iryna-k/',
+    ],
+    [
+      'a whole occurrence after a partial one',
+      'email',
+      'iryna.k@example.com, k@example.com',
+      'k@example.com',
+      'k@example.com',
+    ],
+  ] as const)('keeps an address %s', (_case, field, quote, value, stored) => {
     const { facts } = verifyFacts(quote, [
       { id: 'c', kind: 'contact', quote, contact: { field, value } },
     ]);
-    expect(facts[0]).toMatchObject({ contact: { value } });
+    expect(facts[0]).toMatchObject({ contact: { value: stored } });
   });
 
   it.each([

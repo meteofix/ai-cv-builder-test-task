@@ -3,13 +3,18 @@ import type { ExtractedFact } from './facts.js';
 import { indexText, matchQuote } from './find-quote.js';
 import type { Span } from './span.js';
 
-/** Contact fields that are addresses: a part of one is another address, so the whole must match. */
-const ADDRESS_FIELDS = new Set(['email', 'link', 'phone']);
-/** What may stand next to an address besides whitespace and the edge of the text. A closed set. */
-const ADDRESS_SEPARATORS = new Set([',', ';', '(', ')', '<', '>', '"', "'"]);
-/** What a phone number is written with between its digits, and what belongs to the number itself. */
-const PHONE_INNER = /[ .\-\u00a0]/u;
-const PHONE_PART = /[\d+()]/u;
+/**
+ * What can continue an address next to a match, a closed set per kind (docs/specs/grounding.md §2): a
+ * neighbour from this set means the match is only part of a longer address. Anything else — whitespace,
+ * punctuation, a label's colon, an icon glyph — ends it.
+ */
+const CONTINUES: Record<'email' | 'link', RegExp> = {
+  email: /[\p{L}\p{N}._%+\-@]/u,
+  link: /[\p{L}\p{N}._%+\-@/~#?=&]/u,
+};
+/** What a phone is written with between its digit groups (horizontal whitespace, dots, dashes). */
+const PHONE_INNER = /[^\S\r\n\f\v\u2028\u2029]|[.-]/u;
+const DIGIT = /\p{N}/u;
 
 /**
  * The fact with every value checked against the source text at the fact's span (what its quote stands
@@ -25,24 +30,26 @@ export function checkValues(fact: ExtractedFact, source: string, span: Span): Ex
   const display = (value: string): string | null => {
     const match = matchQuote(index, value);
     if (!match) return null;
-    const stored =
-      match.level === 1 ? located.slice(match.span[0], match.span[1]).replace(/\s+/g, ' ') : value;
+    const stored = (match.level === 1 ? located.slice(match.span[0], match.span[1]) : value)
+      .replace(/\s+/g, ' ')
+      .trim();
     // A source slice can be longer than the value the schema allowed (spaced letters, NFD text).
     return stored.length > LIMITS.maxFieldChars ? null : stored;
   };
 
-  /** An address: the exact source text, only when it is the whole address and not a part of a longer one. */
-  const address = (value: string, field: string): string | null => {
-    const match = matchQuote(index, value);
+  /**
+   * An address: the exact source text of an occurrence that is a whole address, not a part of a longer
+   * one. A phone keeps the `+` or brackets written around its digits; a link keeps the `scheme://` and
+   * `www.` written before it and a final `/`.
+   */
+  const address = (value: string, field: 'email' | 'link' | 'phone'): string | null => {
+    const match = matchQuote(index, value, ([start, end]) => {
+      const widened = widen(located, start, end, field);
+      const whole = wholeAddress(source, span[0] + widened[0], span[0] + widened[1], field);
+      return whole ? widened : null;
+    });
     if (!match) return null;
-    let [start, end] = match.span;
-    // A letters-and-digits match ends on a digit: a phone keeps the `+` or brackets written around it.
-    if (field === 'phone') {
-      while (start > 0 && '+('.includes(located[start - 1] ?? '')) start--;
-      if (located[end] === ')' && located.slice(start, end).includes('(')) end++;
-    }
-    if (!wholeAddress(source, span[0] + start, span[0] + end, field === 'phone')) return null;
-    const stored = located.slice(start, end).replace(/\s+/g, ' ');
+    const stored = located.slice(match.span[0], match.span[1]).replace(/\s+/g, ' ');
     return stored.length > LIMITS.maxFieldChars ? null : stored;
   };
 
@@ -89,7 +96,10 @@ export function checkValues(fact: ExtractedFact, source: string, span: Span): Ex
     }
     case 'contact': {
       const { field, value } = fact.contact;
-      const stored = ADDRESS_FIELDS.has(field) ? address(value, field) : display(value);
+      const stored =
+        field === 'email' || field === 'link' || field === 'phone'
+          ? address(value, field)
+          : display(value);
       return stored === null ? null : { ...fact, contact: { field, value: stored } };
     }
     default:
@@ -97,23 +107,52 @@ export function checkValues(fact: ExtractedFact, source: string, span: Span): Ex
   }
 }
 
+/** The match with the signs written around it that belong to the address. */
+function widen(text: string, start: number, end: number, field: 'email' | 'link' | 'phone'): Span {
+  let [from, to] = [start, end];
+  if (field === 'phone') {
+    while (from > 0 && '+('.includes(text[from - 1] ?? '')) from--;
+    if (text[to] === ')' && text.slice(from, to).includes('(')) to++;
+  }
+  if (field === 'link') {
+    const prefix = /(?:[a-z][a-z0-9+.-]*:\/\/)?(?:www\.)?$/i.exec(text.slice(0, from))?.[0] ?? '';
+    from -= prefix.length;
+    if (text[to] === '/' && !CONTINUES.link.test(text[to + 1] ?? ' ')) to++;
+  }
+  return [from, to];
+}
+
 /**
- * Both ends of an address sit at whitespace, the edge of the text or a separator; a trailing `.` counts
- * only as the end of a sentence (followed by whitespace or the edge). So `k@example.com` inside
- * `iryna.k@example.com` and `iryna@example.com` inside `iryna@example.com.ua` are not found. A phone is
- * written with spaces, dots and dashes inside, so across those its neighbours must not be more of the
- * number (a digit, `+` or a bracket): `123 45 67` is not found inside `+380 50 123 45 67`.
+ * Neither neighbour of the match can continue the address (a trailing `.` before whitespace or the end
+ * closes a sentence). So `k@example.com` inside `iryna.k@example.com`, `iryna@example.com` inside
+ * `iryna@example.com.ua` and `https://github.com/iryna` inside `https://github.com/iryna-k` are not
+ * found, while `Email:iryna@example.com` and `+380 50 123 45 67 (Viber)` are. A phone's neighbours are
+ * looked at across its own separators: a digit, `+`, a `(` before a digit or a `)` after one continues it.
  */
-function wholeAddress(source: string, start: number, end: number, phone: boolean): boolean {
-  const boundary = (char: string | undefined) =>
-    char === undefined || /\s/u.test(char) || ADDRESS_SEPARATORS.has(char);
-  const after = source[end];
-  const sentenceEnd = after === '.' && boundary(source[end + 1]);
-  if (!boundary(source[start - 1]) || !(boundary(after) || sentenceEnd)) return false;
-  if (!phone) return true;
-  let before = start - 1;
-  while (before >= 0 && PHONE_INNER.test(source[before] ?? '')) before--;
-  let next = end;
-  while (next < source.length && PHONE_INNER.test(source[next] ?? '')) next++;
-  return !PHONE_PART.test(source[before] ?? '') && !PHONE_PART.test(source[next] ?? '');
+function wholeAddress(
+  source: string,
+  start: number,
+  end: number,
+  field: 'email' | 'link' | 'phone',
+): boolean {
+  if (field === 'phone') {
+    let before = start - 1;
+    while (before >= 0 && PHONE_INNER.test(source[before] ?? '')) before--;
+    let after = end;
+    while (after < source.length && PHONE_INNER.test(source[after] ?? '')) after++;
+    const left = source[before] ?? '';
+    const right = source[after] ?? '';
+    const leftContinues =
+      DIGIT.test(left) || left === '+' || (left === ')' && DIGIT.test(source[before - 1] ?? ''));
+    const rightContinues =
+      DIGIT.test(right) || (right === '(' && DIGIT.test(source[after + 1] ?? ''));
+    return !leftContinues && !rightContinues;
+  }
+  const continues = CONTINUES[field];
+  const left = source[start - 1];
+  const right = source[end];
+  const sentenceEnd = right === '.' && !continues.test(source[end + 1] ?? ' ');
+  const leftContinues = left !== undefined && continues.test(left);
+  const rightContinues = right !== undefined && continues.test(right) && !sentenceEnd;
+  return !leftContinues && !rightContinues;
 }

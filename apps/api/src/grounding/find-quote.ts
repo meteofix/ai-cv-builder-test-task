@@ -46,16 +46,20 @@ export function findQuote(source: string | QuoteIndex, quote: string): Span | nu
   return matchQuote(source, quote)?.span ?? null;
 }
 
-/** Like `findQuote`, and says which level matched: 2 means only the letters and digits are equal. */
+/**
+ * Like `findQuote`, and says which level matched: 2 means only the letters and digits are equal. `accept`
+ * may reject an occurrence (or widen it); the search then goes on with the next one.
+ */
 export function matchQuote(
   source: string | QuoteIndex,
   quote: string,
+  accept?: (span: Span) => Span | null,
 ): { span: Span; level: 1 | 2 } | null {
   const index = typeof source === 'string' ? indexText(source) : source;
   const needle = indexText(quote);
-  const exact = firstWholeTokenMatch(index, index.level1, needle.level1.text);
+  const exact = firstWholeTokenMatch(index, index.level1, needle.level1.text, accept);
   if (exact) return { span: exact, level: 1 };
-  const loose = firstWholeTokenMatch(index, index.level2, needle.level2.text);
+  const loose = firstWholeTokenMatch(index, index.level2, needle.level2.text, accept);
   return loose ? { span: loose, level: 2 } : null;
 }
 
@@ -121,13 +125,20 @@ function push(out: Indexed, chars: string, start: number, end: number): void {
   out.ends.push(...new Array<number>(chars.length).fill(end));
 }
 
-function firstWholeTokenMatch(index: QuoteIndex, level: Indexed, needle: string): Span | null {
+function firstWholeTokenMatch(
+  index: QuoteIndex,
+  level: Indexed,
+  needle: string,
+  accept: (span: Span) => Span | null = (span) => span,
+): Span | null {
   if (needle === '') return null;
   for (let at = level.text.indexOf(needle); at !== -1; at = level.text.indexOf(needle, at + 1)) {
     const start = level.starts[at];
     const end = level.ends[at + needle.length - 1];
     if (start === undefined || end === undefined) continue;
-    if (!cutsToken(index.original, start) && !cutsToken(index.original, end)) return [start, end];
+    if (cutsToken(index.original, start) || cutsToken(index.original, end)) continue;
+    const accepted = accept([start, end]);
+    if (accepted) return accepted;
   }
   return null;
 }

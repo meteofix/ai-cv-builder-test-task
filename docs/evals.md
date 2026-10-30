@@ -75,3 +75,16 @@ node apps/api/dist/eval/eval-cli.js --mode compose --corpus examples --out /tmp/
 - "Add" on a multi-line entry the CV left out returns one bullet with the lines joined by spaces.
 - On a very short CV the summary still leans on the bullets (one split in the pairwise comparison).
 - A free-text input kept a volunteering entry without its dates.
+
+## Adapting to the role
+
+One CV from the corpus, generated for four target roles with the final configuration:
+
+| Target role       | What changed                                                                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| The CV's own role | Almost nothing                                                                                                                                |
+| FinOps Manager    | Summary and skills lead with cost reduction; questions about AWS billing and FinOps tools; no bullets shortened                               |
+| Farm Owner        | Summary about budgets, vendors and teams; skills lead with cost and vendors; no bullets shortened                                             |
+| Barista           | 1–2 bullets per position, only what carries over; 3 pages → 2; 17 items in "Not in your CV" with reasons; a question about service experience |
+
+No experience was invented for any role. The relevance bar is deliberately high, so adjacent roles are reordered and retargeted rather than shortened; only a different profession leads to real shortening.

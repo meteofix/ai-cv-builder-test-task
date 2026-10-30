@@ -103,15 +103,23 @@ export function paginate(pageHeight: number): void {
     return unit;
   };
   let pageTop = list.length > 0 ? top(at(0)) : 0;
+  // The first block of the current page, after its "continued" line if it has one.
+  let pageStart = 0;
   for (let i = 0; i < list.length; i++) {
     const unit = at(i);
     if (bottom(unit) - pageTop <= pageHeight - SLACK) continue;
     // Taller than a page on its own: nothing to gain by moving it.
     if (bottom(unit) - top(unit) > pageHeight - SLACK) continue;
-    let first = i;
+    let own = i;
     const whole = unbreakable(unit);
-    if (whole) first = list.findIndex((candidate) => whole.contains(candidate));
-    while (first > 0 && keptWithNext(at(first - 1)) && top(at(first - 1)) > pageTop) first--;
+    if (whole) own = list.findIndex((candidate) => whole.contains(candidate));
+    let first = own;
+    while (first > pageStart && keptWithNext(at(first - 1))) first--;
+    // Reaching the page's own first block means what is kept together is longer than a page: a break
+    // there would start the same page again, so it breaks where it overflows.
+    if (first <= pageStart) first = own > pageStart ? own : i;
+    // The page's first block overflows only below a "continued" line; Chromium breaks it.
+    if (first <= pageStart) continue;
     const breakAt = at(first);
     breakBefore(breakAt, list);
     list = units();
@@ -119,6 +127,7 @@ export function paginate(pageHeight: number): void {
     const start = list.indexOf(breakAt);
     const continued = start > 0 && at(start - 1).classList.contains('cv-entry__continued');
     i = continued ? start - 1 : start;
+    pageStart = start;
     pageTop = top(at(i));
   }
 }

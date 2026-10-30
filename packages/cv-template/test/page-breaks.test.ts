@@ -1,6 +1,6 @@
 import type { CvDocument, CvPosition } from '@cv/shared';
 import { chromium, type Browser } from 'playwright';
-import { getDocumentProxy } from 'unpdf';
+import { extractText, getDocumentProxy } from 'unpdf';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { renderCvShell } from '../src/index.js';
 import { loadEmbeddedFonts } from '../src/node.js';
@@ -105,6 +105,11 @@ describe('page breaks of the PDF (cv-template.md, behaviour 10)', () => {
           job(`s${n}`, `Company ${n}`, `Role ${n}B`, `201${n}-07`, `201${n}-12`, [
             { id: `g${n}c`, title: `Area ${n}C`, items: bullets(3) },
           ]),
+          // Only the first position has bullets: they are the company's and follow its last title.
+          job(`t${n}`, `Company ${n + 4}`, `Role ${n}C`, `201${n}-01`, `201${n}-06`, [
+            { id: `g${n}d`, title: null, items: bullets(2) },
+          ]),
+          job(`u${n}`, `Company ${n + 4}`, `Role ${n}D`, `201${n}-07`, `201${n}-12`, []),
         ]),
       ];
       const pages = await pdfPages(browser, cv(experience));
@@ -123,6 +128,118 @@ describe('page breaks of the PDF (cv-template.md, behaviour 10)', () => {
     },
     60_000,
   );
+
+  describe('a CV whose jobs and records have no lines', () => {
+    // A job without bullets ends with its company line and a record without lines is its title alone;
+    // a break after such a last line is fine, so it must not pull the break back to the section title.
+    const titled = (prefix: string, count: number) =>
+      Array.from({ length: count }, (_, n) => ({
+        id: `${prefix}${n}`,
+        title: `${prefix} record ${n + 1}`,
+        start: `20${10 + n}-01`,
+        end: null,
+        groups: [],
+      }));
+    /** Six jobs without bullets, `count` certificates and `count` achievements, then one interest. */
+    const titledCv = (count: number): CvDocument => ({
+      ...cv(
+        [1, 2, 3, 4, 5, 6].map((n) =>
+          job(`j${n}`, `Company ${n}`, `Role ${n}`, `201${n}-01`, `201${n}-12`, []),
+        ),
+      ),
+      education: [
+        { id: 'e1', institution: 'Kyiv Polytechnic Institute', degree: 'MSc, Computer Science' },
+      ],
+      additional: [
+        { id: 'cert', title: 'Certifications', entries: titled('Certificate', count) },
+        { id: 'ach', title: 'Achievements', entries: titled('Achievement', count) },
+        {
+          id: 'int',
+          title: 'Interests',
+          entries: [
+            {
+              id: 'i1',
+              title: '',
+              start: null,
+              end: null,
+              groups: [
+                { id: 'gi', title: null, items: [{ id: 'l1', text: 'Chess', factIds: [] }] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    it('moves only the last section when the CV is slightly longer than a page', async () => {
+      // The exact reported case, so it is tied to the page height: with 4 records each only Interests
+      // passes the page, with 6 each two achievements follow it; re-tune the count when the page metrics
+      // change. The next case carries the intent alone.
+      const pages = await pdfPages(browser, titledCv(4));
+
+      expect(pages).toHaveLength(2);
+      expect(pages[0]).toMatch(/ Summary .* Experience Role 1 .* Company 1 /i);
+      expect(pages[0]).toMatch(/Achievement record 4 Jan 2013$/);
+      expect(pages[1]).toBe('INTERESTS Chess');
+    }, 60_000);
+
+    it('keeps the experience section on page 1 when the records run onto page 2', async () => {
+      const pages = await pdfPages(browser, titledCv(10));
+
+      expect(pages.length).toBeGreaterThan(1);
+      expect(pages[0]).toMatch(/ Summary .* Experience Role 1 .* Company 1 /i);
+      expect(pages.at(-1)).toMatch(/INTERESTS Chess$/);
+    }, 60_000);
+  });
+
+  // 120 lines kept together fill about three pages. Short timeouts: a loop that never ends fails as a
+  // timeout instead of hanging the run.
+  describe('a chain of blocks kept together that is longer than a page', () => {
+    const line = (n: number) => `<p style="break-after:avoid">Kept line ${n}</p>`;
+    const printed = async (body: string) => {
+      const shell = renderCvShell({ fonts: { embedded: await loadEmbeddedFonts() } });
+      const html = shell.replace('<body></body>', `<body><main class="cv">${body}</main></body>`);
+      const pdf = await getDocumentProxy(await printPdf(browser, html));
+      return (await extractText(pdf, { mergePages: false })).text.map((page) => page.trim());
+    };
+
+    it('ends inside a job, and every page fits', async () => {
+      // Each break in a job adds a "continued" line above the page's first block; a break before that
+      // block again would start the same page over and over.
+      const kept = Array.from({ length: 120 }, (_, n) => line(n + 1)).join('');
+      const pages = await printed(
+        `<article class="cv-entry" data-continued="Acme — continued"><p>Opening line</p>${kept}<p>Last line</p></article>`,
+      );
+
+      expect(pages.length).toBeGreaterThan(1);
+      expect(pages.length).toBeLessThanOrEqual(4);
+      // Every page starts where `paginate` broke it: no page was too long, so Chromium broke none itself.
+      pages.slice(1).forEach((page, index) => {
+        expect(page, `page ${index + 2}`).toMatch(/^Acme — continued\s+Kept line \d+/);
+      });
+      expect(pages.at(-1)).toMatch(/Last line$/);
+    }, 15_000);
+
+    it('breaks where it overflows outside a job, before the whole of a block kept whole', async () => {
+      // Without a "continued" line a break one block below the page start would still progress, a
+      // block a page. The lines come in blocks of five that avoid breaks inside.
+      const blocks = Array.from(
+        { length: 24 },
+        (_, b) =>
+          `<div style="break-inside:avoid">${[1, 2, 3, 4, 5].map((n) => line(b * 5 + n)).join('')}</div>`,
+      ).join('');
+      const pages = await printed(`<p>Opening line</p>${blocks}<p>Last line</p>`);
+
+      expect(pages.length).toBeGreaterThan(1);
+      expect(pages.length).toBeLessThanOrEqual(4);
+      pages.slice(1).forEach((page, index) => {
+        const first = /^Kept line (\d+)/.exec(page);
+        expect(first, `page ${index + 2}: ${page.slice(0, 30)}`).not.toBeNull();
+        expect(Number(first?.[1]) % 5, `page ${index + 2} starts a block`).toBe(1);
+      });
+      expect(pages.at(-1)).toMatch(/Last line$/);
+    }, 15_000);
+  });
 });
 
 describe('PAGE_CONTENT_HEIGHT_PX', () => {

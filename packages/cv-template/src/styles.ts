@@ -12,7 +12,11 @@ import { PAGE_MARGIN_MM } from './page.js';
  * inline block, where the reference has an inline flex box — that box moved whole to the next line and
  * left the title alone on its own (a line per group); rows inside a group now sit at the line height. A long entry may break between its lines, because an unbreakable
  * company block that does not fit the rest of a page leaves that page nearly empty; a heading never ends
- * a page, and a line never splits across two.
+ * a page, and a line never splits across two. A departure from the reference's page-break rules: a title
+ * or company line is kept with what follows it only inside its entry. One that ends an entry (a job
+ * without bullets, a certificate) may end a page, else a run of such entries is one chain that moves whole
+ * to the next page. In a company block with shared bullets each title ends its role, so every role is
+ * kept with what follows, down to the bullets.
  */
 export const CV_CSS = `
 :root{--ink:#1c1e22;--muted:#5a5e66;--faint:#9ba0a8;--rule:#d6d8dc;--accent:#1f4f7b}
@@ -46,11 +50,12 @@ ul{list-style:none}
 .cv-entry--compact{break-inside:avoid;page-break-inside:avoid}
 .cv-entry+.cv-entry{margin-top:3.6mm}
 .cv-entry--compact+.cv-entry--compact{margin-top:2.4mm}
-.cv-entry__head{display:flex;justify-content:space-between;align-items:baseline;gap:4mm;break-after:avoid;page-break-after:avoid}
+.cv-entry__head{display:flex;justify-content:space-between;align-items:baseline;gap:4mm}
 .cv-entry__title{font-size:10.5pt;font-weight:600;line-height:1.35}
 .cv-entry__dates{flex:none;font-size:9.25pt;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .cv-entry__continued{margin-bottom:1.2mm;font-size:9.5pt;color:var(--muted)}
-.cv-entry__meta{color:var(--muted);break-after:avoid;page-break-after:avoid}
+.cv-entry__meta{color:var(--muted)}
+.cv-entry__head:not(:last-child),.cv-entry__meta:not(:last-child),.cv-entry__role:has(~:is(.cv-entry__bullets,.cv-entry__group-title)){break-after:avoid;page-break-after:avoid}
 .cv-entry__org{font-weight:500;color:var(--ink)}
 .cv-entry--group>.cv-entry__meta .cv-entry__org{font-size:10.5pt;font-weight:600}
 .cv-entry--group>.cv-entry__meta{display:flex;align-items:baseline}
